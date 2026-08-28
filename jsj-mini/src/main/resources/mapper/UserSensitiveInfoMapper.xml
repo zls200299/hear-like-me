@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zhs.dao.UserSensitiveInfoDao">
-	<resultMap id="result_UserSensitiveInfoMapper.xml" type="com.zhs.model.UserSensitiveInfo">
+	<resultMap id="result_UserSensitiveInfoMapper" type="com.zhs.model.UserSensitiveInfo">
 		<id column="id" property="id" />
 		<result column="user_id" property="userId" />
 		<result column="open_id" property="openId" />
@@ -18,7 +18,7 @@
 	</sql>
 
 	<!-- 通过UserSensitiveInfo的id获得对应数据库中表的数据对象 -->
-	<select id="selectUserSensitiveInfoById" parameterType="Long" resultMap="result_UserSensitiveInfoMapper.xml">
+	<select id="selectUserSensitiveInfoById" parameterType="Long" resultMap="result_UserSensitiveInfoMapper">
 		select
 		<include refid="user_sensitive_info_Column" />
 		from user_sensitive_info
@@ -26,7 +26,7 @@
 	</select>
 	
 	<!-- 获得一个UserSensitiveInfo对象,以参数UserSensitiveInfo对象中不为空的属性作为条件进行查询 -->
-	<select id="selectUserSensitiveInfoObjSingle" parameterType="com.zhs.model.UserSensitiveInfo" resultMap="result_UserSensitiveInfoMapper.xml">
+	<select id="selectUserSensitiveInfoObjSingle" parameterType="com.zhs.model.UserSensitiveInfo" resultMap="result_UserSensitiveInfoMapper">
 		select
 		<include refid="user_sensitive_info_Column" />
 		from user_sensitive_info
@@ -45,7 +45,7 @@
 	</select>
 	
 	<!-- 获得UserSensitiveInfo对象,以参数UserSensitiveInfo对象中不为空的属性作为条件进行查询 -->
-	<select id="selectUserSensitiveInfoByObj" parameterType="com.zhs.model.UserSensitiveInfo" resultMap="result_UserSensitiveInfoMapper.xml">
+	<select id="selectUserSensitiveInfoByObj" parameterType="com.zhs.model.UserSensitiveInfo" resultMap="result_UserSensitiveInfoMapper">
 		select
 		<include refid="user_sensitive_info_Column" />
 		from user_sensitive_info

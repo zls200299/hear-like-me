@@ -46,8 +46,7 @@ public class SystemConfigController {
         //构建分页
         Page<SystemConfig> page = new Page<>(currentPage, pageSize);
         LambdaQueryWrapper<SystemConfig> lambda = new QueryWrapper<SystemConfig>().lambda();
-        //此处可以拼条件
-        lambda.eq(SystemConfig::getIsDelete,0);
+        // 系统配置表无 is_delete 字段
         IPage<SystemConfig> pages =  iSystemConfigService.page(page, lambda);
         return R.ok(pages);
     }
@@ -58,7 +57,7 @@ public class SystemConfigController {
     public R<SystemConfig> getById(@RequestParam("id") String id){
         if (StringUtils.isBlank(id)) throw new ServiceException("id不能为空");
         LambdaQueryWrapper<SystemConfig> wrapper = new QueryWrapper<SystemConfig>()
-                            .lambda().eq(SystemConfig::getId,id).eq(SystemConfig::getIsDelete,0);
+                            .lambda().eq(SystemConfig::getId,id);
         return R.ok(iSystemConfigService.getOne(wrapper));
     }
 
@@ -67,12 +66,10 @@ public class SystemConfigController {
     @Transactional
     public R deleteById(@PathVariable("id") String id){
         if (StringUtils.isBlank(id)) throw new ServiceException("id不能为空");
-        //逻辑删除
-        LambdaQueryWrapper<SystemConfig> query = new QueryWrapper<SystemConfig>().lambda().eq(SystemConfig::getId, id).eq(SystemConfig::getIsDelete, 0);
-        SystemConfig systemConfig = iSystemConfigService.getOne(query);
-        if(ObjectUtils.isEmpty(systemConfig)) throw new ServiceException("该数据不存在或者已经被删除");
-        systemConfig.setIsDelete(1);
-        iSystemConfigService.updateById(systemConfig);
+        // 系统配置表无逻辑删除，物理删除
+        SystemConfig systemConfig = iSystemConfigService.getById(id);
+        if(ObjectUtils.isEmpty(systemConfig)) throw new ServiceException("该数据不存在");
+        iSystemConfigService.removeById(id);
         return R.ok("数据删除成功");
     }
 
@@ -82,16 +79,12 @@ public class SystemConfigController {
     @Transactional
     public R deleteByIds(@RequestBody SystemConfigDto systemConfigDto){
         if (CollectionUtils.isEmpty(systemConfigDto.getIdList())) throw new ServiceException("要删除的id不能为空!");
-        //逻辑删除
-        List<SystemConfig> list = new ArrayList<>();
+        // 系统配置表无逻辑删除，物理删除
         systemConfigDto.getIdList().stream().forEach(id ->{
         SystemConfig systemConfig = iSystemConfigService.getById(id);
             if (ObjectUtils.isEmpty(systemConfig)) throw new ServiceException("id为" + id + "的数据不存在");
-            if (1 == systemConfig.getIsDelete()) throw new ServiceException("id为" + id + "的数据已经被删除");
-            systemConfig.setIsDelete(1);
-            list.add(systemConfig);
         });
-        iSystemConfigService.updateBatchById(list);
+        iSystemConfigService.removeByIds(systemConfigDto.getIdList());
         return R.ok("数据删除成功");
     }
 

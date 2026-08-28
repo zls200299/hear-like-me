@@ -37,7 +37,7 @@ public class AddAudioProcessingTaskEventReq implements Serializable {
 
         private String message;
 
-        private JsonObject detailJson;
+        private String detailJson;
 
         @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
         @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zhs.dao.ReadAloudItemDao">
-	<resultMap id="result_ReadAloudItemMapper.xml" type="com.zhs.model.ReadAloudItem">
+	<resultMap id="result_ReadAloudItemMapper" type="com.zhs.model.ReadAloudItem">
 		<id column="id" property="id" />
 		<result column="item_code" property="itemCode" />
 		<result column="title_cn" property="titleCn" />
@@ -27,7 +27,7 @@
 	</sql>
 
 	<!-- 通过ReadAloudItem的id获得对应数据库中表的数据对象 -->
-	<select id="selectReadAloudItemById" parameterType="Long" resultMap="result_ReadAloudItemMapper.xml">
+	<select id="selectReadAloudItemById" parameterType="Long" resultMap="result_ReadAloudItemMapper">
 		select
 		<include refid="read_aloud_item_Column" />
 		from read_aloud_item
@@ -35,7 +35,7 @@
 	</select>
 	
 	<!-- 获得一个ReadAloudItem对象,以参数ReadAloudItem对象中不为空的属性作为条件进行查询 -->
-	<select id="selectReadAloudItemObjSingle" parameterType="com.zhs.model.ReadAloudItem" resultMap="result_ReadAloudItemMapper.xml">
+	<select id="selectReadAloudItemObjSingle" parameterType="com.zhs.model.ReadAloudItem" resultMap="result_ReadAloudItemMapper">
 		select
 		<include refid="read_aloud_item_Column" />
 		from read_aloud_item
@@ -63,7 +63,7 @@
 	</select>
 	
 	<!-- 获得ReadAloudItem对象,以参数ReadAloudItem对象中不为空的属性作为条件进行查询 -->
-	<select id="selectReadAloudItemByObj" parameterType="com.zhs.model.ReadAloudItem" resultMap="result_ReadAloudItemMapper.xml">
+	<select id="selectReadAloudItemByObj" parameterType="com.zhs.model.ReadAloudItem" resultMap="result_ReadAloudItemMapper">
 		select
 		<include refid="read_aloud_item_Column" />
 		from read_aloud_item

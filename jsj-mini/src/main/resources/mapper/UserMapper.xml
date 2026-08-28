@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zhs.dao.UserDao">
-	<resultMap id="result_UserMapper.xml" type="com.zhs.model.User">
+	<resultMap id="result_UserMapper" type="com.zhs.model.User">
 		<id column="id" property="id" />
 		<result column="nickname" property="nickname" />
 		<result column="avatar" property="avatar" />
@@ -20,7 +20,7 @@
 	</sql>
 
 	<!-- 通过User的id获得对应数据库中表的数据对象 -->
-	<select id="selectUserById" parameterType="Long" resultMap="result_UserMapper.xml">
+	<select id="selectUserById" parameterType="Long" resultMap="result_UserMapper">
 		select
 		<include refid="user_Column" />
 		from user
@@ -28,7 +28,7 @@
 	</select>
 	
 	<!-- 获得一个User对象,以参数User对象中不为空的属性作为条件进行查询 -->
-	<select id="selectUserObjSingle" parameterType="com.zhs.model.User" resultMap="result_UserMapper.xml">
+	<select id="selectUserObjSingle" parameterType="com.zhs.model.User" resultMap="result_UserMapper">
 		select
 		<include refid="user_Column" />
 		from user
@@ -49,7 +49,7 @@
 	</select>
 	
 	<!-- 获得User对象,以参数User对象中不为空的属性作为条件进行查询 -->
-	<select id="selectUserByObj" parameterType="com.zhs.model.User" resultMap="result_UserMapper.xml">
+	<select id="selectUserByObj" parameterType="com.zhs.model.User" resultMap="result_UserMapper">
 		select
 		<include refid="user_Column" />
 		from user

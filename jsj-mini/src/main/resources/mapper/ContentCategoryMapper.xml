@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zhs.dao.ContentCategoryDao">
-	<resultMap id="result_ContentCategoryMapper.xml" type="com.zhs.model.ContentCategory">
+	<resultMap id="result_ContentCategoryMapper" type="com.zhs.model.ContentCategory">
 		<id column="id" property="id" />
 		<result column="category_code" property="categoryCode" />
 		<result column="name_cn" property="nameCn" />
@@ -20,7 +20,7 @@
 	</sql>
 
 	<!-- 通过ContentCategory的id获得对应数据库中表的数据对象 -->
-	<select id="selectContentCategoryById" parameterType="Long" resultMap="result_ContentCategoryMapper.xml">
+	<select id="selectContentCategoryById" parameterType="Long" resultMap="result_ContentCategoryMapper">
 		select
 		<include refid="content_category_Column" />
 		from content_category
@@ -28,7 +28,7 @@
 	</select>
 	
 	<!-- 获得一个ContentCategory对象,以参数ContentCategory对象中不为空的属性作为条件进行查询 -->
-	<select id="selectContentCategoryObjSingle" parameterType="com.zhs.model.ContentCategory" resultMap="result_ContentCategoryMapper.xml">
+	<select id="selectContentCategoryObjSingle" parameterType="com.zhs.model.ContentCategory" resultMap="result_ContentCategoryMapper">
 		select
 		<include refid="content_category_Column" />
 		from content_category
@@ -49,7 +49,7 @@
 	</select>
 	
 	<!-- 获得ContentCategory对象,以参数ContentCategory对象中不为空的属性作为条件进行查询 -->
-	<select id="selectContentCategoryByObj" parameterType="com.zhs.model.ContentCategory" resultMap="result_ContentCategoryMapper.xml">
+	<select id="selectContentCategoryByObj" parameterType="com.zhs.model.ContentCategory" resultMap="result_ContentCategoryMapper">
 		select
 		<include refid="content_category_Column" />
 		from content_category

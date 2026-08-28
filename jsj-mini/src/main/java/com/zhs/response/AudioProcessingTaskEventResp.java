@@ -47,7 +47,7 @@ public class AudioProcessingTaskEventResp implements Serializable {
         private String message;
 
         @ApiModelProperty(value = "扩展数据")
-        private JsonObject detailJson;
+        private String detailJson;
 
         @ApiModelProperty(value = "创建时间")
         @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")

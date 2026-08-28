@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zhs.dao.AudioProcessingTaskEventDao">
-	<resultMap id="result_AudioProcessingTaskEventMapper.xml" type="com.zhs.model.AudioProcessingTaskEvent">
+	<resultMap id="result_AudioProcessingTaskEventMapper" type="com.zhs.model.AudioProcessingTaskEvent">
 		<id column="id" property="id" />
 		<result column="task_id" property="taskId" />
 		<result column="event_type" property="eventType" />
@@ -17,7 +17,7 @@
 	</sql>
 
 	<!-- 通过AudioProcessingTaskEvent的id获得对应数据库中表的数据对象 -->
-	<select id="selectAudioProcessingTaskEventById" parameterType="Long" resultMap="result_AudioProcessingTaskEventMapper.xml">
+	<select id="selectAudioProcessingTaskEventById" parameterType="Long" resultMap="result_AudioProcessingTaskEventMapper">
 		select
 		<include refid="audio_processing_task_event_Column" />
 		from audio_processing_task_event
@@ -25,7 +25,7 @@
 	</select>
 	
 	<!-- 获得一个AudioProcessingTaskEvent对象,以参数AudioProcessingTaskEvent对象中不为空的属性作为条件进行查询 -->
-	<select id="selectAudioProcessingTaskEventObjSingle" parameterType="com.zhs.model.AudioProcessingTaskEvent" resultMap="result_AudioProcessingTaskEventMapper.xml">
+	<select id="selectAudioProcessingTaskEventObjSingle" parameterType="com.zhs.model.AudioProcessingTaskEvent" resultMap="result_AudioProcessingTaskEventMapper">
 		select
 		<include refid="audio_processing_task_event_Column" />
 		from audio_processing_task_event
@@ -43,7 +43,7 @@
 	</select>
 	
 	<!-- 获得AudioProcessingTaskEvent对象,以参数AudioProcessingTaskEvent对象中不为空的属性作为条件进行查询 -->
-	<select id="selectAudioProcessingTaskEventByObj" parameterType="com.zhs.model.AudioProcessingTaskEvent" resultMap="result_AudioProcessingTaskEventMapper.xml">
+	<select id="selectAudioProcessingTaskEventByObj" parameterType="com.zhs.model.AudioProcessingTaskEvent" resultMap="result_AudioProcessingTaskEventMapper">
 		select
 		<include refid="audio_processing_task_event_Column" />
 		from audio_processing_task_event

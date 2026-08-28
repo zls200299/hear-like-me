@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zhs.dao.ReadAloudCategoryDao">
-	<resultMap id="result_ReadAloudCategoryMapper.xml" type="com.zhs.model.ReadAloudCategory">
+	<resultMap id="result_ReadAloudCategoryMapper" type="com.zhs.model.ReadAloudCategory">
 		<id column="id" property="id" />
 		<result column="category_code" property="categoryCode" />
 		<result column="name_cn" property="nameCn" />
@@ -19,7 +19,7 @@
 	</sql>
 
 	<!-- 通过ReadAloudCategory的id获得对应数据库中表的数据对象 -->
-	<select id="selectReadAloudCategoryById" parameterType="Long" resultMap="result_ReadAloudCategoryMapper.xml">
+	<select id="selectReadAloudCategoryById" parameterType="Long" resultMap="result_ReadAloudCategoryMapper">
 		select
 		<include refid="read_aloud_category_Column" />
 		from read_aloud_category
@@ -27,7 +27,7 @@
 	</select>
 	
 	<!-- 获得一个ReadAloudCategory对象,以参数ReadAloudCategory对象中不为空的属性作为条件进行查询 -->
-	<select id="selectReadAloudCategoryObjSingle" parameterType="com.zhs.model.ReadAloudCategory" resultMap="result_ReadAloudCategoryMapper.xml">
+	<select id="selectReadAloudCategoryObjSingle" parameterType="com.zhs.model.ReadAloudCategory" resultMap="result_ReadAloudCategoryMapper">
 		select
 		<include refid="read_aloud_category_Column" />
 		from read_aloud_category
@@ -47,7 +47,7 @@
 	</select>
 	
 	<!-- 获得ReadAloudCategory对象,以参数ReadAloudCategory对象中不为空的属性作为条件进行查询 -->
-	<select id="selectReadAloudCategoryByObj" parameterType="com.zhs.model.ReadAloudCategory" resultMap="result_ReadAloudCategoryMapper.xml">
+	<select id="selectReadAloudCategoryByObj" parameterType="com.zhs.model.ReadAloudCategory" resultMap="result_ReadAloudCategoryMapper">
 		select
 		<include refid="read_aloud_category_Column" />
 		from read_aloud_category

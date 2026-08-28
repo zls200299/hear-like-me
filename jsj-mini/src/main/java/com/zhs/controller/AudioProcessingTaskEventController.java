@@ -46,8 +46,7 @@ public class AudioProcessingTaskEventController {
         //构建分页
         Page<AudioProcessingTaskEvent> page = new Page<>(currentPage, pageSize);
         LambdaQueryWrapper<AudioProcessingTaskEvent> lambda = new QueryWrapper<AudioProcessingTaskEvent>().lambda();
-        //此处可以拼条件
-        lambda.eq(AudioProcessingTaskEvent::getIsDelete,0);
+        // 事件日志表无 is_delete 字段
         IPage<AudioProcessingTaskEvent> pages =  iAudioProcessingTaskEventService.page(page, lambda);
         return R.ok(pages);
     }
@@ -58,7 +57,7 @@ public class AudioProcessingTaskEventController {
     public R<AudioProcessingTaskEvent> getById(@RequestParam("id") String id){
         if (StringUtils.isBlank(id)) throw new ServiceException("id不能为空");
         LambdaQueryWrapper<AudioProcessingTaskEvent> wrapper = new QueryWrapper<AudioProcessingTaskEvent>()
-                            .lambda().eq(AudioProcessingTaskEvent::getId,id).eq(AudioProcessingTaskEvent::getIsDelete,0);
+                            .lambda().eq(AudioProcessingTaskEvent::getId,id);
         return R.ok(iAudioProcessingTaskEventService.getOne(wrapper));
     }
 
@@ -67,12 +66,10 @@ public class AudioProcessingTaskEventController {
     @Transactional
     public R deleteById(@PathVariable("id") String id){
         if (StringUtils.isBlank(id)) throw new ServiceException("id不能为空");
-        //逻辑删除
-        LambdaQueryWrapper<AudioProcessingTaskEvent> query = new QueryWrapper<AudioProcessingTaskEvent>().lambda().eq(AudioProcessingTaskEvent::getId, id).eq(AudioProcessingTaskEvent::getIsDelete, 0);
-        AudioProcessingTaskEvent audioProcessingTaskEvent = iAudioProcessingTaskEventService.getOne(query);
-        if(ObjectUtils.isEmpty(audioProcessingTaskEvent)) throw new ServiceException("该数据不存在或者已经被删除");
-        audioProcessingTaskEvent.setIsDelete(1);
-        iAudioProcessingTaskEventService.updateById(audioProcessingTaskEvent);
+        // 事件日志表无逻辑删除，物理删除
+        AudioProcessingTaskEvent audioProcessingTaskEvent = iAudioProcessingTaskEventService.getById(id);
+        if(ObjectUtils.isEmpty(audioProcessingTaskEvent)) throw new ServiceException("该数据不存在");
+        iAudioProcessingTaskEventService.removeById(id);
         return R.ok("数据删除成功");
     }
 
@@ -82,16 +79,12 @@ public class AudioProcessingTaskEventController {
     @Transactional
     public R deleteByIds(@RequestBody AudioProcessingTaskEventDto audioProcessingTaskEventDto){
         if (CollectionUtils.isEmpty(audioProcessingTaskEventDto.getIdList())) throw new ServiceException("要删除的id不能为空!");
-        //逻辑删除
-        List<AudioProcessingTaskEvent> list = new ArrayList<>();
+        // 事件日志表无逻辑删除，物理删除
         audioProcessingTaskEventDto.getIdList().stream().forEach(id ->{
         AudioProcessingTaskEvent audioProcessingTaskEvent = iAudioProcessingTaskEventService.getById(id);
             if (ObjectUtils.isEmpty(audioProcessingTaskEvent)) throw new ServiceException("id为" + id + "的数据不存在");
-            if (1 == audioProcessingTaskEvent.getIsDelete()) throw new ServiceException("id为" + id + "的数据已经被删除");
-            audioProcessingTaskEvent.setIsDelete(1);
-            list.add(audioProcessingTaskEvent);
         });
-        iAudioProcessingTaskEventService.updateBatchById(list);
+        iAudioProcessingTaskEventService.removeByIds(audioProcessingTaskEventDto.getIdList());
         return R.ok("数据删除成功");
     }
 

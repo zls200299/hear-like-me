@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zhs.dao.FileAssetDao">
-	<resultMap id="result_FileAssetMapper.xml" type="com.zhs.model.FileAsset">
+	<resultMap id="result_FileAssetMapper" type="com.zhs.model.FileAsset">
 		<id column="id" property="id" />
 		<result column="asset_type" property="assetType" />
 		<result column="bucket_name" property="bucketName" />
@@ -35,7 +35,7 @@
 	</sql>
 
 	<!-- 通过FileAsset的id获得对应数据库中表的数据对象 -->
-	<select id="selectFileAssetById" parameterType="Long" resultMap="result_FileAssetMapper.xml">
+	<select id="selectFileAssetById" parameterType="Long" resultMap="result_FileAssetMapper">
 		select
 		<include refid="file_asset_Column" />
 		from file_asset
@@ -43,7 +43,7 @@
 	</select>
 	
 	<!-- 获得一个FileAsset对象,以参数FileAsset对象中不为空的属性作为条件进行查询 -->
-	<select id="selectFileAssetObjSingle" parameterType="com.zhs.model.FileAsset" resultMap="result_FileAssetMapper.xml">
+	<select id="selectFileAssetObjSingle" parameterType="com.zhs.model.FileAsset" resultMap="result_FileAssetMapper">
 		select
 		<include refid="file_asset_Column" />
 		from file_asset
@@ -79,7 +79,7 @@
 	</select>
 	
 	<!-- 获得FileAsset对象,以参数FileAsset对象中不为空的属性作为条件进行查询 -->
-	<select id="selectFileAssetByObj" parameterType="com.zhs.model.FileAsset" resultMap="result_FileAssetMapper.xml">
+	<select id="selectFileAssetByObj" parameterType="com.zhs.model.FileAsset" resultMap="result_FileAssetMapper">
 		select
 		<include refid="file_asset_Column" />
 		from file_asset

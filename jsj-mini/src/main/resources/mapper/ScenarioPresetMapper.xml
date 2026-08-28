@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zhs.dao.ScenarioPresetDao">
-	<resultMap id="result_ScenarioPresetMapper.xml" type="com.zhs.model.ScenarioPreset">
+	<resultMap id="result_ScenarioPresetMapper" type="com.zhs.model.ScenarioPreset">
 		<id column="id" property="id" />
 		<result column="scenario_code" property="scenarioCode" />
 		<result column="name_cn" property="nameCn" />
@@ -33,7 +33,7 @@
 	</sql>
 
 	<!-- 通过ScenarioPreset的id获得对应数据库中表的数据对象 -->
-	<select id="selectScenarioPresetById" parameterType="Long" resultMap="result_ScenarioPresetMapper.xml">
+	<select id="selectScenarioPresetById" parameterType="Long" resultMap="result_ScenarioPresetMapper">
 		select
 		<include refid="scenario_preset_Column" />
 		from scenario_preset
@@ -41,7 +41,7 @@
 	</select>
 	
 	<!-- 获得一个ScenarioPreset对象,以参数ScenarioPreset对象中不为空的属性作为条件进行查询 -->
-	<select id="selectScenarioPresetObjSingle" parameterType="com.zhs.model.ScenarioPreset" resultMap="result_ScenarioPresetMapper.xml">
+	<select id="selectScenarioPresetObjSingle" parameterType="com.zhs.model.ScenarioPreset" resultMap="result_ScenarioPresetMapper">
 		select
 		<include refid="scenario_preset_Column" />
 		from scenario_preset
@@ -75,7 +75,7 @@
 	</select>
 	
 	<!-- 获得ScenarioPreset对象,以参数ScenarioPreset对象中不为空的属性作为条件进行查询 -->
-	<select id="selectScenarioPresetByObj" parameterType="com.zhs.model.ScenarioPreset" resultMap="result_ScenarioPresetMapper.xml">
+	<select id="selectScenarioPresetByObj" parameterType="com.zhs.model.ScenarioPreset" resultMap="result_ScenarioPresetMapper">
 		select
 		<include refid="scenario_preset_Column" />
 		from scenario_preset

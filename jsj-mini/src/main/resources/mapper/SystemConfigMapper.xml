@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zhs.dao.SystemConfigDao">
-	<resultMap id="result_SystemConfigMapper.xml" type="com.zhs.model.SystemConfig">
+	<resultMap id="result_SystemConfigMapper" type="com.zhs.model.SystemConfig">
 		<id column="id" property="id" />
 		<result column="config_key" property="configKey" />
 		<result column="config_value" property="configValue" />
@@ -17,7 +17,7 @@
 	</sql>
 
 	<!-- 通过SystemConfig的id获得对应数据库中表的数据对象 -->
-	<select id="selectSystemConfigById" parameterType="Long" resultMap="result_SystemConfigMapper.xml">
+	<select id="selectSystemConfigById" parameterType="Long" resultMap="result_SystemConfigMapper">
 		select
 		<include refid="system_config_Column" />
 		from system_config
@@ -25,7 +25,7 @@
 	</select>
 	
 	<!-- 获得一个SystemConfig对象,以参数SystemConfig对象中不为空的属性作为条件进行查询 -->
-	<select id="selectSystemConfigObjSingle" parameterType="com.zhs.model.SystemConfig" resultMap="result_SystemConfigMapper.xml">
+	<select id="selectSystemConfigObjSingle" parameterType="com.zhs.model.SystemConfig" resultMap="result_SystemConfigMapper">
 		select
 		<include refid="system_config_Column" />
 		from system_config
@@ -43,7 +43,7 @@
 	</select>
 	
 	<!-- 获得SystemConfig对象,以参数SystemConfig对象中不为空的属性作为条件进行查询 -->
-	<select id="selectSystemConfigByObj" parameterType="com.zhs.model.SystemConfig" resultMap="result_SystemConfigMapper.xml">
+	<select id="selectSystemConfigByObj" parameterType="com.zhs.model.SystemConfig" resultMap="result_SystemConfigMapper">
 		select
 		<include refid="system_config_Column" />
 		from system_config

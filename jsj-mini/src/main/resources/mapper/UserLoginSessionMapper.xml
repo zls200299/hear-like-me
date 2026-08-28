@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zhs.dao.UserLoginSessionDao">
-	<resultMap id="result_UserLoginSessionMapper.xml" type="com.zhs.model.UserLoginSession">
+	<resultMap id="result_UserLoginSessionMapper" type="com.zhs.model.UserLoginSession">
 		<id column="id" property="id" />
 		<result column="user_id" property="userId" />
 		<result column="token" property="token" />
@@ -20,7 +20,7 @@
 	</sql>
 
 	<!-- 通过UserLoginSession的id获得对应数据库中表的数据对象 -->
-	<select id="selectUserLoginSessionById" parameterType="Long" resultMap="result_UserLoginSessionMapper.xml">
+	<select id="selectUserLoginSessionById" parameterType="Long" resultMap="result_UserLoginSessionMapper">
 		select
 		<include refid="user_login_session_Column" />
 		from user_login_session
@@ -28,7 +28,7 @@
 	</select>
 	
 	<!-- 获得一个UserLoginSession对象,以参数UserLoginSession对象中不为空的属性作为条件进行查询 -->
-	<select id="selectUserLoginSessionObjSingle" parameterType="com.zhs.model.UserLoginSession" resultMap="result_UserLoginSessionMapper.xml">
+	<select id="selectUserLoginSessionObjSingle" parameterType="com.zhs.model.UserLoginSession" resultMap="result_UserLoginSessionMapper">
 		select
 		<include refid="user_login_session_Column" />
 		from user_login_session
@@ -49,7 +49,7 @@
 	</select>
 	
 	<!-- 获得UserLoginSession对象,以参数UserLoginSession对象中不为空的属性作为条件进行查询 -->
-	<select id="selectUserLoginSessionByObj" parameterType="com.zhs.model.UserLoginSession" resultMap="result_UserLoginSessionMapper.xml">
+	<select id="selectUserLoginSessionByObj" parameterType="com.zhs.model.UserLoginSession" resultMap="result_UserLoginSessionMapper">
 		select
 		<include refid="user_login_session_Column" />
 		from user_login_session

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zhs.dao.AudioProcessingTaskDao">
-	<resultMap id="result_AudioProcessingTaskMapper.xml" type="com.zhs.model.AudioProcessingTask">
+	<resultMap id="result_AudioProcessingTaskMapper" type="com.zhs.model.AudioProcessingTask">
 		<id column="id" property="id" />
 		<result column="task_no" property="taskNo" />
 		<result column="source_type" property="sourceType" />
@@ -48,7 +48,7 @@
 	</sql>
 
 	<!-- 通过AudioProcessingTask的id获得对应数据库中表的数据对象 -->
-	<select id="selectAudioProcessingTaskById" parameterType="Long" resultMap="result_AudioProcessingTaskMapper.xml">
+	<select id="selectAudioProcessingTaskById" parameterType="Long" resultMap="result_AudioProcessingTaskMapper">
 		select
 		<include refid="audio_processing_task_Column" />
 		from audio_processing_task
@@ -56,7 +56,7 @@
 	</select>
 	
 	<!-- 获得一个AudioProcessingTask对象,以参数AudioProcessingTask对象中不为空的属性作为条件进行查询 -->
-	<select id="selectAudioProcessingTaskObjSingle" parameterType="com.zhs.model.AudioProcessingTask" resultMap="result_AudioProcessingTaskMapper.xml">
+	<select id="selectAudioProcessingTaskObjSingle" parameterType="com.zhs.model.AudioProcessingTask" resultMap="result_AudioProcessingTaskMapper">
 		select
 		<include refid="audio_processing_task_Column" />
 		from audio_processing_task
@@ -105,7 +105,7 @@
 	</select>
 	
 	<!-- 获得AudioProcessingTask对象,以参数AudioProcessingTask对象中不为空的属性作为条件进行查询 -->
-	<select id="selectAudioProcessingTaskByObj" parameterType="com.zhs.model.AudioProcessingTask" resultMap="result_AudioProcessingTaskMapper.xml">
+	<select id="selectAudioProcessingTaskByObj" parameterType="com.zhs.model.AudioProcessingTask" resultMap="result_AudioProcessingTaskMapper">
 		select
 		<include refid="audio_processing_task_Column" />
 		from audio_processing_task

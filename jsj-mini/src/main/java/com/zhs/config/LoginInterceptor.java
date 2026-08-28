@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-import java.time.LocalDateTime;
+import java.util.Date;
 
 @Component
 public class LoginInterceptor implements HandlerInterceptor {
@@ -61,7 +61,8 @@ public class LoginInterceptor implements HandlerInterceptor {
         }
 
         // 检查是否过期
-        if (session.getExpireTime().isBefore(LocalDateTime.now())) {
+        Date expireTime = session.getExpireTime();
+        if (expireTime == null || expireTime.before(new Date())) {
             response.setStatus(401);
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"code\":401,\"message\":\"登录已过期\"}");
