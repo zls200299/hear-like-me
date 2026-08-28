@@ -1,0 +1,2139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>hear like me · Cochlear Vocoder Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0C1220; --bg-2:#0F1728; --panel:#151F36; --panel-2:#1B2743;
+    --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.16);
+    --ink:#EAF0FB; --ink-2:#AAB7D6; --ink-3:#6C7CA3;
+    /* Spectral color ramp: low->high freq (electrodes apex->base) */
+    --s1:#2B2E83; --s2:#1E7CC2; --s3:#16B9A6; --s4:#7DC93F; --s5:#F2C14E;
+    --accent:#16B9A6; --accent-2:#F2C14E; --warn:#F2895E;
+    --font-head:"Inter","Fraunces",system-ui,sans-serif;
+    --font-body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --font-serif:"Fraunces",Georgia,serif;
+    --font-mono:"IBM Plex Mono",ui-monospace,monospace;
+    --maxw:1120px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:
+      radial-gradient(1200px 600px at 80% -10%,rgba(22,185,166,.10),transparent 60%),
+      radial-gradient(900px 500px at 0% 0%,rgba(46,92,199,.12),transparent 55%),
+      var(--bg);
+    color:var(--ink);font-family:var(--font-body);
+    font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  .eyebrow{
+    font-family:var(--font-mono);font-size:12px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--accent);display:inline-flex;
+    align-items:center;gap:10px;
+  }
+  .eyebrow::before{content:"";width:26px;height:1px;background:var(--accent);opacity:.7}
+  h1,h2,h3{font-family:var(--font-head);font-weight:900;line-height:1.15;letter-spacing:-.01em}
+  .serif-num{font-family:var(--font-serif);font-weight:900;font-style:normal;letter-spacing:-.02em}
+
+  /* ---------- Top nav ---------- */
+  header.nav{
+    position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);
+    background:linear-gradient(var(--bg),rgba(12,18,32,.72));
+    border-bottom:1px solid var(--line);
+  }
+  .nav-inner{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .brand{display:flex;align-items:center;gap:12px;font-weight:700}
+  .brand .mark{display:flex;gap:2px;align-items:flex-end;height:22px}
+  .brand .mark i{width:3px;border-radius:2px;display:block;animation:bob 1.6s ease-in-out infinite}
+  .brand .mark i:nth-child(1){height:8px;background:var(--s1);animation-delay:0s}
+  .brand .mark i:nth-child(2){height:16px;background:var(--s2);animation-delay:.15s}
+  .brand .mark i:nth-child(3){height:22px;background:var(--s3);animation-delay:.3s}
+  .brand .mark i:nth-child(4){height:13px;background:var(--s4);animation-delay:.45s}
+  .brand .mark i:nth-child(5){height:9px;background:var(--s5);animation-delay:.6s}
+  @keyframes bob{0%,100%{transform:scaleY(.55)}50%{transform:scaleY(1)}}
+  .brand span.en{font-family:var(--font-serif);font-weight:600;font-size:13px;color:var(--ink-2);margin-left:2px}
+  nav.links{display:flex;gap:26px}
+  nav.links a{
+    text-decoration:none;color:var(--ink-2);font-size:14px;font-weight:500;
+    padding:6px 2px;border-bottom:2px solid transparent;transition:.2s;
+  }
+  nav.links a:hover{color:var(--ink);border-color:var(--accent)}
+  @media(max-width:760px){nav.links{display:none}}
+
+  /* ---------- Hero ---------- */
+  .hero{padding:84px 0 56px;position:relative;overflow:hidden}
+  .hero::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);
+    background-size:46px 46px;
+    -webkit-mask-image:radial-gradient(130% 85% at 50% 0%,#000 32%,transparent 80%);
+    mask-image:radial-gradient(130% 85% at 50% 0%,#000 32%,transparent 80%);}
+  .hero-scan{position:absolute;left:0;right:0;top:0;height:200px;pointer-events:none;z-index:0;
+    background:linear-gradient(180deg,transparent,rgba(22,185,166,.09) 46%,rgba(125,201,63,.05) 54%,transparent);
+    animation:heroScan 7.5s linear infinite;will-change:transform}
+  @keyframes heroScan{0%{transform:translateY(-200px)}100%{transform:translateY(620px)}}
+  .hero .wrap{position:relative;z-index:1}
+  @media(prefers-reduced-motion:reduce){.hero-scan{animation:none;opacity:0}}
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:52px;align-items:center}
+  @media(max-width:860px){.hero-grid{grid-template-columns:1fr;gap:36px}}
+  .hero h1{font-size:clamp(38px,6vw,68px);margin:20px 0 0}
+  .hero h1 em{font-style:normal;color:transparent;background:linear-gradient(100deg,var(--s3),var(--s5));-webkit-background-clip:text;background-clip:text}
+  .hero p.lead{font-size:clamp(16px,2vw,19px);color:var(--ink-2);max-width:34ch;margin:22px 0 30px}
+  .cta-row{display:flex;gap:14px;flex-wrap:wrap}
+  .btn{
+    font-family:var(--font-body);font-weight:700;font-size:15px;cursor:pointer;
+    border:1px solid var(--line-2);background:var(--panel);color:var(--ink);
+    padding:13px 22px;border-radius:12px;transition:.18s;display:inline-flex;align-items:center;gap:9px;
+  }
+  .btn:hover{transform:translateY(-1px);border-color:var(--accent)}
+  .btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+  .btn.primary{background:linear-gradient(100deg,var(--accent),#0FA0C0);border-color:transparent;color:#04121a}
+  .btn.primary:hover{filter:brightness(1.06)}
+  .btn.ghost{background:transparent}
+
+  /* Hero decorative bands */
+  .hero-viz{
+    aspect-ratio:1/.86;border:1px solid var(--line);border-radius:20px;
+    background:linear-gradient(180deg,var(--panel),var(--bg-2));
+    padding:18px;display:flex;flex-direction:column;gap:6px;justify-content:center;
+    box-shadow:0 30px 80px -40px rgba(0,0,0,.8);position:relative;overflow:hidden;
+  }
+  .hero-viz::after{content:"CHANNEL VOCODER";position:absolute;top:14px;right:16px;
+    font-family:var(--font-mono);font-size:10px;letter-spacing:.3em;color:var(--ink-3)}
+  .hbar{height:100%;border-radius:6px;transform-origin:left;animation:hpulse 2.6s ease-in-out infinite}
+  @keyframes hpulse{0%,100%{transform:scaleX(.22);opacity:.55}50%{transform:scaleX(1);opacity:1}}
+  @media(prefers-reduced-motion:reduce){.hbar,.brand .mark i{animation:none;transform:none}}
+
+  /* ---------- Generic section ---------- */
+  section.block{padding:72px 0;border-top:1px solid var(--line)}
+  .sec-head{max-width:60ch;margin-bottom:40px}
+  .sec-head h2{font-size:clamp(26px,4vw,40px);margin:14px 0 14px}
+  .sec-head p{color:var(--ink-2);margin:0}
+
+  /* ---------- Simulator ---------- */
+  .tool{
+    background:linear-gradient(180deg,var(--panel),var(--bg-2));
+    border:1px solid var(--line-2);border-radius:22px;overflow:hidden;
+    box-shadow:0 40px 100px -50px rgba(0,0,0,.85);
+  }
+  .tool-top{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;
+    padding:18px 22px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.015)}
+  .seg{display:inline-flex;background:var(--bg-2);border:1px solid var(--line);border-radius:11px;padding:4px}
+  .seg button{
+    border:0;background:transparent;color:var(--ink-2);font-family:var(--font-body);font-weight:600;
+    font-size:13.5px;padding:8px 15px;border-radius:8px;cursor:pointer;transition:.15s;
+  }
+  .seg button[aria-pressed="true"]{background:var(--panel-2);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)}
+  .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .transport{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .status{font-family:var(--font-mono);font-size:12px;color:var(--ink-3)}
+  .status b{color:var(--accent);font-weight:500}
+
+  .tool-body{display:grid;grid-template-columns:1.35fr .95fr;gap:0}
+  @media(max-width:900px){.tool-body{grid-template-columns:1fr}}
+  .viz-pane{padding:22px;border-right:1px solid var(--line);min-height:340px;display:flex;flex-direction:column}
+  @media(max-width:900px){.viz-pane{border-right:0;border-bottom:1px solid var(--line)}}
+  .viz-label{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+  .viz-label small{font-family:var(--font-mono);font-size:11px;color:var(--ink-3);letter-spacing:.08em}
+  #viz{width:100%;flex:1;min-height:260px;border-radius:12px;background:
+    linear-gradient(180deg,rgba(242,193,78,.05),rgba(43,46,131,.05));
+    border:1px solid var(--line);display:block}
+  .freq-axis{display:flex;justify-content:space-between;font-family:var(--font-mono);
+    font-size:10px;color:var(--ink-3);margin-top:8px}
+
+  .ctrl-pane{padding:22px;display:flex;flex-direction:column;gap:22px}
+  .ctrl-main{text-align:center}
+  .ctrl-main .num{font-family:var(--font-serif);font-weight:900;font-size:76px;line-height:1;
+    background:linear-gradient(120deg,var(--s3),var(--s5));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .ctrl-main .cap{font-family:var(--font-mono);font-size:12px;letter-spacing:.16em;color:var(--ink-3);text-transform:uppercase}
+  .ctrl-main .hint{font-size:13px;color:var(--ink-2);margin-top:6px}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:99px;
+    background:linear-gradient(90deg,var(--s1),var(--s2),var(--s3),var(--s4),var(--s5));outline:none;margin:14px 0 6px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;
+    background:#fff;border:3px solid var(--accent);cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.5)}
+  input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#fff;
+    border:3px solid var(--accent);cursor:pointer}
+  input[type=range]:focus-visible{box-shadow:0 0 0 3px rgba(22,185,166,.4)}
+  .presets{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+  .presets button{font-family:var(--font-mono);font-size:12px;padding:5px 10px;border-radius:8px;
+    border:1px solid var(--line);background:var(--bg-2);color:var(--ink-2);cursor:pointer}
+  .presets button:hover{border-color:var(--accent);color:var(--ink)}
+
+  /* Scenario presets */
+  .scen-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
+  .scen-grid button{font-family:var(--font-body);font-weight:600;font-size:12.5px;
+    padding:9px 6px;border-radius:10px;background:var(--bg-2);color:var(--ink-2);
+    border:1px solid var(--line);cursor:pointer;transition:.15s;display:flex;flex-direction:column;gap:3px;align-items:center;line-height:1.2}
+  .scen-grid button .ei{font-size:15px}
+  .scen-grid button small{font-family:var(--font-mono);font-size:9px;color:var(--ink-3);letter-spacing:.04em}
+  .scen-grid button:hover{border-color:var(--accent);color:var(--ink);transform:translateY(-1px)}
+  .scen-grid button[aria-pressed="true"]{border-color:var(--accent);background:rgba(22,185,166,.1);color:var(--ink)}
+  .scen-grid button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  /* Export */
+  .export-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .export-row .btn{flex:1;justify-content:center;font-size:13.5px;padding:11px 14px}
+  .export-note{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);margin-top:2px}
+
+  .field{display:flex;flex-direction:column;gap:8px}
+  .field > label{font-size:13px;color:var(--ink-2);font-weight:600;display:flex;justify-content:space-between}
+  .field > label span{font-family:var(--font-mono);color:var(--ink-3);font-weight:400}
+  select{font-family:var(--font-body);font-size:14px;background:var(--bg-2);color:var(--ink);
+    border:1px solid var(--line-2);border-radius:10px;padding:11px 12px;cursor:pointer}
+  select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+  .msg{font-size:13px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);
+    background:var(--bg-2);color:var(--ink-2);display:none}
+  .msg.show{display:block}
+  .msg.warn{border-color:rgba(242,137,94,.5);color:#f2b79e;background:rgba(242,137,94,.08)}
+
+  input[type=file]{display:none}
+
+  /* ---------- Diagram ---------- */
+  .flow{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:8px}
+  @media(max-width:760px){.flow{grid-template-columns:1fr 1fr}}
+  .flow .step{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .flow .step .k{font-family:var(--font-mono);font-size:11px;color:var(--accent);letter-spacing:.14em}
+  .flow .step h4{font-family:var(--font-head);font-weight:700;margin:8px 0 6px;font-size:16px}
+  .flow .step p{margin:0;font-size:13.5px;color:var(--ink-2)}
+  .cochlea-fig{margin:34px auto 0;max-width:640px;display:block}
+  .fig-cap{text-align:center;color:var(--ink-3);font-size:13px;margin-top:12px;font-family:var(--font-mono)}
+
+  /* ---------- Card grid ---------- */
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media(max-width:860px){.cards{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;transition:.2s}
+  .card:hover{border-color:var(--line-2);transform:translateY(-2px)}
+  .card .ic{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;margin-bottom:14px;
+    background:rgba(22,185,166,.12);border:1px solid rgba(22,185,166,.3)}
+  .card h3{font-size:17px;font-weight:700;margin:0 0 8px}
+  .card p{margin:0;font-size:14px;color:var(--ink-2)}
+  .card .try{margin-top:14px;font-family:var(--font-mono);font-size:12px;color:var(--accent);
+    background:none;border:0;cursor:pointer;padding:0;text-align:left}
+  .card .try:hover{text-decoration:underline}
+
+  /* ---------- Children · timeline ---------- */
+  .kids-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start}
+  @media(max-width:860px){.kids-grid{grid-template-columns:1fr}}
+  .timeline{border-left:2px solid var(--line-2);padding-left:22px;display:flex;flex-direction:column;gap:22px}
+  .timeline .t{position:relative}
+  .timeline .t::before{content:"";position:absolute;left:-29px;top:4px;width:12px;height:12px;
+    border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(22,185,166,.18)}
+  .timeline .t .when{font-family:var(--font-serif);font-weight:900;font-size:22px;color:var(--accent-2)}
+  .timeline .t h4{margin:2px 0 5px;font-size:16px;font-weight:700}
+  .timeline .t p{margin:0;font-size:14px;color:var(--ink-2)}
+  .kids-copy h3{font-size:19px;margin:0 0 12px}
+  .kids-copy p{color:var(--ink-2);font-size:14.5px;margin:0 0 14px}
+  .stat-row{display:flex;gap:14px;flex-wrap:wrap;margin:22px 0}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;flex:1;min-width:140px}
+  .stat .big{font-family:var(--font-serif);font-weight:900;font-size:30px;color:transparent;
+    background:linear-gradient(120deg,var(--s3),var(--s5));-webkit-background-clip:text;background-clip:text}
+  .stat .lbl{font-size:12.5px;color:var(--ink-2);margin-top:2px}
+  .note{background:rgba(46,92,199,.08);border:1px solid rgba(46,92,199,.3);border-radius:14px;
+    padding:18px 20px;font-size:14px;color:var(--ink-2)}
+  .note b{color:var(--ink)}
+
+  /* ---------- Footer ---------- */
+  footer{border-top:1px solid var(--line);padding:44px 0 60px;color:var(--ink-3);font-size:13px}
+  footer .disc{background:var(--bg-2);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:24px}
+  footer .disc b{color:var(--ink-2)}
+  footer .foot-row{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;align-items:center}
+
+  .kicker{color:var(--accent-2)}
+  ::selection{background:rgba(22,185,166,.35)}
+
+  /* ========== Visualization view switch ========== */
+  .viz-switch{padding:3px}
+  .viz-switch button{font-size:12px;padding:6px 11px}
+  .viz-stage{position:relative;flex:1;min-height:260px;border-radius:12px;overflow:hidden;
+    background:linear-gradient(180deg,rgba(242,193,78,.05),rgba(43,46,131,.05));border:1px solid var(--line)}
+  .viz-stage > *{position:absolute;inset:0;width:100%;height:100%}
+  #viz,#spec{display:block}
+  [hidden]{display:none!important}
+  /* Spectrogram grid overlay */
+  .viz-stage::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px);
+    background-size:100% 28px;opacity:.6}
+
+  /* ========== HUD readout ========== */
+  .hud{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .hud span{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;color:var(--ink-3);
+    background:var(--bg-2);border:1px solid var(--line);border-radius:7px;padding:4px 8px;
+    display:inline-flex;gap:6px;align-items:center}
+  .hud b{color:var(--accent);font-weight:500}
+  .hud .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 8px var(--accent);animation:pulseDot 1.4s ease-in-out infinite}
+  @keyframes pulseDot{0%,100%{opacity:.35}50%{opacity:1}}
+
+  /* Neutral slider (distinct from spectral channel slider) */
+  input[type=range].plain{background:linear-gradient(90deg,#33406b,#5b6ea6)}
+  input[type=range].plain::-webkit-slider-thumb{border-color:var(--accent-2)}
+  input[type=range].plain::-moz-range-thumb{border-color:var(--accent-2)}
+  .fieldwrap{display:grid;grid-template-columns:1fr;gap:16px}
+  .field .mini{font-size:12px;color:var(--ink-3);margin-top:2px}
+
+  /* ========== Principle: signal-pipeline animation ========== */
+  .pipe-wrap{margin:26px 0 6px;border:1px solid var(--line);border-radius:16px;overflow:hidden;
+    background:linear-gradient(180deg,var(--panel),var(--bg-2));position:relative}
+  .pipe-wrap .tag{position:absolute;top:12px;left:14px;font-family:var(--font-mono);font-size:10px;
+    letter-spacing:.28em;color:var(--ink-3);z-index:2}
+  .pipe-wrap .live{position:absolute;top:12px;right:14px;font-family:var(--font-mono);font-size:10px;
+    letter-spacing:.2em;color:var(--accent);z-index:2;display:flex;align-items:center;gap:6px}
+  .pipe-wrap .live::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 8px var(--accent);animation:pulseDot 1.2s ease-in-out infinite}
+  #pipe{display:block;width:100%;height:220px}
+  @media(max-width:600px){#pipe{height:300px}}
+
+  /* ========== Listen & guess ========== */
+  .quiz{background:linear-gradient(180deg,var(--panel),var(--bg-2));border:1px solid var(--line-2);
+    border-radius:20px;padding:28px;box-shadow:0 30px 80px -50px rgba(0,0,0,.8);
+    display:grid;grid-template-columns:1fr 1fr;gap:30px;align-items:center}
+  @media(max-width:760px){.quiz{grid-template-columns:1fr;gap:22px}}
+  .quiz-left{text-align:center}
+  .quiz-mystery{font-family:var(--font-serif);font-weight:900;font-size:88px;line-height:1;
+    color:transparent;background:linear-gradient(120deg,var(--s3),var(--s5));
+    -webkit-background-clip:text;background-clip:text;position:relative}
+  .quiz-mystery.think{animation:flick 1.1s steps(2) infinite}
+  @keyframes flick{50%{opacity:.35}}
+  .quiz-cap{font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;color:var(--ink-3);text-transform:uppercase}
+  .quiz .btn{margin-top:16px}
+  .guess-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:6px 0 14px}
+  .guess-grid button{font-family:var(--font-serif);font-weight:900;font-size:26px;padding:14px 0;border-radius:12px;
+    border:1px solid var(--line-2);background:var(--bg-2);color:var(--ink);cursor:pointer;transition:.15s}
+  .guess-grid button:hover:not(:disabled){border-color:var(--accent);transform:translateY(-2px)}
+  .guess-grid button:disabled{opacity:.5;cursor:default}
+  .guess-grid button.correct{border-color:var(--accent);background:rgba(22,185,166,.18);color:#c8fff2}
+  .guess-grid button.wrong{border-color:var(--warn);background:rgba(242,137,94,.15)}
+  .quiz-fb{min-height:44px;font-size:14px;color:var(--ink-2)}
+  .quiz-fb b{color:var(--ink)}
+  .quiz-score{font-family:var(--font-mono);font-size:12px;color:var(--ink-3);margin-top:10px}
+  .quiz-score b{color:var(--accent-2)}
+
+  /* ========== Scroll reveal ========== */
+  .reveal{opacity:0;transform:translateY(20px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+  @media(prefers-reduced-motion:reduce){.reveal{opacity:1!important;transform:none!important}
+    .pipe-wrap .live::before,.hud .dot,.quiz-mystery.think{animation:none}}
+
+  /* hero scan line */
+  .hero-viz::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
+    background:linear-gradient(rgba(22,185,166,0),rgba(22,185,166,.10),rgba(22,185,166,0));
+    height:40%;animation:scan 4.5s linear infinite}
+  @keyframes scan{0%{transform:translateY(-60%)}100%{transform:translateY(240%)}}
+  @media(prefers-reduced-motion:reduce){.hero-viz::before{animation:none;opacity:0}}
+
+  /* ---------- Hero live canvas ---------- */
+  .hero-viz canvas.hero-cv{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+  .hero-badges{position:absolute;left:16px;bottom:14px;z-index:2;display:flex;gap:8px;flex-wrap:wrap}
+  .hero-badges .hb{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;
+    color:var(--ink-2);background:rgba(12,18,32,.55);border:1px solid var(--line);
+    padding:4px 9px;border-radius:999px;backdrop-filter:blur(4px)}
+  .hero-badges .hb b{color:var(--accent);font-weight:500}
+
+  /* ---------- Intelligibility index meter ---------- */
+  .iimeter{margin-top:14px;background:rgba(255,255,255,.02);border:1px solid var(--line);
+    border-radius:14px;padding:14px 16px;display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center}
+  .iimeter .dial{position:relative;width:96px;height:96px;flex:0 0 auto}
+  .iimeter .dial svg{width:100%;height:100%;transform:rotate(-90deg)}
+  #iiArc{transition:stroke-dashoffset .6s cubic-bezier(.2,.7,.2,1),stroke .5s}
+  @media(prefers-reduced-motion:reduce){#iiArc{transition:none}}
+  .iimeter .dial .val{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:0}
+  .iimeter .dial .val b{font-family:var(--font-serif);font-weight:900;font-size:30px;line-height:1;
+    color:var(--ink);font-variant-numeric:tabular-nums}
+  .iimeter .dial .val small{font-family:var(--font-mono);font-size:9px;letter-spacing:.16em;color:var(--ink-3);margin-top:3px}
+  .iimeter .ii-body .ii-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .iimeter .ii-body .ii-grade{font-weight:700;font-size:15px}
+  .iimeter .ii-body .ii-cap{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--accent)}
+  .iimeter .ii-desc{color:var(--ink-2);font-size:13px;margin:6px 0 10px;min-height:34px}
+  .iimeter .ii-fac{display:flex;flex-direction:column;gap:6px}
+  .iimeter .ii-fac .f{display:grid;grid-template-columns:74px 1fr auto;gap:10px;align-items:center;
+    font-size:11.5px;color:var(--ink-2)}
+  .iimeter .ii-fac .f .track{height:6px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden}
+  .iimeter .ii-fac .f .track i{display:block;height:100%;border-radius:4px;
+    transition:width .5s cubic-bezier(.2,.7,.2,1),background .5s}
+  .iimeter .ii-fac .f .pct{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);min-width:30px;text-align:right}
+  @media(max-width:560px){.iimeter{grid-template-columns:1fr;justify-items:center;text-align:center}
+    .iimeter .ii-fac .f{grid-template-columns:64px 1fr auto}}
+
+  /* Number count-up on reveal */
+  .rollnum{font-variant-numeric:tabular-nums}
+
+  /* ---------- Background glow orbs ---------- */
+  .orbs{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+  .orbs i{position:absolute;border-radius:50%;filter:blur(70px);opacity:.16;mix-blend-mode:screen;
+    animation:orbFloat 18s ease-in-out infinite}
+  .orbs i:nth-child(1){width:380px;height:380px;background:#16B9A6;left:-6%;top:8%}
+  .orbs i:nth-child(2){width:420px;height:420px;background:#2E5CC7;right:-8%;top:32%;animation-delay:-6s}
+  .orbs i:nth-child(3){width:300px;height:300px;background:#7DC93F;left:24%;bottom:-6%;animation-delay:-11s;opacity:.10}
+  @keyframes orbFloat{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(24px,-30px) scale(1.08)}66%{transform:translate(-18px,20px) scale(.96)}}
+  @media(prefers-reduced-motion:reduce){.orbs i{animation:none}}
+
+  /* ---------- Card styling ---------- */
+  .card{position:relative;overflow:hidden}
+  .card::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;
+    background:linear-gradient(90deg,var(--s2),var(--s3),var(--s4));
+    transform:scaleX(0);transform-origin:left;transition:transform .35s cubic-bezier(.2,.7,.2,1)}
+  .card:hover::before{transform:scaleX(1)}
+  .card:hover{border-color:var(--line-2);transform:translateY(-3px);
+    box-shadow:0 24px 60px -34px rgba(0,0,0,.8),0 0 0 1px rgba(22,185,166,.12)}
+  .cardviz{width:100%;height:56px;display:block;margin:4px 0 2px;border-radius:8px;
+    background:rgba(255,255,255,.02)}
+
+  /* Flow steps: connectors + hover */
+  .flow{position:relative}
+  .flow .step{position:relative;transition:.25s}
+  .flow .step:hover{transform:translateY(-3px);border-color:var(--line-2);
+    box-shadow:0 20px 46px -30px rgba(0,0,0,.8)}
+  .flow .step .k{display:inline-flex;align-items:center;gap:7px}
+  .flow .step .k::before{content:"";width:16px;height:16px;border-radius:5px;
+    background:linear-gradient(135deg,var(--s2),var(--s3));display:inline-block;flex:0 0 auto;
+    box-shadow:0 0 12px rgba(22,185,166,.5)}
+
+  /* Stat card hover */
+  .stat{transition:.25s;position:relative;overflow:hidden}
+  .stat:hover{transform:translateY(-3px);border-color:var(--line-2)}
+
+  /* ---------- Journey of sound ---------- */
+  .journey{margin-top:10px;border:1px solid var(--line);border-radius:18px;
+    background:linear-gradient(180deg,var(--panel),var(--bg-2));padding:26px 20px 20px;position:relative;overflow:hidden}
+  .journey .jtag{position:absolute;top:12px;left:16px;font-family:var(--font-mono);font-size:10px;
+    letter-spacing:.2em;color:var(--ink-3)}
+  .journey-cv{width:100%;aspect-ratio:960/260;display:block;margin-top:8px;border-radius:12px}
+  .journey-legend{display:flex;flex-wrap:wrap;gap:14px 26px;justify-content:center;margin-top:10px;
+    font-size:12.5px;color:var(--ink-2)}
+  .journey-legend b{color:var(--ink);font-weight:600}
+
+  /* ---------- Hair cells vs electrodes ---------- */
+  .hairvs{display:grid;grid-template-columns:1fr auto 1fr;gap:20px;align-items:stretch;margin:30px 0 4px}
+  @media(max-width:760px){.hairvs{grid-template-columns:1fr;gap:14px}.hairvs .vs{display:none}}
+  .hairvs .hv{border:1px solid var(--line);border-radius:16px;background:var(--panel);
+    padding:16px;display:flex;flex-direction:column;gap:10px;position:relative;overflow:hidden}
+  .hairvs .hv .hv-top{display:flex;align-items:baseline;justify-content:space-between}
+  .hairvs .hv .hv-num{font-family:var(--font-serif);font-weight:900;font-size:34px;line-height:1;
+    background:linear-gradient(90deg,var(--s2),var(--s3),var(--s4));-webkit-background-clip:text;
+    background-clip:text;color:transparent;font-variant-numeric:tabular-nums}
+  .hairvs .hv .hv-cap{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;color:var(--ink-3);text-transform:uppercase}
+  .hairvs .hv canvas{width:100%;height:120px;display:block;border-radius:10px;background:rgba(0,0,0,.18)}
+  .hairvs .hv .hv-desc{font-size:12.5px;color:var(--ink-2);margin:0}
+  .hairvs .vs{display:grid;place-items:center;font-family:var(--font-serif);font-weight:900;
+    font-size:20px;color:var(--ink-3)}
+  .hairvs .vs span{border:1px solid var(--line);border-radius:50%;width:44px;height:44px;display:grid;place-items:center;
+    background:var(--bg-2)}
+</style>
+</head>
+<body>
+<div class="orbs" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<header class="nav">
+  <div class="wrap nav-inner">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+      hear like me <span class="en">/ hear the way they do</span>
+    </div>
+    <nav class="links">
+      <a href="#tool">Simulator</a>
+      <a href="#how">How it works</a>
+      <a href="#journey">Journey</a>
+      <a href="#limits">Limitations</a>
+      <a href="#quiz">Listen &amp; guess</a>
+      <a href="#kids">Deaf children</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ========== HERO ========== -->
+<div class="hero">
+  <div class="hero-scan" aria-hidden="true"></div>
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow">Channel Vocoder</span>
+      <h1>Hear the world<br>through a <em>cochlear implant</em></h1>
+      <p class="lead">A cochlear implant squeezes rich sound into just a handful of "channels." Drag the channel count and use your own ears to feel why fewer channels make speech blur.</p>
+      <div class="cta-row">
+        <button class="btn primary" onclick="document.getElementById('tool').scrollIntoView()">▶ Open the simulator</button>
+        <a class="btn ghost" href="#how">How it works</a>
+      </div>
+    </div>
+    <div class="hero-viz" aria-hidden="true" id="heroViz"></div>
+  </div>
+</div>
+
+<!-- ========== Simulator ========== -->
+<section class="block" id="tool">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">01 / INTERACTIVE</span>
+      <h2>Vocoder simulator</h2>
+      <p>Pick a sound — a built-in sample, an uploaded file, or your live microphone. Toggle "original / processed" to compare, drag the channel count, and watch each frequency channel light up. Headphones are recommended, especially in microphone mode to avoid feedback.</p>
+    </div>
+
+    <div class="tool">
+      <div class="tool-top">
+        <div class="seg" role="group" aria-label="Sound source">
+          <button data-src="sample" aria-pressed="true">Built-in sample</button>
+          <button data-src="file">Upload audio</button>
+          <button data-src="mic">Microphone</button>
+        </div>
+        <div class="transport">
+          <div class="seg" role="group" aria-label="Compare">
+            <button id="abProc" aria-pressed="true">Processed</button>
+            <button id="abOrig" aria-pressed="false">Original</button>
+          </div>
+          <button class="btn" id="playBtn">▶ Play</button>
+          <span class="status">Status: <b id="stat">Ready</b></span>
+        </div>
+      </div>
+
+      <div class="tool-body">
+        <div class="viz-pane">
+          <div class="viz-label">
+            <div class="viz-switch seg" role="group" aria-label="Visualization view">
+              <button data-view="bars" aria-pressed="true">Electrode array</button>
+              <button data-view="wave" aria-pressed="false">Oscilloscope</button>
+              <button data-view="spec" aria-pressed="false">Spectrogram</button>
+              <button data-view="cochlea" aria-pressed="false">Cochlea</button>
+              <button data-view="neuro" aria-pressed="false">Neural firing</button>
+            </div>
+            <small id="vizMeta">8 channels · noise carrier</small>
+          </div>
+          <div class="viz-stage">
+            <canvas id="viz"></canvas>
+            <canvas id="spec" hidden></canvas>
+            <svg id="cochleaLive" hidden viewBox="0 0 640 300" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <defs>
+                <linearGradient id="cg2" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0" stop-color="#2B2E83"/><stop offset=".3" stop-color="#1E7CC2"/>
+                  <stop offset=".6" stop-color="#16B9A6"/><stop offset=".8" stop-color="#7DC93F"/>
+                  <stop offset="1" stop-color="#F2C14E"/>
+                </linearGradient>
+              </defs>
+              <path id="cochPath" d="M120,250 C90,120 240,70 360,95 C500,124 540,210 450,238 C372,262 285,214 330,165 C360,132 405,150 398,182"
+                    fill="none" stroke="url(#cg2)" stroke-width="10" stroke-linecap="round" opacity=".28"/>
+              <g id="electrodes"></g>
+            </svg>
+          </div>
+          <div class="freq-axis"><span id="axLo">Low</span><span>frequency channels (apex → base)</span><span id="axHi">High</span></div>
+          <div class="hud" id="hud">
+            <span><i class="dot"></i>CH <b id="hCh">8</b></span>
+            <span>BAND <b id="hBw">80–8000</b> Hz</span>
+            <span>ENV <b id="hEnv">160</b> Hz</span>
+            <span>SPREAD <b id="hSpread">0%</b></span>
+            <span>NOISE <b id="hNoise">0%</b></span>
+            <span>SR <b id="hSr">—</b></span>
+          </div>
+
+          <div class="iimeter" id="iimeter" aria-live="polite">
+            <div class="dial">
+              <svg viewBox="0 0 100 100" aria-hidden="true">
+                <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="9"/>
+                <circle id="iiArc" cx="50" cy="50" r="42" fill="none" stroke="var(--accent)" stroke-width="9"
+                        stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="264"/>
+              </svg>
+              <div class="val"><b id="iiScore" class="rollnum">–</b><small>CLARITY</small></div>
+            </div>
+            <div class="ii-body">
+              <div class="ii-top">
+                <span class="ii-cap">Intelligibility index</span>
+                <span class="ii-grade" id="iiGrade">—</span>
+              </div>
+              <div class="ii-desc" id="iiDesc">An illustrative "speech clarity" estimate based on the current settings; it updates live as you adjust them — the higher the value, the closer to understanding continuous speech. For teaching only, not a real measurement.</div>
+              <div class="ii-fac">
+                <div class="f"><span>Spectral detail</span><div class="track"><i id="fSpec"></i></div><span class="pct" id="pSpec">–</span></div>
+                <div class="f"><span>Pitch cues</span><div class="track"><i id="fPitch"></i></div><span class="pct" id="pPitch">–</span></div>
+                <div class="f"><span>Noise margin</span><div class="track"><i id="fNoise"></i></div><span class="pct" id="pNoise">–</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ctrl-pane">
+          <div class="ctrl-main">
+            <div class="cap">Effective channels</div>
+            <div class="num" id="chNum">8</div>
+            <input type="range" id="chSlider" min="1" max="22" value="8" step="1" aria-label="Number of channels">
+            <div class="hint" id="chHint">A typical cochlear implant has 12–22 electrodes, but current spread between channels means the "effective" number is often only around 8.</div>
+            <div class="presets" aria-label="Quick select">
+              <button data-ch="1">1</button><button data-ch="2">2</button>
+              <button data-ch="4">4</button><button data-ch="8">8</button>
+              <button data-ch="16">16</button><button data-ch="22">22</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Real scenarios <span>one tap</span></label>
+            <div class="scen-grid" aria-label="Real-scenario presets">
+              <button data-scen="quiet"><span class="ei">🗣️</span>Quiet chat<small>8ch · clean</small></button>
+              <button data-scen="restaurant"><span class="ei">🍽️</span>Noisy restaurant<small>noise + crosstalk</small></button>
+              <button data-scen="phone"><span class="ei">📞</span>Phone call<small>narrowband 300–3400</small></button>
+              <button data-scen="music"><span class="ei">🎵</span>Music<small>melody · distorted</small></button>
+              <button data-scen="tone"><span class="ei">🀄</span>Tonal language<small>rising / falling</small></button>
+              <button data-scen="minimal"><span class="ei">▂</span>Only 4 channels<small>minimal electrodes</small></button>
+            </div>
+            <div class="mini">Each scenario automatically combines channel count, frequency range, noise, and crosstalk, then plays a matching sample.</div>
+          </div>
+
+          <div class="field">
+            <label for="sampleSel">Built-in sample <span>switchable</span></label>
+            <select id="sampleSel">
+              <option value="vowel">Speech · synthesized vowels /a-i-u/</option>
+              <option value="tone">Tone · rising vs falling (mā/mà)</option>
+              <option value="melody">Music · simple melody</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="carrierSel">Carrier type <span>timbre</span></label>
+            <select id="carrierSel">
+              <option value="noise">Noise carrier (classic Shannon)</option>
+              <option value="sine">Sine carrier (tonal)</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="freqSel">Frequency range <span>Hz</span></label>
+            <select id="freqSel">
+              <option value="80,8000">Wideband 80 – 8000</option>
+              <option value="150,7000">Common 150 – 7000</option>
+              <option value="300,3400">Phone 300 – 3400</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="envSlider">Envelope detail · pitch cues <span id="envVal">160 Hz</span></label>
+            <input type="range" class="plain" id="envSlider" min="20" max="500" value="160" step="10">
+            <div class="mini">Lower is closer to a real implant (pitch detail is lost); higher keeps more timing/pitch cues.</div>
+          </div>
+
+          <div class="field">
+            <label for="spreadSlider">Channel crosstalk · current spread <span id="spreadVal">0%</span></label>
+            <input type="range" class="plain" id="spreadSlider" min="0" max="100" value="0" step="5">
+            <div class="mini">Simulates current leaking between neighboring electrodes: the more crosstalk, the fewer "effective" channels — even if the electrode count is unchanged.</div>
+          </div>
+
+          <div class="field">
+            <label for="noiseSlider">Background noise <span id="noiseVal">0%</span></label>
+            <input type="range" class="plain" id="noiseSlider" min="0" max="100" value="0" step="5">
+            <div class="mini">Add ambient noise to feel why recognition gets harder in noisy settings.</div>
+          </div>
+
+          <div class="field">
+            <label>Export <span>processed audio</span></label>
+            <div class="export-row">
+              <button class="btn" id="exportBtn">⬇ Export current audio (WAV)</button>
+            </div>
+            <div class="export-note" id="exportNote">Renders offline with all current settings and downloads · microphone source not supported</div>
+          </div>
+
+          <input type="file" id="fileInput" accept="audio/*">
+          <div class="msg" id="msg"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== How it works ========== -->
+<section class="block" id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">02 / PRINCIPLE</span>
+      <h2>How it "hears"</h2>
+      <p>A healthy ear has tens of thousands of hair cells arranged along the cochlea as a fine frequency map. A cochlear implant bypasses the damaged hair cells and electrically stimulates the auditory nerve with a row of electrodes — and the information it can carry is essentially what this simulator does: slice sound into a few frequency bands and keep only each band's "loudness envelope."</p>
+    </div>
+
+    <div class="flow">
+      <div class="step"><div class="k">STEP 01</div><h4>Split into bands</h4><p>A microphone captures the sound and splits it by frequency into several bands, each mapped to one place on the cochlea and one electrode.</p></div>
+      <div class="step"><div class="k">STEP 02</div><h4>Extract envelope</h4><p>Each band keeps only the "envelope" of how its energy rises and falls over time, discarding the fine waveform and pitch detail.</p></div>
+      <div class="step"><div class="k">STEP 03</div><h4>Resynthesize</h4><p>The envelope modulates a carrier (noise or sine) to refill each band.</p></div>
+      <div class="step"><div class="k">STEP 04</div><h4>Stimulate / play back</h4><p>A real device turns this into electrical pulses on the auditory nerve; the simulator sums the bands and plays them for you.</p></div>
+    </div>
+
+    <div class="pipe-wrap">
+      <span class="tag">SIGNAL PIPELINE</span>
+      <span class="live">Live demo</span>
+      <canvas id="pipe"></canvas>
+    </div>
+    <div class="fig-cap">Sound enters from the left, is split into bands, has its loudness envelope extracted band by band, then is resynthesized with a carrier — exactly what happens inside the simulator.</div>
+
+    <svg class="cochlea-fig" viewBox="0 0 640 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cochlear tonotopic map">
+      <defs>
+        <linearGradient id="cg" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#2B2E83"/><stop offset=".3" stop-color="#1E7CC2"/>
+          <stop offset=".6" stop-color="#16B9A6"/><stop offset=".8" stop-color="#7DC93F"/>
+          <stop offset="1" stop-color="#F2C14E"/>
+        </linearGradient>
+      </defs>
+      <path d="M60,150 C60,60 200,40 300,60 C420,84 470,150 400,175 C330,198 250,150 300,120 C340,98 380,120 372,142"
+            fill="none" stroke="url(#cg)" stroke-width="18" stroke-linecap="round"/>
+      <g font-family="IBM Plex Mono, monospace" font-size="12" fill="#AAB7D6">
+        <circle cx="72" cy="150" r="4" fill="#F2C14E"/><text x="46" y="180">Base · high freq</text>
+        <circle cx="330" cy="118" r="4" fill="#2B2E83"/><text x="300" y="104">Apex · low freq</text>
+      </g>
+      <g fill="#EAF0FB" font-family="Noto Sans SC" font-size="13" text-anchor="middle">
+        <text x="470" y="70">Closer to the base</text><text x="470" y="90">→ higher frequency</text>
+      </g>
+    </svg>
+    <div class="fig-cap">The cochlea's "tonotopic map": different places handle different frequencies — which is why electrodes are arranged by frequency.</div>
+
+    <div class="hairvs" aria-label="Hair cells vs electrodes">
+      <div class="hv">
+        <div class="hv-top"><span class="hv-num" id="hairNum">0</span><span class="hv-cap">Healthy cochlea</span></div>
+        <canvas id="hairCv" aria-hidden="true"></canvas>
+        <p class="hv-desc">About <b>15,000</b> hair cells form an extremely fine frequency gradient along the cochlea, spreading sound out continuously.</p>
+      </div>
+      <div class="vs" aria-hidden="true"><span>vs</span></div>
+      <div class="hv">
+        <div class="hv-top"><span class="hv-num" id="elecNum">0</span><span class="hv-cap">Cochlear implant</span></div>
+        <canvas id="elecCv" aria-hidden="true"></canvas>
+        <p class="hv-desc">Usually just <b>12–22</b> electrodes, and current spread cuts the "effective" channels down to about <b>~8</b>.</p>
+      </div>
+    </div>
+    <div class="fig-cap">Tens of thousands of fine frequency points compressed into a dozen-odd electrodes: this is the core gap the "channel vocoder" recreates.</div>
+  </div>
+</section>
+
+<!-- ========== Journey of sound ========== -->
+<section class="block" id="journey">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">03 / JOURNEY</span>
+      <h2>The journey of a single "hello"</h2>
+      <p>From a sound wave in the air to the moment the brain "hears" it, sound passes through several stages. The pipeline below runs in real time — follow the dots and see where the implant takes over work that once belonged to the ear.</p>
+    </div>
+    <div class="journey">
+      <span class="jtag">SOUND · SIGNAL · SPIKES · SENSE</span>
+      <canvas class="journey-cv" id="journeyCv" aria-hidden="true"></canvas>
+      <div class="journey-legend">
+        <span>🎙️ <b>Sound</b> air vibration</span>
+        <span>🎛️ <b>Processor</b> split · envelope</span>
+        <span>⚡ <b>Electrodes</b> electrical pulses</span>
+        <span>🧠 <b>Nerve → brain</b> learns to decode</span>
+      </div>
+    </div>
+    <div class="fig-cap">Green dots = sound information. At the "processor" it is compressed into a few channels, then sent to the auditory nerve as electrical pulses — once information is lost here, it can't be recovered downstream.</div>
+  </div>
+</section>
+
+<!-- ========== Limitations ========== -->
+<section class="block" id="limits">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">04 / LIMITS</span>
+      <h2>What a cochlear implant can't do</h2>
+      <p>The cochlear implant is a remarkable technology that lets many people follow conversation in quiet. But what it delivers is a "downsampled" version of sound — only a few channels, only loudness envelopes. These are its common weak spots. You can hear each one for yourself in the simulator above.</p>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="ic">🎵</div>
+        <h3>Music &amp; pitch</h3>
+        <p>Melody and harmony rely on fine pitch information, which the vocoder mostly throws away. Rhythm still comes through, but tunes sound flat and distorted.</p>
+        <canvas class="cardviz" data-cv="pitch" aria-hidden="true"></canvas>
+        <button class="card try" data-demo="melody">▶ Hear a melody · set to 4 channels</button>
+      </div>
+      <div class="card">
+        <div class="ic">↗</div>
+        <h3>Tonal languages</h3>
+        <p>Mandarin and Cantonese distinguish meaning by pitch contour (mā/má/mǎ/mà). Implants encode pitch poorly, so tone recognition is a real challenge for children learning these languages.</p>
+        <canvas class="cardviz" data-cv="tone" aria-hidden="true"></canvas>
+        <button class="card try" data-demo="tone">▶ Compare "rising / falling" tone</button>
+      </div>
+      <div class="card">
+        <div class="ic">🗣️</div>
+        <h3>Noisy places</h3>
+        <p>With background noise or many people talking at once, recognition drops sharply — too few channels make it hard to separate the target voice from the noise.</p>
+        <canvas class="cardviz" data-cv="noise" aria-hidden="true"></canvas>
+        <button class="card try" data-demo="vowel">▶ Hear speech with 2 channels</button>
+      </div>
+      <div class="card">
+        <div class="ic">🎯</div>
+        <h3>Sound localization</h3>
+        <p>Telling which direction a sound comes from needs fine timing and level differences between the two ears. A single implant can barely localize, and even bilateral ones fall well short of normal hearing.</p>
+        <canvas class="cardviz" data-cv="locate" aria-hidden="true"></canvas>
+      </div>
+      <div class="card">
+        <div class="ic">🧠</div>
+        <h3>Relearning required</h3>
+        <p>It doesn't "restore" the old hearing — it delivers a brand-new, simplified signal. The brain relies on plasticity and long-term training to gradually "read" it.</p>
+        <canvas class="cardviz" data-cv="learn" aria-hidden="true"></canvas>
+      </div>
+      <div class="card">
+        <div class="ic">⚡</div>
+        <h3>Electrode–nerve interface</h3>
+        <p>Current from neighboring electrodes spreads and overlaps; combined with "dead regions" and differences in insertion depth, the truly independent channels are far fewer than the electrode count.</p>
+        <canvas class="cardviz" data-cv="cross" aria-hidden="true"></canvas>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== Listen & guess ========== -->
+<section class="block" id="quiz">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">05 / CHALLENGE</span>
+      <h2>Listen &amp; guess: how many channels?</h2>
+      <p>The system processes the same speech clip with a random channel count — listen first, then guess. Feel for yourself how the channel count drives intelligibility. Headphones recommended.</p>
+    </div>
+
+    <div class="quiz">
+      <div class="quiz-left">
+        <div class="quiz-cap">This round · channels</div>
+        <div class="quiz-mystery" id="qMystery">?</div>
+        <button class="btn primary" id="qPlay">▶ Play the processed speech</button>
+      </div>
+      <div class="quiz-right">
+        <div class="quiz-cap" style="margin-bottom:8px">Your guess</div>
+        <div class="guess-grid" id="qGuess">
+          <button data-g="2">2</button>
+          <button data-g="4">4</button>
+          <button data-g="8">8</button>
+          <button data-g="16">16</button>
+        </div>
+        <div class="quiz-fb" id="qFb">Press play on the left, listen carefully, then pick the channel count you think it was.</div>
+        <div class="quiz-score">Score <b id="qScore">0</b> / <b id="qTotal">0</b> &nbsp;·&nbsp; <button id="qNext" style="font-family:var(--font-mono);font-size:12px;background:none;border:0;color:var(--accent);cursor:pointer;padding:0">Next →</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== Deaf children ========== -->
+<section class="block" id="kids">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">06 / CHILDREN</span>
+      <h2>Deaf children: why "early" matters so much</h2>
+      <p>A baby's brain is in a golden window for learning language. The earlier and richer the auditory input, the better later spoken-language and literacy development tends to be. That is why newborn hearing screening and early intervention are emphasized again and again.</p>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat"><div class="big">~1–3 ‰</div><div class="lbl">Roughly 1–3 in every 1,000 newborns have some degree of congenital hearing loss</div></div>
+      <div class="stat"><div class="big">1 · 3 · 6</div><div class="lbl">A widely used principle: screen by 1 month, diagnose by 3 months, begin intervention by 6 months</div></div>
+      <div class="stat"><div class="big">&lt; 12 mo</div><div class="lbl">When appropriate, earlier implantation (often before age 1) tends to favor spoken-language development</div></div>
+    </div>
+
+    <div class="kids-grid">
+      <div class="timeline" aria-label="Early-intervention timeline">
+        <div class="t"><div class="when">Birth – 1 mo</div><h4>Newborn hearing screening</h4><p>Complete initial/repeat screening before discharge or by one month to catch possible hearing issues early.</p></div>
+        <div class="t"><div class="when">By 3 months</div><h4>Diagnostic evaluation</h4><p>More thorough audiological testing clarifies the type and degree, informing the plan.</p></div>
+        <div class="t"><div class="when">By 6 months</div><h4>Begin intervention</h4><p>Fit hearing aids and start auditory–verbal training; for severe/profound loss with limited hearing-aid benefit, evaluate for a cochlear implant.</p></div>
+        <div class="t"><div class="when">Ongoing</div><h4>Therapy &amp; family involvement</h4><p>Speech therapy, everyday family interaction, and educational support are the long, crucial part — the device is only the beginning.</p></div>
+      </div>
+
+      <div class="kids-copy">
+        <h3>More than one path</h3>
+        <p>Families facing hearing loss can make different choices: some follow a spoken-language, auditory–verbal path, some choose sign language, and some use a bilingual-bimodal approach. A cochlear implant is not the only "right" answer, and the Deaf community has its own language and cultural identity. Respecting the values of the child and family, and communicating fully with a professional team, usually matters more than arguing over "which path is better."</p>
+        <h3>Support beyond the device</h3>
+        <p>Wireless remote microphones, classroom FM systems, captions, and visual cues all improve access in real settings (especially noisy classrooms) beyond the device itself. Peer acceptance and a strong sense of self matter just as much to development.</p>
+        <div class="note"><b>A note for parents:</b> the simulator above can help family, teachers, and classmates get a sense of "what the child might be hearing," and bring a little more understanding and patience. But every child's real experience differs; the simulation is only an approximation and cannot replace professional assessment.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="disc">
+      <b>Note:</b> this simulator is an <b>educational approximation</b> that uses a channel vocoder to demonstrate how "fewer frequency channels" affect sound clarity. It does <b>not</b> represent what any individual actually hears, and it is <b>not medical advice</b>. For assessment, implantation, and rehabilitation, please consult audiology and ENT professionals.
+    </div>
+    <div class="foot-row">
+      <span>hear like me — an educational tool about hearing, vocoders, and understanding</span>
+      <span style="font-family:var(--font-mono)">Web Audio API · pure front-end · runs offline</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+"use strict";
+/* =========================================================
+   Channel vocoder (noise/tone-excited) — cochlear implant simulation
+   Live graph: source -> input -> [N bands: bandpass -> rectify -> envelope -> modulate carrier -> band-limit] -> wet -> compress -> output
+   ========================================================= */
+const State = {
+  ctx:null, input:null, dry:null, wetTap:null, wet:null, comp:null, master:null,
+  bands:[], N:8, carrier:'noise', fLo:80, fHi:8000,
+  envCut:160, spread:0, noiseLevel:0,
+  noiseBuf:null, source:null, srcType:'sample', playing:false, monitor:'proc',
+  sampleName:'vowel', sampleBufs:{}, rafId:null,
+  bgNoiseSrc:null, bgNoiseGain:null, specAnalyser:null, specBuf:null,
+  view:'bars',
+  quiz:{ answer:null, score:0, total:0, answered:false }
+};
+
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ---------- Core audio building blocks ---------- */
+function ensureCtx(){
+  if(State.ctx) return State.ctx;
+  const ctx = new (window.AudioContext||window.webkitAudioContext)();
+  State.ctx = ctx;
+  // main chain
+  State.input  = ctx.createGain();
+  State.dry    = ctx.createGain(); State.dry.gain.value = 0;
+  State.wetTap = ctx.createGain();
+  State.wet    = ctx.createGain(); State.wet.gain.value = 0.9;
+  State.comp   = ctx.createDynamicsCompressor();
+  State.comp.threshold.value=-16; State.comp.ratio.value=4; State.comp.attack.value=.003; State.comp.release.value=.25;
+  State.master = ctx.createGain(); State.master.gain.value = 1.0;
+
+  State.input.connect(State.dry);
+  State.input.connect(State.wetTap);
+  State.dry.connect(State.master);
+  State.wet.connect(State.comp);
+  State.comp.connect(State.master);
+  State.master.connect(ctx.destination);
+
+  State.noiseBuf = makeNoise(ctx, 2.0);
+
+  // Background-noise chain: noise -> speech-band bandpass -> gain -> input (mixed in before the vocoder for realism)
+  const bgSrc = ctx.createBufferSource(); bgSrc.buffer=State.noiseBuf; bgSrc.loop=true;
+  const bgLp = ctx.createBiquadFilter(); bgLp.type='lowpass'; bgLp.frequency.value=3200; bgLp.Q.value=0.4;
+  const bgHp = ctx.createBiquadFilter(); bgHp.type='highpass'; bgHp.frequency.value=250; bgHp.Q.value=0.4;
+  const bgGain = ctx.createGain(); bgGain.gain.value=0;
+  // Slow wobble so the noise floor sounds more like multi-talker "babble"
+  const bgLfo = ctx.createOscillator(); bgLfo.type='sine'; bgLfo.frequency.value=3.3;
+  const bgLfoGain = ctx.createGain(); bgLfoGain.gain.value=0.35;
+  const bgLfoDc = ctx.createConstantSource(); bgLfoDc.offset.value=0.65;
+  const bgMod = ctx.createGain(); bgMod.gain.value=0;
+  bgLfo.connect(bgLfoGain); bgLfoGain.connect(bgMod.gain); bgLfoDc.connect(bgMod.gain);
+  bgSrc.connect(bgHp); bgHp.connect(bgLp); bgLp.connect(bgMod); bgMod.connect(bgGain); bgGain.connect(State.input);
+  bgSrc.start(); bgLfo.start(); bgLfoDc.start();
+  State.bgNoiseGain = bgGain;
+  applyNoise();
+
+  // Analyser for the spectrogram (on the master output, reflects what you hear)
+  State.specAnalyser = ctx.createAnalyser(); State.specAnalyser.fftSize=512; State.specAnalyser.smoothingTimeConstant=0.5;
+  State.specBuf = new Uint8Array(State.specAnalyser.frequencyBinCount);
+  State.master.connect(State.specAnalyser);
+
+  buildSamples(ctx);
+  buildBands();
+  applyMonitor();
+  startViz();
+  updateAxis();
+  return ctx;
+}
+
+function makeNoise(ctx, seconds){
+  const len = Math.floor(ctx.sampleRate*seconds);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for(let i=0;i<len;i++) d[i] = Math.random()*2-1;
+  return buf;
+}
+function absCurve(){
+  const n=1024, c=new Float32Array(n);
+  for(let i=0;i<n;i++){const x=(i/(n-1))*2-1; c[i]=Math.abs(x);}
+  return c;
+}
+const ABS = absCurve();
+
+// Log-spaced band edges
+function edges(N, lo, hi){
+  const e=[]; const a=Math.log(lo), b=Math.log(hi);
+  for(let i=0;i<=N;i++) e.push(Math.exp(a+(b-a)*i/N));
+  return e;
+}
+
+/* ---------- Build / rebuild band network ---------- */
+function teardownBands(){
+  State.bands.forEach(b=>{
+    try{ if(b.carrierSrc && b.carrierSrc.stop) b.carrierSrc.stop(); }catch(e){}
+    b.nodes.forEach(n=>{ try{ n.disconnect(); }catch(e){} });
+  });
+  try{ State.wetTap.disconnect(); }catch(e){}
+  State.bands=[];
+  // Reconnect wetTap (its output was cleared above)
+  // (buildBands below reconnects from wetTap)
+}
+
+function buildBands(){
+  const ctx=State.ctx; if(!ctx) return;
+  teardownBands();
+  const N=State.N, e=edges(N, State.fLo, State.fHi);
+  const envCut=State.envCut; // Envelope low-pass cutoff (lower = more "implant-like", fewer pitch cues)
+  for(let i=0;i<N;i++){
+    const lo=e[i], hi=e[i+1], fc=Math.sqrt(lo*hi), bw=Math.max(hi-lo,1);
+    const Q=clamp(fc/bw, .5, 18);
+
+    // Analysis filter
+    const bp = ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=fc; bp.Q.value=Q;
+    // Full-wave rectify
+    const rect = ctx.createWaveShaper(); rect.curve=ABS;
+    // Envelope low-pass
+    const env = ctx.createBiquadFilter(); env.type='lowpass'; env.frequency.value=envCut; env.Q.value=0.5;
+
+    // Envelope makeup gain (amplitude is small after rectify+low-pass)
+    const envAmp = ctx.createGain(); envAmp.gain.value=2.6;
+
+    // Carrier
+    let carrierSrc, cbp=null;
+    const cGain = ctx.createGain(); cGain.gain.value=0; // modulated by the envelope
+    if(State.carrier==='noise'){
+      carrierSrc = ctx.createBufferSource(); carrierSrc.buffer=State.noiseBuf; carrierSrc.loop=true;
+      cbp = ctx.createBiquadFilter(); cbp.type='bandpass'; cbp.frequency.value=fc; cbp.Q.value=Q;
+      carrierSrc.connect(cbp); cbp.connect(cGain);
+      carrierSrc.start();
+    }else{
+      carrierSrc = ctx.createOscillator(); carrierSrc.type='sine'; carrierSrc.frequency.value=fc;
+      carrierSrc.connect(cGain);
+      carrierSrc.start();
+    }
+
+    // Output band-limit (constrain modulated energy back to this band)
+    const obp = ctx.createBiquadFilter(); obp.type='bandpass'; obp.frequency.value=fc; obp.Q.value=Math.min(Q,10);
+
+    // Analyser for visualization (on the channel output, does not affect signal)
+    const an = ctx.createAnalyser(); an.fftSize=256;
+
+    // Connections
+    State.wetTap.connect(bp); bp.connect(rect); rect.connect(env);
+    env.connect(envAmp); envAmp.connect(cGain.gain);  // envelope -> gain (audio-rate modulation = multiplication)
+    cGain.connect(obp); obp.connect(State.wet);
+    cGain.connect(an);
+
+    const nodes=[bp,rect,env,envAmp,cGain,obp,an]; if(cbp) nodes.push(cbp);
+    State.bands.push({fc,lo,hi,analyser:an,carrierSrc,envAmp,cGain,nodes,buf:new Float32Array(an.fftSize),lvl:0});
+  }
+
+  // Channel crosstalk / current spread: leak each envelope proportionally into neighboring channels' carrier gain
+  if(State.spread>0){
+    const s=State.spread; // 0..1
+    for(let i=0;i<N;i++){
+      const src=State.bands[i].envAmp;
+      [[i-1,s*0.6],[i+1,s*0.6],[i-2,s*0.28],[i+2,s*0.28]].forEach(([j,amt])=>{
+        if(j<0||j>=N||amt<=0) return;
+        const sg=ctx.createGain(); sg.gain.value=amt;
+        src.connect(sg); sg.connect(State.bands[j].cGain.gain);
+        State.bands[i].nodes.push(sg);
+      });
+    }
+  }
+  updateAxis();
+}
+
+/* ---------- Sound source ---------- */
+function stopSource(){
+  if(State.source){ try{State.source.stop();}catch(e){} try{State.source.disconnect();}catch(e){} State.source=null; }
+  State.playing=false; $('playBtn').textContent='▶ Play'; setStat('Stopped');
+}
+function playBuffer(buf){
+  const ctx=State.ctx; stopSource();
+  const s=ctx.createBufferSource(); s.buffer=buf; s.loop=true;
+  s.connect(State.input); s.start();
+  State.source=s; State.playing=true;
+  $('playBtn').textContent='⏸ Stop'; setStat('Playing');
+}
+async function startMic(){
+  const ctx=ensureCtx(); await ctx.resume();
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    stopSource();
+    const s=ctx.createMediaStreamSource(stream);
+    s.connect(State.input);
+    State.source={stop:()=>{stream.getTracks().forEach(t=>t.stop());s.disconnect();}, disconnect:()=>{}};
+    State.playing=true; $('playBtn').textContent='⏸ Stop'; setStat('Microphone on');
+    showMsg('Microphone is on. Please wear headphones — otherwise sound returning to the mic can cause harsh feedback.','warn');
+  }catch(e){
+    showMsg('Could not access the microphone: '+(e && e.message ? e.message : e)+'. Please check browser permissions.','warn');
+    setStat('Microphone failed');
+  }
+}
+
+/* ---------- Synthesize built-in samples (offline render, returns Promise<AudioBuffer>) ---------- */
+function buildSamples(ctx){
+  State.sampleProm = {
+    vowel:  renderVowels(ctx),
+    tone:   renderTones(ctx),
+    melody: renderMelody(ctx)
+  };
+}
+function renderOffline(sr, dur, fn){
+  const OAC = window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  const off = new OAC(1, Math.ceil(sr*dur), sr);
+  fn(off);
+  return off.startRendering();
+}
+// Glottal source (sawtooth) -> three formant bandpasses -> output, simulating a vowel
+function formantChain(oc, src, out, f1,f2,f3, gain){
+  const specs=[[f1,8,1],[f2,10,.7],[f3,12,.5]];
+  specs.forEach(([f,q,g])=>{
+    const bp=oc.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=f; bp.Q.value=q;
+    const gn=oc.createGain(); gn.gain.value=g*gain;
+    src.connect(bp); bp.connect(gn); gn.connect(out);
+  });
+}
+function renderVowels(ctx){
+  const sr=ctx.sampleRate, dur=3.4;
+  const V={a:[730,1090,2440], i:[270,2290,3010], u:[300,870,2240]};
+  const seq=[['a',0.1],['i',1.2],['u',2.3]];
+  return renderOffline(sr,dur,(oc)=>{
+    const master=oc.createGain(); master.gain.value=.9; master.connect(oc.destination);
+    seq.forEach(([v,t])=>{
+      const osc=oc.createOscillator(); osc.type='sawtooth'; osc.frequency.value=125;
+      const env=oc.createGain(); env.gain.setValueAtTime(0,t);
+      env.gain.linearRampToValueAtTime(.9,t+.06);
+      env.gain.setValueAtTime(.9,t+.8); env.gain.linearRampToValueAtTime(0,t+1.0);
+      osc.connect(env);
+      formantChain(oc,env,master,V[v][0],V[v][1],V[v][2],1);
+      osc.start(t); osc.stop(t+1.05);
+    });
+  });
+}
+function renderTones(ctx){
+  const sr=ctx.sampleRate, dur=2.9;
+  return renderOffline(sr,dur,(oc)=>{
+    const master=oc.createGain(); master.gain.value=.9; master.connect(oc.destination);
+    const mk=(t,f0a,f0b)=>{
+      const osc=oc.createOscillator(); osc.type='sawtooth';
+      osc.frequency.setValueAtTime(f0a,t); osc.frequency.linearRampToValueAtTime(f0b,t+.7);
+      const env=oc.createGain(); env.gain.setValueAtTime(0,t);
+      env.gain.linearRampToValueAtTime(.9,t+.06); env.gain.setValueAtTime(.9,t+.6);
+      env.gain.linearRampToValueAtTime(0,t+.8);
+      osc.connect(env); formantChain(oc,env,master,730,1090,2440,1);
+      osc.start(t); osc.stop(t+.85);
+    };
+    mk(0.15,110,175);  // rising tone
+    mk(1.45,180,105);  // falling tone
+  });
+}
+function renderMelody(ctx){
+  const sr=ctx.sampleRate, dur=4.5, step=.3;
+  const notes=[262,262,392,392,440,440,392, 349,349,330,330,294,294,262];
+  return renderOffline(sr,dur,(oc)=>{
+    const master=oc.createGain(); master.gain.value=.6; master.connect(oc.destination);
+    notes.forEach((f,i)=>{
+      const t=i*step;
+      const osc=oc.createOscillator(); osc.type='triangle'; osc.frequency.value=f;
+      const o2=oc.createOscillator(); o2.type='sine'; o2.frequency.value=f*2;
+      const env=oc.createGain(); env.gain.setValueAtTime(.0001,t);
+      env.gain.linearRampToValueAtTime(.9,t+.02); env.gain.exponentialRampToValueAtTime(.08,t+step*.95);
+      const g2=oc.createGain(); g2.gain.value=.25;
+      osc.connect(env); o2.connect(g2); g2.connect(env); env.connect(master);
+      osc.start(t); osc.stop(t+step); o2.start(t); o2.stop(t+step);
+    });
+  });
+}
+async function resolveSample(name){
+  try{ return await State.sampleProm[name]; }
+  catch(e){ return null; }
+}
+
+/* ---------- Monitor mode / status ---------- */
+function applyMonitor(){
+  if(!State.ctx) return;
+  const proc = State.monitor==='proc';
+  State.wet.gain.setTargetAtTime(proc?0.9:0.0, State.ctx.currentTime, .02);
+  State.dry.gain.setTargetAtTime(proc?0.0:0.9, State.ctx.currentTime, .02);
+}
+function setStat(t){ $('stat').textContent=t; }
+function showMsg(t,cls){ const m=$('msg'); m.textContent=t; m.className='msg show'+(cls?(' '+cls):''); }
+function hideMsg(){ $('msg').className='msg'; }
+
+function applyNoise(){
+  if(State.bgNoiseGain && State.ctx){
+    State.bgNoiseGain.gain.setTargetAtTime(State.noiseLevel*0.5, State.ctx.currentTime, .05);
+  }
+  const nv=$('noiseVal'); if(nv) nv.textContent=Math.round(State.noiseLevel*100)+'%';
+  updateAxis();
+}
+function setEnvCut(hz){
+  State.envCut=clamp(hz|0,20,500);
+  const ev=$('envVal'); if(ev) ev.textContent=State.envCut+' Hz';
+  updateAxis();
+}
+function setSpread(pct){
+  State.spread=clamp(pct/100,0,1);
+  const sv=$('spreadVal'); if(sv) sv.textContent=Math.round(State.spread*100)+'%';
+  const ss=$('spreadSlider'); if(ss) ss.value=Math.round(State.spread*100);
+  updateAxis();
+}
+
+/* ---------- Scenario presets ---------- */
+const SCENARIOS={
+  quiet:     {N:8, fLo:150,fHi:7000, noise:0,    spread:0.15, env:160, carrier:'noise', sample:'vowel'},
+  restaurant:{N:8, fLo:150,fHi:7000, noise:0.55, spread:0.40, env:160, carrier:'noise', sample:'vowel'},
+  phone:     {N:8, fLo:300,fHi:3400, noise:0.15, spread:0.10, env:160, carrier:'noise', sample:'vowel'},
+  music:     {N:8, fLo:80, fHi:8000, noise:0,    spread:0.25, env:220, carrier:'noise', sample:'melody'},
+  tone:      {N:8, fLo:150,fHi:7000, noise:0.10, spread:0.20, env:120, carrier:'noise', sample:'tone'},
+  minimal:   {N:4, fLo:150,fHi:7000, noise:0,    spread:0,    env:160, carrier:'noise', sample:'vowel'}
+};
+function clearScen(){ document.querySelectorAll('[data-scen]').forEach(b=>b.setAttribute('aria-pressed','false')); }
+async function applyScenario(name){
+  const s=SCENARIOS[name]; if(!s) return;
+  const ctx=ensureCtx(); await ctx.resume();
+  State.fLo=s.fLo; State.fHi=s.fHi; State.carrier=s.carrier; State.sampleName=s.sample;
+  State.noiseLevel=s.noise; State.srcType='sample'; State.monitor='proc';
+  setEnvCut(s.env); setSpread(Math.round(s.spread*100));
+  // Sync UI controls
+  const fs=$('freqSel'); if(fs) fs.value=s.fLo+','+s.fHi;
+  const cs=$('carrierSel'); if(cs) cs.value=s.carrier;
+  const ns=$('noiseSlider'); if(ns) ns.value=Math.round(s.noise*100);
+  const es=$('envSlider'); if(es) es.value=s.env;
+  const ssel=$('sampleSel'); if(ssel) ssel.value=s.sample;
+  $('abProc').setAttribute('aria-pressed','true'); $('abOrig').setAttribute('aria-pressed','false');
+  document.querySelectorAll('[data-src]').forEach(x=>x.setAttribute('aria-pressed', String(x.dataset.src==='sample')));
+  document.querySelectorAll('[data-scen]').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.scen===name)));
+  applyNoise(); applyMonitor(); setChannels(s.N); updateAxis();
+  document.getElementById('tool').scrollIntoView({behavior:'smooth'});
+  const buf=await resolveSample(s.sample); if(buf) playBuffer(buf);
+}
+
+/* ---------- Offline render (for export, mirrors the live vocoder topology, exports "processed" only) ---------- */
+async function renderVocoderOffline(srcBuf){
+  const sr=srcBuf.sampleRate, dur=srcBuf.duration+0.08;
+  const OC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  const oc=new OC(1, Math.ceil(sr*dur), sr);
+  const input=oc.createGain();
+  const wet=oc.createGain(); wet.gain.value=0.9;
+  const comp=oc.createDynamicsCompressor();
+  comp.threshold.value=-16; comp.ratio.value=4; comp.attack.value=.003; comp.release.value=.25;
+  const master=oc.createGain(); master.gain.value=1.0;
+  wet.connect(comp); comp.connect(master); master.connect(oc.destination);
+  const noiseBuf=makeNoise(oc, Math.max(2.0,dur));
+  const src=oc.createBufferSource(); src.buffer=srcBuf; src.connect(input);
+  if(State.noiseLevel>0){
+    const bgSrc=oc.createBufferSource(); bgSrc.buffer=noiseBuf; bgSrc.loop=true;
+    const bgLp=oc.createBiquadFilter(); bgLp.type='lowpass'; bgLp.frequency.value=3200; bgLp.Q.value=.4;
+    const bgHp=oc.createBiquadFilter(); bgHp.type='highpass'; bgHp.frequency.value=250; bgHp.Q.value=.4;
+    const bgGain=oc.createGain(); bgGain.gain.value=State.noiseLevel*0.5;
+    bgSrc.connect(bgHp); bgHp.connect(bgLp); bgLp.connect(bgGain); bgGain.connect(input); bgSrc.start();
+  }
+  const N=State.N, e=edges(N,State.fLo,State.fHi), envCut=State.envCut, bandsC=[];
+  for(let i=0;i<N;i++){
+    const lo=e[i],hi=e[i+1],fc=Math.sqrt(lo*hi),bw=Math.max(hi-lo,1),Q=clamp(fc/bw,.5,18);
+    const bp=oc.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=fc; bp.Q.value=Q;
+    const rect=oc.createWaveShaper(); rect.curve=ABS;
+    const env=oc.createBiquadFilter(); env.type='lowpass'; env.frequency.value=envCut; env.Q.value=0.5;
+    const envAmp=oc.createGain(); envAmp.gain.value=2.6;
+    const cGain=oc.createGain(); cGain.gain.value=0;
+    let carrierSrc;
+    if(State.carrier==='noise'){
+      carrierSrc=oc.createBufferSource(); carrierSrc.buffer=noiseBuf; carrierSrc.loop=true;
+      const cbp=oc.createBiquadFilter(); cbp.type='bandpass'; cbp.frequency.value=fc; cbp.Q.value=Q;
+      carrierSrc.connect(cbp); cbp.connect(cGain);
+    }else{
+      carrierSrc=oc.createOscillator(); carrierSrc.type='sine'; carrierSrc.frequency.value=fc; carrierSrc.connect(cGain);
+    }
+    const obp=oc.createBiquadFilter(); obp.type='bandpass'; obp.frequency.value=fc; obp.Q.value=Math.min(Q,10);
+    input.connect(bp); bp.connect(rect); rect.connect(env); env.connect(envAmp); envAmp.connect(cGain.gain);
+    cGain.connect(obp); obp.connect(wet); carrierSrc.start();
+    bandsC.push({envAmp,cGain});
+  }
+  if(State.spread>0){
+    const sp=State.spread;
+    for(let i=0;i<N;i++){
+      [[i-1,sp*0.6],[i+1,sp*0.6],[i-2,sp*0.28],[i+2,sp*0.28]].forEach(([j,amt])=>{
+        if(j<0||j>=N||amt<=0)return;
+        const sg=oc.createGain(); sg.gain.value=amt;
+        bandsC[i].envAmp.connect(sg); sg.connect(bandsC[j].cGain.gain);
+      });
+    }
+  }
+  src.start();
+  return await oc.startRendering();
+}
+function encodeWAV(audioBuf){
+  const nch=1, sr=audioBuf.sampleRate, data=audioBuf.getChannelData(0), n=data.length;
+  const buffer=new ArrayBuffer(44+n*2), view=new DataView(buffer);
+  const ws=(o,s)=>{ for(let i=0;i<s.length;i++) view.setUint8(o+i,s.charCodeAt(i)); };
+  ws(0,'RIFF'); view.setUint32(4,36+n*2,true); ws(8,'WAVE'); ws(12,'fmt ');
+  view.setUint32(16,16,true); view.setUint16(20,1,true); view.setUint16(22,nch,true);
+  view.setUint32(24,sr,true); view.setUint32(28,sr*nch*2,true); view.setUint16(32,nch*2,true);
+  view.setUint16(34,16,true); ws(36,'data'); view.setUint32(40,n*2,true);
+  let off=44;
+  for(let i=0;i<n;i++){ const v=Math.max(-1,Math.min(1,data[i])); view.setInt16(off,v<0?v*0x8000:v*0x7FFF,true); off+=2; }
+  return new Blob([view],{type:'audio/wav'});
+}
+async function exportCurrent(){
+  const btn=$('exportBtn'), note=$('exportNote');
+  if(State.srcType==='mic'){ if(note) note.textContent='The microphone is a live source and cannot be exported offline. Use a built-in sample or an uploaded file instead.'; return; }
+  const ctx=ensureCtx(); await ctx.resume();
+  let srcBuf=null;
+  if(State.srcType==='file'){ srcBuf=State._fileBuf; if(!srcBuf){ if(note) note.textContent='Please upload an audio file first.'; return; } }
+  else { srcBuf=await resolveSample(State.sampleName); }
+  if(!srcBuf){ if(note) note.textContent='Audio preparation failed, please try again.'; return; }
+  const oldTxt=btn.textContent; btn.disabled=true; btn.textContent='Rendering…';
+  if(note) note.textContent='Rendering offline with current settings…';
+  try{
+    const rendered=await renderVocoderOffline(srcBuf);
+    const blob=encodeWAV(rendered);
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    const tag=State.srcType==='file'?'upload':State.sampleName;
+    a.href=url; a.download=`cochlear_${tag}_${State.N}ch.wav`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+    if(note) note.textContent=`Exported: ${State.N} channels · ${State.carrier==='noise'?'noise carrier':'sine carrier'} · ${Math.round(State.noiseLevel*100)}% noise`;
+  }catch(err){ if(note) note.textContent='Export failed: '+(err&&err.message?err.message:'unknown error'); }
+  finally{ btn.disabled=false; btn.textContent=oldTxt; }
+}
+
+/* ---------- Visualization ---------- */
+const RAMP=['#2B2E83','#1E7CC2','#16B9A6','#7DC93F','#F2C14E'];
+function lerpColor(t){
+  t=clamp(t,0,1); const seg=t*(RAMP.length-1); const i=Math.floor(seg); const f=seg-i;
+  const c1=hex(RAMP[i]), c2=hex(RAMP[Math.min(i+1,RAMP.length-1)]);
+  const r=Math.round(c1[0]+(c2[0]-c1[0])*f), g=Math.round(c1[1]+(c2[1]-c1[1])*f), b=Math.round(c1[2]+(c2[2]-c1[2])*f);
+  return `rgb(${r},${g},${b})`;
+}
+function hex(h){ return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]; }
+function rms(an,buf){ an.getFloatTimeDomainData(buf); let s=0; for(let i=0;i<buf.length;i++)s+=buf[i]*buf[i]; return Math.sqrt(s/buf.length); }
+
+let vizCanvas, vizCtx, specCanvas, specCtx, dpr=1;
+function sizeCanvas(){
+  vizCanvas=$('viz'); specCanvas=$('spec'); if(!vizCanvas) return;
+  dpr=window.devicePixelRatio||1;
+  // Measure the always-visible container to avoid a hidden canvas reporting 0 size
+  const stage=vizCanvas.parentElement || vizCanvas;
+  const r=stage.getBoundingClientRect();
+  const w=Math.max(60,r.width*dpr), h=Math.max(60,r.height*dpr);
+  vizCanvas.width=w; vizCanvas.height=h; vizCtx=vizCanvas.getContext('2d');
+  if(specCanvas){ specCanvas.width=w; specCanvas.height=h; specCtx=specCanvas.getContext('2d');
+    specCtx.fillStyle='rgba(12,18,32,1)'; specCtx.fillRect(0,0,w,h); }
+}
+function startViz(){ if(State.rafId) return; sizeCanvas(); loopViz(); }
+
+// Compute per-channel levels (shared by multiple views)
+function computeLevels(){
+  const N=State.bands.length||State.N;
+  const active=State.playing && State.monitor==='proc';
+  const out=new Array(N);
+  for(let i=0;i<N;i++){
+    const band=State.bands[i]; let lvl;
+    if(active && band){ lvl=clamp(rms(band.analyser,band.buf)*3.2,0,1); if(band) band.lvl=lvl; }
+    else { lvl=0.10+0.06*Math.sin(performance.now()/650+i*0.7); }
+    out[i]=lvl;
+  }
+  return {levels:out,active};
+}
+
+function loopViz(){
+  State.rafId=requestAnimationFrame(loopViz);
+  if(!vizCtx) return;
+  const {levels,active}=computeLevels();
+  if(State.view==='bars') drawBars(levels,active);
+  else if(State.view==='wave') drawWave(State.playing);
+  else if(State.view==='spec') drawSpec();
+  else if(State.view==='cochlea') drawCochlea(levels,active);
+  else if(State.view==='neuro') drawNeuro(levels,active);
+}
+
+// Neurogram: each row = one channel; higher level = denser spikes; the image scrolls left
+let neuroLast=0;
+function drawNeuro(levels,active){
+  const c=vizCtx; if(!c) return;
+  const W=vizCanvas.width, H=vizCanvas.height, N=levels.length;
+  const step=Math.max(1,Math.round(2*dpr));
+  // Shift one column left
+  c.globalAlpha=1; c.drawImage(vizCanvas,-step,0);
+  // Clear the new right column
+  c.fillStyle='rgba(12,18,32,1)'; c.fillRect(W-step,0,step,H);
+  const rh=H/N;
+  for(let i=0;i<N;i++){
+    // i=0 low freq at bottom, high freq at top
+    const y0=H-(i+1)*rh, cy=y0+rh/2;
+    const col=lerpColor(i/Math.max(N-1,1));
+    // Row separator baseline
+    c.fillStyle='rgba(255,255,255,.03)'; c.fillRect(W-step,Math.round(cy),step,1);
+    const lvl=active?clamp(levels[i],0,1):0.10+0.07*Math.sin(performance.now()/700+i*0.8);
+    // Spike probability scales with level (keeps a baseline of spontaneous firing so the view stays alive)
+    const pSpike = active ? clamp(0.10+lvl*lvl*1.15,0,0.94) : 0.07;
+    if(Math.random()<pSpike){
+      const amp=rh*0.42*(0.5+0.5*lvl);
+      c.strokeStyle=hexRGBA(col,0.5+0.5*lvl); c.lineWidth=Math.max(1,1.6*dpr*0.5);
+      c.beginPath(); c.moveTo(W-step*0.5,cy-amp); c.lineTo(W-step*0.5,cy+amp); c.stroke();
+      if(lvl>0.55){ c.fillStyle=hexRGBA(col,0.9); c.beginPath();
+        c.arc(W-step*0.5,cy,Math.max(1,1.3*dpr),0,6.2832); c.fill(); }
+    }
+  }
+  // Right-edge "now" marker line
+  c.fillStyle='rgba(22,185,166,.25)'; c.fillRect(W-Math.max(1,dpr),0,Math.max(1,dpr),H);
+}
+
+// Oscilloscope: live time-domain waveform (reflects what you hear — original or processed)
+function drawWave(playing){
+  const c=vizCtx; if(!c) return;
+  const W=vizCanvas.width, H=vizCanvas.height, mid=H/2;
+  c.clearRect(0,0,W,H);
+  // Grid
+  c.lineWidth=1*dpr; c.strokeStyle='rgba(255,255,255,.05)';
+  for(let gx=1;gx<8;gx++){ const x=W*gx/8; c.beginPath(); c.moveTo(x,0); c.lineTo(x,H); c.stroke(); }
+  for(let gy=1;gy<4;gy++){ const y=H*gy/4; c.beginPath(); c.moveTo(0,y); c.lineTo(W,y); c.stroke(); }
+  c.strokeStyle='rgba(255,255,255,.14)'; c.beginPath(); c.moveTo(0,mid); c.lineTo(W,mid); c.stroke();
+  if(!State.specAnalyser){ return; }
+  if(!State.waveBuf || State.waveBuf.length!==State.specAnalyser.fftSize){ State.waveBuf=new Uint8Array(State.specAnalyser.fftSize); }
+  const buf=State.waveBuf; State.specAnalyser.getByteTimeDomainData(buf);
+  const n=buf.length;
+  const col = playing ? (State.monitor==='orig' ? '#F2C14E' : '#16B9A6') : 'rgba(108,124,163,.55)';
+  c.lineWidth=2.2*dpr; c.strokeStyle=col;
+  c.shadowColor=col; c.shadowBlur=playing?13*dpr:0;
+  c.beginPath();
+  for(let i=0;i<n;i++){ const x=W*i/(n-1); const v=(buf[i]-128)/128; const y=mid - v*H*0.42; i?c.lineTo(x,y):c.moveTo(x,y); }
+  c.stroke(); c.shadowBlur=0;
+  // Sweep cursor
+  const t=(performance.now()/2600)%1, sx=t*W;
+  c.fillStyle=playing?col:'rgba(108,124,163,.5)'; c.globalAlpha=.9;
+  const si=Math.min(n-1,Math.floor(t*(n-1))), sy=mid-((buf[si]-128)/128)*H*0.42;
+  c.beginPath(); c.arc(sx,sy,3.2*dpr,0,Math.PI*2); c.fill(); c.globalAlpha=1;
+}
+
+function drawBars(levels,active){
+  const W=vizCanvas.width, H=vizCanvas.height, N=levels.length;
+  vizCtx.clearRect(0,0,W,H);
+  const gap=Math.max(2*dpr, H*0.012), rowH=(H-gap*(N+1))/N;
+  for(let i=0;i<N;i++){
+    const lvl=levels[i];
+    const y=gap+(N-1-i)*(rowH+gap);
+    const col=lerpColor(i/Math.max(N-1,1));
+    vizCtx.fillStyle='rgba(255,255,255,0.05)';
+    roundRect(vizCtx,gap,y,W-gap*2,rowH,rowH*0.35); vizCtx.fill();
+    const w=(W-gap*2)*clamp(lvl,0.02,1);
+    vizCtx.fillStyle=col; vizCtx.globalAlpha=0.35+0.65*lvl;
+    roundRect(vizCtx,gap,y,w,rowH,rowH*0.35); vizCtx.fill();
+    if(active && lvl>0.35){ vizCtx.shadowColor=col; vizCtx.shadowBlur=14*dpr; vizCtx.fill(); vizCtx.shadowBlur=0; }
+    vizCtx.globalAlpha=1;
+  }
+}
+
+// Spectrogram: scroll left 1 column per frame, draw the newest column on the right
+function specColor(v){ // v:0..1 -> deep blue -> teal -> green -> amber
+  const t=clamp(v,0,1);
+  return lerpColor(t);
+}
+function drawSpec(){
+  if(!specCtx||!State.specAnalyser) return;
+  const W=specCanvas.width, H=specCanvas.height, step=Math.max(1,Math.round(2*dpr));
+  // Shift left
+  specCtx.globalAlpha=1;
+  specCtx.drawImage(specCanvas, -step, 0);
+  // Fade the seam at the right edge
+  specCtx.fillStyle='rgba(12,18,32,1)'; specCtx.fillRect(W-step,0,step,H);
+  State.specAnalyser.getByteFrequencyData(State.specBuf);
+  const bins=State.specBuf, nb=bins.length;
+  const usable=Math.floor(nb*0.7); // Draw only the meaningful low-to-mid/high range
+  for(let y=0;y<H;y++){
+    // Top = high freq, bottom = low freq: logarithmic mapping
+    const frac=1-(y/H);
+    const idx=Math.min(usable-1, Math.floor(Math.pow(frac,2)*usable));
+    const v=bins[idx]/255;
+    if(v<0.03){ continue; }
+    specCtx.fillStyle=specColor(v);
+    specCtx.globalAlpha=0.25+0.75*v;
+    specCtx.fillRect(W-step,y,step,1);
+  }
+  specCtx.globalAlpha=1;
+}
+
+// Cochlea view: electrodes along the spiral path pulse with channel level
+let electrodePts=null, electrodeEls=[];
+function buildElectrodes(){
+  const g=$('electrodes'), path=$('cochPath'); if(!g||!path) return;
+  const N=State.bands.length||State.N;
+  g.innerHTML=''; electrodePts=[]; electrodeEls=[];
+  const total=path.getTotalLength();
+  for(let i=0;i<N;i++){
+    // i=0 low freq -> apex (path end), high freq -> base (path start); sample points evenly along the path
+    const frac=1-(i/Math.max(N-1,1));
+    const p=path.getPointAtLength(total*(0.06+0.9*frac));
+    const col=lerpColor(i/Math.max(N-1,1));
+    const ring=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    ring.setAttribute('cx',p.x); ring.setAttribute('cy',p.y); ring.setAttribute('r',4);
+    ring.setAttribute('fill','none'); ring.setAttribute('stroke',col);
+    ring.setAttribute('stroke-width','1.4'); ring.setAttribute('opacity','0');
+    const halo=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    halo.setAttribute('cx',p.x); halo.setAttribute('cy',p.y); halo.setAttribute('r',4);
+    halo.setAttribute('fill',col); halo.setAttribute('opacity','0.15');
+    const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    dot.setAttribute('cx',p.x); dot.setAttribute('cy',p.y); dot.setAttribute('r',3.4);
+    dot.setAttribute('fill',col);
+    g.appendChild(ring); g.appendChild(halo); g.appendChild(dot);
+    electrodePts.push({x:p.x,y:p.y,col}); electrodeEls.push({halo,dot,ring,phase:1,lastPulse:0});
+  }
+}
+function drawCochlea(levels,active){
+  if(!electrodeEls.length || electrodeEls.length!==levels.length) buildElectrodes();
+  const now=performance.now();
+  for(let i=0;i<electrodeEls.length;i++){
+    const lvl=clamp(levels[i]||0,0,1);
+    const e=electrodeEls[i]; const {halo,dot,ring}=e;
+    const r=3.2+lvl*9;
+    halo.setAttribute('r', r+ (active?lvl*10:2));
+    halo.setAttribute('opacity', (0.10+0.5*lvl).toFixed(3));
+    dot.setAttribute('r', 2.8+lvl*3.4);
+    dot.setAttribute('opacity', (0.45+0.55*lvl).toFixed(3));
+    // Discharge pulse: when level is high enough, emit an expanding ring; faster with higher level
+    if(ring){
+      if(active && lvl>0.42 && (now-e.lastPulse) > 240*(1-lvl*0.55)){ e.phase=0; e.lastPulse=now; }
+      if(e.phase<1){
+        e.phase=Math.min(1, e.phase+0.05);
+        const p=e.phase;
+        ring.setAttribute('r', (4+p*26).toFixed(1));
+        ring.setAttribute('opacity', ((1-p)*0.55).toFixed(3));
+        ring.setAttribute('stroke-width', (1.6*(1-p*0.6)).toFixed(2));
+      } else { ring.setAttribute('opacity','0'); }
+    }
+  }
+}
+
+function setView(v){
+  State.view=v;
+  const map={bars:'viz',wave:'viz',spec:'spec',cochlea:'cochleaLive',neuro:'viz'};
+  ['viz','spec','cochleaLive'].forEach(id=>{ const el=$(id); if(el) el.hidden = (map[v]!==id); });
+  document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.view===v)));
+  if(v==='bars'||v==='spec'||v==='wave'||v==='neuro'){ sizeCanvas(); }
+  if(v==='cochlea'){ buildElectrodes(); }
+}
+function roundRect(c,x,y,w,h,r){ if(w<=0||h<=0){c.beginPath();return;} r=Math.max(0,Math.min(r,h/2,w/2)); c.beginPath();
+  c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r);
+  c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
+
+function updateAxis(){
+  $('axLo').textContent=Math.round(State.fLo)+' Hz';
+  $('axHi').textContent=(State.fHi>=1000?(State.fHi/1000)+' kHz':State.fHi+' Hz');
+  $('vizMeta').textContent=`${State.N} channels · ${State.carrier==='noise'?'noise carrier':'sine carrier'}`;
+  const set=(id,v)=>{const el=$(id); if(el) el.textContent=v;};
+  set('hCh', State.quiz.answer && !State.quiz.answered ? '?' : State.N);
+  set('hBw', Math.round(State.fLo)+'–'+State.fHi);
+  set('hEnv', State.envCut);
+  set('hSpread', Math.round(State.spread*100)+'%');
+  set('hNoise', Math.round(State.noiseLevel*100)+'%');
+  set('hSr', State.ctx ? Math.round(State.ctx.sampleRate/1000)+'k' : '—');
+  updateIntelligibility();
+  syncHeroBadges();
+}
+
+/* ---------- Intelligibility index (illustrative teaching model) ---------- */
+function computeIntelligibility(){
+  const N=State.N, spread=State.spread, envCut=State.envCut, noise=State.noiseLevel;
+  const eff = N*(1-0.5*spread);                       // crosstalk reduces "effective" channels
+  const specShow = clamp(1 - Math.pow(0.72, eff), 0, 1); // spectral detail (saturating curve, for display)
+  const spec = Math.pow(specShow, 1.6);               // push low channel counts down further (closer to real perception)
+  let pitch = clamp(Math.sqrt(Math.max(0,envCut-20)/480), 0, 1); // pitch / timing cues
+  if(State.carrier==='sine') pitch=clamp(pitch+0.12,0,1);
+  const noiseMargin = clamp(1 - noise*1.05, 0, 1);    // noise margin
+  const cover = clamp((Math.log(State.fHi)-Math.log(State.fLo))/(Math.log(8000)-Math.log(80)), 0.4, 1);
+  let core = clamp(spec*0.90 + pitch*0.08, 0, 1);     // spectral detail dominates
+  let s01 = core * (0.30+0.70*noiseMargin) * (0.78+0.22*cover); // noise/bandwidth as multiplicative penalties
+  s01 = clamp(s01,0,1);
+  return {score:Math.round(s01*100), spec:specShow, pitch, noise:noiseMargin, s01};
+}
+function iiGrade(score){
+  if(score<24) return ['Barely intelligible','#F2895E','You sense rhythm and loudness only; the words are essentially lost.'];
+  if(score<44) return ['Hard to follow','#F2C14E','You feel the ups and downs of speech and can barely guess some words in quiet.'];
+  if(score<66) return ['Fairly understandable','#7DC93F','You catch many sentences in quiet, but it gets much harder in noise.'];
+  if(score<86) return ['Fairly clear','#16B9A6','Most continuous speech is understandable; music and tone are still lost.'];
+  return ['Near-clear','#16B9A6','High speech clarity — but a real implant is still limited by its electrodes.'];
+}
+let iiShown=0, iiTween=null;
+function updateIntelligibility(){
+  const arc=$('iiArc'), scoreEl=$('iiScore'); if(!arc||!scoreEl) return;
+  const r=computeIntelligibility();
+  const [grade,color,desc]=iiGrade(r.score);
+  const C=264; arc.style.strokeDashoffset=(C*(1-r.s01)).toFixed(1); arc.style.stroke=color;
+  const gEl=$('iiGrade'); if(gEl){ gEl.textContent=grade; gEl.style.color=color; }
+  const dEl=$('iiDesc'); if(dEl) dEl.textContent=desc;
+  const bar=(fid,pid,v,col)=>{ const f=$(fid),p=$(pid); if(f){f.style.width=Math.round(v*100)+'%';f.style.background=col;} if(p)p.textContent=Math.round(v*100)+'%'; };
+  bar('fSpec','pSpec', r.spec, 'var(--s3)');
+  bar('fPitch','pPitch', r.pitch, 'var(--s4)');
+  bar('fNoise','pNoise', r.noise, 'var(--s2)');
+  // number easing
+  if(iiTween) cancelAnimationFrame(iiTween);
+  const from=iiShown, to=r.score, t0=performance.now();
+  (function tw(){ const k=Math.min(1,(performance.now()-t0)/450);
+    const e=1-Math.pow(1-k,3); iiShown=Math.round(from+(to-from)*e);
+    scoreEl.textContent=iiShown; if(k<1) iiTween=requestAnimationFrame(tw); })();
+}
+
+/* ---------- Event bindings ---------- */
+function setChannels(n, rebuild=true){
+  State.N=clamp(n|0,1,22); $('chNum').textContent=State.N; $('chSlider').value=State.N;
+  const hints={1:'Just 1 channel: almost only rhythm and loudness; speech is unintelligible.',
+    2:'2 channels: you feel speech rise and fall, but the content is mostly unintelligible.',
+    4:'~4 channels: in quiet you can already follow many sentences — the surprising result from the classic studies.',
+    8:'~8 effective channels: close to what many users manage in quiet.'};
+  $('chHint').textContent = hints[State.N] || (State.N>=16
+    ? 'Beyond this, current spread limits how much more channels help.' : 'The fewer the channels, the harder speech is to make out.');
+  if(rebuild && State.ctx){ buildBands(); }
+}
+
+let rebuildTimer=null;
+function debouncedRebuild(){ clearTimeout(rebuildTimer); rebuildTimer=setTimeout(()=>{ if(State.ctx) buildBands(); },90); }
+
+function bind(){
+  // Source switch
+  document.querySelectorAll('[data-src]').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('[data-src]').forEach(x=>x.setAttribute('aria-pressed','false'));
+    b.setAttribute('aria-pressed','true'); State.srcType=b.dataset.src; hideMsg(); stopSource();
+    if(State.srcType==='file'){ $('fileInput').click(); }
+    if(State.srcType==='mic'){ /* wait for play */ setStat('Press play to start the microphone'); }
+    if(State.srcType==='sample'){ setStat('Ready'); }
+  }));
+
+  // Play
+  $('playBtn').addEventListener('click',async ()=>{
+    const ctx=ensureCtx(); await ctx.resume();
+    if(State.playing){ stopSource(); return; }
+    if(State.srcType==='mic'){ startMic(); return; }
+    if(State.srcType==='file'){
+      if(State._fileBuf){ playBuffer(State._fileBuf); } else { $('fileInput').click(); }
+      return;
+    }
+    setStat('Preparing sample…');
+    const buf=await resolveSample(State.sampleName);
+    if(buf) playBuffer(buf); else setStat('Sample generation failed');
+  });
+
+  // A/B
+  $('abProc').addEventListener('click',()=>{ State.monitor='proc';
+    $('abProc').setAttribute('aria-pressed','true'); $('abOrig').setAttribute('aria-pressed','false'); applyMonitor(); });
+  $('abOrig').addEventListener('click',()=>{ State.monitor='orig';
+    $('abOrig').setAttribute('aria-pressed','true'); $('abProc').setAttribute('aria-pressed','false'); applyMonitor(); });
+
+  // Channel slider + presets
+  $('chSlider').addEventListener('input',e=>{ setChannels(+e.target.value,false); updateAxis(); debouncedRebuild(); });
+  document.querySelectorAll('[data-ch]').forEach(b=>b.addEventListener('click',()=>{ setChannels(+b.dataset.ch); }));
+
+  // Sample / carrier / frequency
+  $('sampleSel').addEventListener('change',async e=>{ State.sampleName=e.target.value;
+    if(State.playing && State.srcType==='sample'){ const buf=await resolveSample(State.sampleName); if(buf) playBuffer(buf); } });
+  $('carrierSel').addEventListener('change',e=>{ State.carrier=e.target.value; updateAxis(); if(State.ctx) buildBands(); });
+  $('freqSel').addEventListener('change',e=>{ const [lo,hi]=e.target.value.split(',').map(Number);
+    State.fLo=lo; State.fHi=hi; updateAxis(); if(State.ctx) buildBands(); });
+
+  // File upload
+  $('fileInput').addEventListener('change',async e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const ctx=ensureCtx(); await ctx.resume();
+    setStat('Decoding…');
+    try{
+      const arr=await f.arrayBuffer(); const buf=await ctx.decodeAudioData(arr);
+      State._fileBuf=buf;
+      document.querySelectorAll('[data-src]').forEach(x=>x.setAttribute('aria-pressed','false'));
+      document.querySelector('[data-src="file"]').setAttribute('aria-pressed','true'); State.srcType='file';
+      playBuffer(buf); hideMsg();
+    }catch(err){ showMsg('Could not decode this audio file — try another (wav / mp3 / m4a, etc.).','warn'); setStat('Decode failed'); }
+  });
+
+  // "Try it" buttons inside the limitation cards
+  document.querySelectorAll('.card .try').forEach(b=>b.addEventListener('click',async ()=>{
+    const demo=b.dataset.demo; const ctx=ensureCtx(); await ctx.resume();
+    document.querySelectorAll('[data-src]').forEach(x=>x.setAttribute('aria-pressed','false'));
+    document.querySelector('[data-src="sample"]').setAttribute('aria-pressed','true'); State.srcType='sample';
+    State.sampleName=demo; $('sampleSel').value=demo;
+    const ch = demo==='melody'?4 : demo==='vowel'?2 : 4; setChannels(ch);
+    State.monitor='proc'; $('abProc').setAttribute('aria-pressed','true'); $('abOrig').setAttribute('aria-pressed','false'); applyMonitor();
+    document.getElementById('tool').scrollIntoView({behavior:'smooth'});
+    const buf=await resolveSample(demo); if(buf){ playBuffer(buf); }
+  }));
+
+  // Visualization view switch
+  document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+
+  // Scenario presets
+  document.querySelectorAll('[data-scen]').forEach(b=>b.addEventListener('click',()=>applyScenario(b.dataset.scen)));
+  // Export WAV
+  const eb=$('exportBtn'); if(eb) eb.addEventListener('click',()=>exportCurrent());
+
+  // Envelope detail
+  $('envSlider').addEventListener('input',e=>{ setEnvCut(+e.target.value); debouncedRebuild(); });
+  // Channel crosstalk
+  $('spreadSlider').addEventListener('input',e=>{ setSpread(+e.target.value); debouncedRebuild(); });
+  // Background noise
+  $('noiseSlider').addEventListener('input',e=>{ State.noiseLevel=clamp(+e.target.value/100,0,1);
+    if(State.ctx) applyNoise(); else { const nv=$('noiseVal'); if(nv) nv.textContent=Math.round(State.noiseLevel*100)+'%'; }
+  });
+
+  // Clear scenario highlight when any parameter is manually changed
+  ['chSlider','sampleSel','carrierSel','freqSel','envSlider','spreadSlider','noiseSlider'].forEach(id=>{
+    const el=$(id); if(el){ el.addEventListener('input',clearScen); el.addEventListener('change',clearScen); }
+  });
+  document.querySelectorAll('[data-ch]').forEach(b=>b.addEventListener('click',clearScen));
+
+  bindQuiz();
+  window.addEventListener('resize',()=>sizeCanvas());
+}
+
+/* ---------- Listen & guess ---------- */
+const QUIZ_OPTS=[2,4,8,16];
+function newQuiz(){
+  State.quiz.answer = QUIZ_OPTS[Math.floor(Math.random()*QUIZ_OPTS.length)];
+  State.quiz.answered=false;
+  $('qMystery').textContent='?'; $('qMystery').classList.remove('think');
+  $('qFb').innerHTML='Press play on the left, listen carefully, then pick the channel count you think it was.';
+  document.querySelectorAll('#qGuess button').forEach(b=>{ b.disabled=false; b.classList.remove('correct','wrong'); });
+  updateAxis();
+}
+async function quizPlay(){
+  const ctx=ensureCtx(); await ctx.resume();
+  // Process the "vowel" sample with a secret channel count, without revealing it on the big number (HUD shows ?)
+  document.querySelectorAll('[data-src]').forEach(x=>x.setAttribute('aria-pressed','false'));
+  const sb=document.querySelector('[data-src="sample"]'); if(sb) sb.setAttribute('aria-pressed','true');
+  State.srcType='sample';
+  State.monitor='proc'; $('abProc').setAttribute('aria-pressed','true'); $('abOrig').setAttribute('aria-pressed','false'); applyMonitor();
+  State.N=State.quiz.answer; buildBands(); updateAxis();
+  $('qMystery').classList.add('think');
+  const buf=await resolveSample('vowel'); if(buf) playBuffer(buf);
+}
+function bindQuiz(){
+  const play=$('qPlay'); if(!play) return;
+  play.addEventListener('click',()=>quizPlay());
+  document.querySelectorAll('#qGuess button').forEach(b=>b.addEventListener('click',()=>{
+    if(State.quiz.answered || State.quiz.answer===null) return;
+    const g=+b.dataset.g, ans=State.quiz.answer;
+    State.quiz.answered=true; State.quiz.total++;
+    document.querySelectorAll('#qGuess button').forEach(x=>{
+      x.disabled=true;
+      if(+x.dataset.g===ans) x.classList.add('correct');
+    });
+    $('qMystery').classList.remove('think'); $('qMystery').textContent=ans;
+    if(g===ans){ State.quiz.score++;
+      $('qFb').innerHTML='<b>Correct!</b> This clip really was processed with '+ans+' channels. The fewer the channels, the more "smeared" the vowels sound.';
+    }else{
+      b.classList.add('wrong');
+      $('qFb').innerHTML='This was actually <b>'+ans+'</b> channels (you picked '+g+'). Don\'t worry — the difference between channel counts is genuinely subtle, which is exactly the point.';
+    }
+    $('qScore').textContent=State.quiz.score; $('qTotal').textContent=State.quiz.total;
+    updateAxis();
+  }));
+  $('qNext').addEventListener('click',()=>newQuiz());
+  newQuiz();
+}
+
+/* ---------- Hero decorative bands ---------- */
+let heroCv,heroCtx,heroDpr=1,heroRAF=null,heroParts=[];
+function buildHeroViz(){
+  const el=$('heroViz'); if(!el) return;
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  // canvas
+  heroCv=document.createElement('canvas'); heroCv.className='hero-cv'; el.appendChild(heroCv);
+  // badges
+  const badges=document.createElement('div'); badges.className='hero-badges';
+  badges.innerHTML='<span class="hb">CH <b id="hbCh">8</b></span>'+
+                   '<span class="hb">Carrier <b id="hbCar">noise</b></span>'+
+                   '<span class="hb">Live neural firing</span>';
+  el.appendChild(badges);
+  function size(){ heroDpr=Math.min(2,window.devicePixelRatio||1);
+    const r=el.getBoundingClientRect();
+    heroCv.width=Math.max(2,r.width*heroDpr); heroCv.height=Math.max(2,r.height*heroDpr);
+    heroCtx=heroCv.getContext('2d');
+  }
+  size(); window.addEventListener('resize',size);
+  // Drifting particles (neural impulses)
+  heroParts=[]; for(let i=0;i<26;i++){ heroParts.push({x:Math.random(),y:Math.random(),
+    v:0.02+Math.random()*0.05, r:0.6+Math.random()*1.6, ph:Math.random()*6.28}); }
+  if(reduce){ // static single frame
+    size(); drawHeroFrame(0); return;
+  }
+  function loop(){ heroRAF=requestAnimationFrame(loop); drawHeroFrame(performance.now()/1000); }
+  loop();
+}
+function drawHeroFrame(t){
+  if(!heroCtx) return;
+  const W=heroCv.width, H=heroCv.height, S=heroDpr;
+  heroCtx.clearRect(0,0,W,H);
+  const N = (typeof State!=='undefined' && State.N) ? State.N : 8;
+  // Scrolling neurogram background: each row = one frequency channel; spikes drift right to left
+  const rows=Math.max(6,Math.min(22,N));
+  const rh=H/rows, now=t;
+  for(let r=0;r<rows;r++){
+    const cy=rh*(r+0.5);
+    const col=lerpColor(r/Math.max(rows-1,1));
+    // baseline
+    heroCtx.strokeStyle='rgba(255,255,255,.03)'; heroCtx.lineWidth=1*S;
+    heroCtx.beginPath(); heroCtx.moveTo(0,cy); heroCtx.lineTo(W,cy); heroCtx.stroke();
+    // spike columns: pseudo-random, drift left over time, denser toward the top (high freq)
+    const speed=(0.10+0.04*(r%3))*W;
+    const dens=6+ (r%4);
+    for(let k=0;k<dens;k++){
+      const seed=(k*97+r*131)%1000/1000;
+      let x=W - (((now*speed*(0.5+seed)) % (W+80*S)) + seed*W) % (W+80*S);
+      x=((x % (W+80*S))+(W+80*S))%(W+80*S);
+      const amp=0.4+0.6*Math.abs(Math.sin(now*1.4 + r*0.6 + k));
+      const h=rh*0.42*amp;
+      heroCtx.strokeStyle=hexRGBA(col,0.30+0.55*amp); heroCtx.lineWidth=1.7*S;
+      heroCtx.beginPath(); heroCtx.moveTo(x,cy-h); heroCtx.lineTo(x,cy+h); heroCtx.stroke();
+    }
+  }
+  // Drifting particles + links (neural-network feel)
+  const pts=heroParts.map(p=>{ p.x-=p.v*0.016; if(p.x<-0.05)p.x=1.05; 
+    const yy=p.y+Math.sin(now*0.6+p.ph)*0.02; return {x:p.x*W,y:yy*H,r:p.r*S,ph:p.ph}; });
+  for(let i=0;i<pts.length;i++){ for(let j=i+1;j<pts.length;j++){
+    const a=pts[i],b=pts[j],dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy);
+    if(d<90*S){ heroCtx.strokeStyle='rgba(22,185,166,'+(0.12*(1-d/(90*S))).toFixed(3)+')';
+      heroCtx.lineWidth=1*S; heroCtx.beginPath(); heroCtx.moveTo(a.x,a.y); heroCtx.lineTo(b.x,b.y); heroCtx.stroke(); }
+  }}
+  pts.forEach(p=>{ const pulse=0.5+0.5*Math.sin(now*2.2+p.ph);
+    heroCtx.fillStyle='rgba(125,201,63,'+(0.35+0.4*pulse).toFixed(3)+')';
+    heroCtx.beginPath(); heroCtx.arc(p.x,p.y,p.r*(0.8+0.6*pulse),0,6.2832); heroCtx.fill(); });
+  // Top shimmer scan band
+  const sy=((now*0.16)%1.3-0.15)*H;
+  const g=heroCtx.createLinearGradient(0,sy-30*S,0,sy+30*S);
+  g.addColorStop(0,'rgba(22,185,166,0)'); g.addColorStop(.5,'rgba(22,185,166,.06)'); g.addColorStop(1,'rgba(22,185,166,0)');
+  heroCtx.fillStyle=g; heroCtx.fillRect(0,sy-30*S,W,60*S);
+}
+function hexRGBA(rgbStr,a){ // accepts 'rgb(r,g,b)'
+  const m=/rgb\((\d+),(\d+),(\d+)\)/.exec(rgbStr); if(!m) return 'rgba(255,255,255,'+a+')';
+  return 'rgba('+m[1]+','+m[2]+','+m[3]+','+a+')';
+}
+function syncHeroBadges(){ const c=$('hbCh'); if(c) c.textContent=State.N;
+  const car=$('hbCar'); if(car) car.textContent = State.carrier==='noise'?'noise':'sine'; }
+
+/* ---------- Signal-pipeline animation (decorative, independent of audio) ---------- */
+let pipeCv,pipeCtx,pipeDpr=1,pipeRAF=null;
+const PIPE_COLS=['#2B2E83','#1E7CC2','#16B9A6','#7DC93F','#F2C14E'];
+function sizePipe(){
+  pipeCv=$('pipe'); if(!pipeCv) return;
+  pipeDpr=window.devicePixelRatio||1;
+  const r=pipeCv.getBoundingClientRect();
+  pipeCv.width=Math.max(1,r.width*pipeDpr); pipeCv.height=Math.max(1,r.height*pipeDpr);
+  pipeCtx=pipeCv.getContext('2d');
+}
+function startPipe(){ if(pipeRAF) return; sizePipe(); loopPipe(); }
+function loopPipe(){
+  pipeRAF=requestAnimationFrame(loopPipe);
+  if(!pipeCtx) return;
+  const W=pipeCv.width, H=pipeCv.height, t=performance.now()/1000, S=pipeDpr;
+  pipeCtx.clearRect(0,0,W,H);
+  const padY=18*S;
+  const x0=14*S, x1=W*0.30, x2=W*0.66, x3=W-14*S;
+  const midH=H-padY*2;
+  const lanes=5;
+  // Composite input waveform function
+  const wave=(px)=>{
+    const u=px*0.018/S + t*2.2;
+    return Math.sin(u)*0.5 + Math.sin(u*2.3+1)*0.28 + Math.sin(u*4.7)*0.16;
+  };
+  // Per-band "envelope" (slowly varying)
+  const envAt=(k,phase)=> (0.5+0.5*Math.sin(t*(1.1+k*0.5)+phase+k)) * (0.4+0.6*Math.abs(Math.sin(t*0.7+k)));
+
+  // ---- Left: input waveform ----
+  pipeCtx.lineWidth=2*S; pipeCtx.strokeStyle='rgba(234,240,251,.85)';
+  pipeCtx.beginPath();
+  for(let x=x0;x<=x1;x+=2*S){ const y=H/2 + wave(x)*midH*0.34; if(x===x0)pipeCtx.moveTo(x,y); else pipeCtx.lineTo(x,y); }
+  pipeCtx.stroke();
+  label('Input sound', x0, H-6*S);
+
+  // ---- Middle: band split + envelope ----
+  const laneGap=6*S, laneH=(midH-laneGap*(lanes-1))/lanes;
+  for(let k=0;k<lanes;k++){
+    const ly=padY + k*(laneH+laneGap);
+    const col=PIPE_COLS[k];
+    // slot
+    pipeCtx.fillStyle='rgba(255,255,255,.04)';
+    rr(x1+10*S,ly,x2-x1-20*S,laneH,laneH*0.3); pipeCtx.fill();
+    // Envelope fill (pulse flowing left to right)
+    const e=envAt(k,0);
+    pipeCtx.save();
+    rr(x1+10*S,ly,x2-x1-20*S,laneH,laneH*0.3); pipeCtx.clip();
+    const grd=pipeCtx.createLinearGradient(x1,0,x2,0);
+    grd.addColorStop(0,hexA(col,0.15)); grd.addColorStop(0.5,hexA(col,0.9)); grd.addColorStop(1,hexA(col,0.15));
+    pipeCtx.fillStyle=grd;
+    const flow=((t*0.4+k*0.2)%1);
+    const bw=(x2-x1-20*S);
+    const cx=x1+10*S + flow*bw;
+    pipeCtx.globalAlpha=0.35+0.65*e;
+    pipeCtx.fillRect(cx-bw*0.28, ly, bw*0.5, laneH);
+    pipeCtx.restore();
+    // Top thin stroke brightens with level
+    pipeCtx.globalAlpha=0.3+0.7*e; pipeCtx.strokeStyle=col; pipeCtx.lineWidth=1.4*S;
+    rr(x1+10*S,ly,x2-x1-20*S,laneH,laneH*0.3); pipeCtx.stroke(); pipeCtx.globalAlpha=1;
+  }
+  label('Split · envelope', x1+10*S, H-6*S);
+
+  // ---- Connectors ----
+  pipeCtx.strokeStyle='rgba(255,255,255,.12)'; pipeCtx.lineWidth=1*S;
+  drawArrow(x1, H/2, x1+10*S, H/2);
+  drawArrow(x2-10*S, H/2, x2+2*S, H/2);
+
+  // ---- Right: resynthesized output ----
+  pipeCtx.lineWidth=2*S;
+  const og=pipeCtx.createLinearGradient(x2,0,x3,0);
+  og.addColorStop(0,'#16B9A6'); og.addColorStop(1,'#F2C14E');
+  pipeCtx.strokeStyle=og;
+  pipeCtx.beginPath();
+  for(let x=x2+8*S;x<=x3;x+=2*S){
+    // Output = sum of envelope-modulated bands (stepped envelopes convey "channelization")
+    let s=0; for(let k=0;k<lanes;k++){ s+= envAt(k,0)*Math.sin((x*0.02/S)*(1+k*0.6)+t*3); }
+    const y=H/2 + (s/lanes)*midH*0.30;
+    if(x===x2+8*S)pipeCtx.moveTo(x,y); else pipeCtx.lineTo(x,y);
+  }
+  pipeCtx.stroke();
+  label('Resynthesize → stimulate', x2+8*S, H-6*S);
+
+  function label(txt,x,y){ pipeCtx.fillStyle='rgba(170,183,214,.7)'; pipeCtx.font=(11*S)+'px "IBM Plex Mono", monospace'; pipeCtx.fillText(txt,x,y); }
+  function rr(x,y,w,h,r){ if(w<=0||h<=0){pipeCtx.beginPath();return;} r=Math.max(0,Math.min(r,h/2,w/2)); pipeCtx.beginPath();
+    pipeCtx.moveTo(x+r,y); pipeCtx.arcTo(x+w,y,x+w,y+h,r); pipeCtx.arcTo(x+w,y+h,x,y+h,r);
+    pipeCtx.arcTo(x,y+h,x,y,r); pipeCtx.arcTo(x,y,x+w,y,r); pipeCtx.closePath(); }
+  function drawArrow(ax,ay,bx,by){ pipeCtx.beginPath(); pipeCtx.moveTo(ax,ay); pipeCtx.lineTo(bx,by); pipeCtx.stroke();
+    pipeCtx.beginPath(); pipeCtx.moveTo(bx,by); pipeCtx.lineTo(bx-5*S,by-4*S); pipeCtx.lineTo(bx-5*S,by+4*S); pipeCtx.closePath();
+    pipeCtx.fillStyle='rgba(255,255,255,.25)'; pipeCtx.fill(); }
+}
+function hexA(h,a){ const c=hex(h); return `rgba(${c[0]},${c[1]},${c[2]},${a})`; }
+
+/* ============================================================
+   Decorative animation module (journey / hair-cell comparison / card micro-animations) — shared rAF
+   ============================================================ */
+const PAL=['#2B2E83','#1E7CC2','#16B9A6','#7DC93F','#F2C14E'];
+const REDUCE = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const decor=[]; let decorRAF=null;
+function decorLoop(){ decorRAF=requestAnimationFrame(decorLoop);
+  const t=performance.now()/1000;
+  for(const d of decor){ try{ d.draw(t);}catch(e){} }
+}
+function fitCanvas(cv, cssH){
+  const dp=Math.min(2,window.devicePixelRatio||1);
+  const r=cv.getBoundingClientRect();
+  const w=Math.max(2,(r.width||cv.clientWidth||300)), h=Math.max(2,(cssH||r.height||120));
+  cv.width=w*dp; cv.height=h*dp; const c=cv.getContext('2d'); c.setTransform(dp,0,0,dp,0,0);
+  return {c,w,h};
+}
+function startDecor(){ if(!decorRAF) decorLoop(); }
+function rgba(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
+function easeInOut(x){ return x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2; }
+
+/* ---------- Journey of sound: pipeline dots ---------- */
+function buildJourney(){
+  const cv=$('journeyCv'); if(!cv) return;
+  const stages=[
+    {x:0.10, emoji:'🎙️', label:'Sound'},
+    {x:0.38, emoji:'🎛️', label:'Processor'},
+    {x:0.66, emoji:'⚡', label:'Electrodes'},
+    {x:0.90, emoji:'🧠', label:'Brain'}
+  ];
+  // Dots: input segment (many, thin) and output segment (few, thick)
+  let pulses=[]; let last=0;
+  function draw(t){
+    const {c,w,h}=fitCanvas(cv, cv.clientHeight||260);
+    c.clearRect(0,0,w,h);
+    const yMid=h*0.5, x0=w*0.06, x1=w*0.94;
+    const sx=stages.map(s=>x0+(x1-x0)*((s.x-0.10)/0.80));
+    // baseline
+    c.strokeStyle='rgba(255,255,255,.08)'; c.lineWidth=2;
+    c.beginPath(); c.moveTo(x0,yMid); c.lineTo(x1,yMid); c.stroke();
+    // Before the processor: many thin "information lines" converge; after it: a few thick lines
+    const procX=sx[1], elecX=sx[2];
+    for(let i=0;i<14;i++){ const yy=yMid+(i-6.5)*(h*0.05);
+      c.strokeStyle=rgba(PAL[i%5],0.16); c.lineWidth=1;
+      c.beginPath(); c.moveTo(x0,yy); c.lineTo(procX,yMid); c.stroke(); }
+    for(let i=0;i<6;i++){ const yy=yMid+(i-2.5)*(h*0.06);
+      c.strokeStyle=rgba(PAL[i%5],0.5); c.lineWidth=2.4;
+      c.beginPath(); c.moveTo(procX,yMid); c.lineTo(elecX,yy); c.stroke();
+      c.beginPath(); c.moveTo(elecX,yy); c.lineTo(sx[3],yMid); c.stroke(); }
+    // Spawn dots
+    if(!REDUCE && t-last>0.28){ last=t; pulses.push({p:0,seg:'in',r:2.2+Math.random()*1.4}); }
+    if(REDUCE && pulses.length===0){ pulses=[{p:.2,seg:'in'},{p:.6,seg:'out'}]; }
+    // Update + draw
+    const speed=0.42;
+    pulses.forEach(pu=>{ if(!REDUCE) pu.p+=0.016*speed*(pu.seg==='in'?1.4:1); });
+    pulses=pulses.filter(pu=>pu.p<1.02);
+    pulses.forEach(pu=>{
+      let x,y;
+      if(pu.seg==='in'){ x=x0+(procX-x0)*pu.p; y=yMid; if(pu.p>=1){ pu.seg='out'; pu.p=0; if(Math.random()<0.6) pu._drop=true; } }
+      if(pu.seg==='out'){ x=procX+(x1-procX)*pu.p; y=yMid; }
+      if(pu._drop) return;
+      const col= pu.seg==='in' ? '#7DC93F' : '#16B9A6';
+      const rr=(pu.r||2.6)*(pu.seg==='out'?1.5:1);
+      c.fillStyle=col; c.shadowColor=col; c.shadowBlur=10;
+      c.beginPath(); c.arc(x,y,rr,0,6.2832); c.fill(); c.shadowBlur=0;
+    });
+    // Discharge tick marks at the electrodes
+    for(let k=0;k<6;k++){ const yy=yMid+(k-2.5)*(h*0.06);
+      const a=0.3+0.5*Math.abs(Math.sin(t*3+k)); c.strokeStyle=rgba('#F2C14E',a*0.7); c.lineWidth=1.5;
+      c.beginPath(); c.moveTo(elecX,yy-4); c.lineTo(elecX,yy+4); c.stroke(); }
+    // Brain soft glow
+    const bg=c.createRadialGradient(sx[3],yMid,2,sx[3],yMid,26+4*Math.sin(t*2));
+    bg.addColorStop(0,'rgba(22,185,166,.5)'); bg.addColorStop(1,'rgba(22,185,166,0)');
+    c.fillStyle=bg; c.beginPath(); c.arc(sx[3],yMid,26,0,6.2832); c.fill();
+    // Stations
+    stages.forEach((s,i)=>{
+      const x=sx[i];
+      c.fillStyle='rgba(21,31,54,.95)'; c.strokeStyle='rgba(255,255,255,.18)'; c.lineWidth=1.5;
+      c.beginPath(); c.arc(x,yMid,18,0,6.2832); c.fill(); c.stroke();
+      const pulse=1+0.12*Math.sin(t*2.4+i);
+      c.strokeStyle=rgba('#16B9A6',0.35); c.lineWidth=1.5;
+      c.beginPath(); c.arc(x,yMid,18*pulse+3,0,6.2832); c.stroke();
+      c.font='16px system-ui'; c.textAlign='center'; c.textBaseline='middle';
+      c.fillText(s.emoji,x,yMid);
+      c.fillStyle='#AAB7D6'; c.font='600 12px "Inter",system-ui'; c.fillText(s.label,x,yMid+34);
+    });
+    // Segment labels
+    c.fillStyle='rgba(125,201,63,.8)'; c.font='10px "IBM Plex Mono",monospace'; c.textAlign='center';
+    c.fillText('Information-rich', (x0+procX)/2, yMid-h*0.34);
+    c.fillStyle='rgba(22,185,166,.85)';
+    c.fillText('Compressed to few channels', (procX+x1)/2, yMid-h*0.34);
+  }
+  decor.push({draw});
+}
+
+/* ---------- Hair cells vs electrodes ---------- */
+function buildHairVs(){
+  const hc=$('hairCv'), ec=$('elecCv'); if(!hc||!ec) return;
+  // Static point positions (hair cells: dense grid; electrodes: a single row)
+  let hair=null, elec=null;
+  function ensure(w,h,which){
+    if(which==='hair'){ if(hair&&hair.w===w) return hair; const pts=[];
+      const cols=60, rows=14;
+      for(let r=0;r<rows;r++)for(let cI=0;cI<cols;cI++){ if(Math.random()<0.06)continue;
+        pts.push({x:6+(w-12)*(cI/(cols-1)), y:8+(h-16)*(r/(rows-1)), ph:Math.random()*6.28, col:lerpColor(cI/(cols-1))}); }
+      hair={w,pts}; return hair; }
+    else { if(elec&&elec.w===w) return elec; const pts=[]; const n=22;
+      for(let i=0;i<n;i++){ pts.push({x:12+(w-24)*(i/(n-1)), y:h/2, col:lerpColor(i/(n-1))}); }
+      elec={w,pts}; return elec; }
+  }
+  function drawHair(t){ const {c,w,h}=fitCanvas(hc, hc.clientHeight||120); const H=ensure(w,h,'hair');
+    c.clearRect(0,0,w,h);
+    H.pts.forEach(p=>{ const tw=0.5+0.5*Math.sin(t*2+p.ph);
+      c.fillStyle=rgba(rgbToHex(p.col),0.35+0.5*tw);
+      c.beginPath(); c.arc(p.x,p.y,1.1,0,6.2832); c.fill(); });
+  }
+  function drawElec(t){ const {c,w,h}=fitCanvas(ec, ec.clientHeight||120); const E=ensure(w,h,'elec');
+    c.clearRect(0,0,w,h);
+    E.pts.forEach((p,i)=>{ const lit=0.5+0.5*Math.sin(t*3 - i*0.5);
+      c.strokeStyle=rgba(rgbToHex(p.col),0.25); c.lineWidth=1;
+      c.beginPath(); c.moveTo(p.x,10); c.lineTo(p.x,h-10); c.stroke();
+      c.fillStyle=rgbToHex(p.col); c.shadowColor=rgbToHex(p.col); c.shadowBlur=6+10*lit;
+      c.beginPath(); c.arc(p.x,p.y,3.2+2*lit,0,6.2832); c.fill(); c.shadowBlur=0; });
+  }
+  decor.push({draw:drawHair}); decor.push({draw:drawElec});
+  // Number count-up (triggered when in view)
+  countUpOnView($('hairNum'), 15000, '≈', '');
+  countUpOnView($('elecNum'), 22, '', '');
+}
+function rgbToHex(rgb){ const m=/rgb\((\d+),\s*(\d+),\s*(\d+)\)/.exec(rgb); if(!m) return '#16B9A6';
+  return '#'+[m[1],m[2],m[3]].map(x=>(+x).toString(16).padStart(2,'0')).join(''); }
+
+/* ---------- Count-up when scrolled into view ---------- */
+function countUpOnView(el, target, pre='', suf=''){
+  if(!el) return;
+  const run=()=>{ const t0=performance.now(), dur=1400;
+    (function s(){ const k=Math.min(1,(performance.now()-t0)/dur); const e=1-Math.pow(1-k,3);
+      const v=Math.round(target*e); el.textContent=pre+v.toLocaleString('en-US')+suf;
+      if(k<1) requestAnimationFrame(s); })(); };
+  if(REDUCE || !('IntersectionObserver' in window)){ el.textContent=pre+target.toLocaleString('en-US')+suf; return; }
+  const io=new IntersectionObserver((es)=>{ es.forEach(e=>{ if(e.isIntersecting){ run(); io.disconnect(); } }); },{threshold:.4});
+  io.observe(el);
+}
+
+/* ---------- Limitation-card micro-animations ---------- */
+function buildCardVizzes(){
+  document.querySelectorAll('.cardviz').forEach(cv=>{
+    const kind=cv.dataset.cv;
+    const draw=makeCardViz(kind, cv);
+    if(draw) decor.push({draw});
+  });
+}
+function makeCardViz(kind, cv){
+  if(kind==='pitch') return (t)=>{ const {c,w,h}=fitCanvas(cv); c.clearRect(0,0,w,h);
+    // Left: varied pitch notes; right: flattened
+    const n=9, midX=w*0.5;
+    for(let i=0;i<n;i++){ const x=8+(w-16)*(i/(n-1));
+      const orig=h*0.5 - Math.sin(i*0.9+ t*0.6)*h*0.30;
+      const flat=h*0.5 - Math.sin(i*0.9)*h*0.30*Math.max(0,1-(x-8)/(w-16))*0.25 - h*0.02;
+      const mix = x<midX ? orig : flat;
+      const col = x<midX ? lerpColor(i/(n-1)) : 'rgba(120,132,163,.8)';
+      c.fillStyle=col; c.beginPath(); c.arc(x,mix,3.2,0,6.2832); c.fill();
+      if(i>0){ const px=8+(w-16)*((i-1)/(n-1)); const pmid = px<midX? h*0.5-Math.sin((i-1)*0.9+t*0.6)*h*0.30 : h*0.5-h*0.02;
+        c.strokeStyle=rgba('#16B9A6', x<midX?0.4:0.15); c.lineWidth=1.4;
+        c.beginPath(); c.moveTo(px,pmid); c.lineTo(x,mix); c.stroke(); } }
+    c.strokeStyle='rgba(255,255,255,.10)'; c.setLineDash([3,3]); c.beginPath(); c.moveTo(midX,4); c.lineTo(midX,h-4); c.stroke(); c.setLineDash([]);
+  };
+  if(kind==='tone') return (t)=>{ const {c,w,h}=fitCanvas(cv); c.clearRect(0,0,w,h);
+    const midX=w*0.5;
+    const curve=(fn,col,collapse)=>{ c.strokeStyle=col; c.lineWidth=2; c.beginPath();
+      for(let x=6;x<=w-6;x+=3){ const u=(x-6)/(w-12);
+        let y = h*0.5 - fn(u)*h*0.32;
+        if(x>midX){ const k=(x-midX)/(w-6-midX); y = y*(1-k)+ (h*0.5 - 0.04*h)*k; } // collapse toward flat on the right
+        (x===6)?c.moveTo(x,y):c.lineTo(x,y); } c.stroke(); };
+    curve(u=>Math.sin(u*1.3-0.3), rgba('#7DC93F',.9));  // rising tone
+    curve(u=>-Math.sin(u*1.3-0.3), rgba('#F2C14E',.9)); // falling tone
+    c.strokeStyle='rgba(255,255,255,.10)'; c.setLineDash([3,3]); c.beginPath(); c.moveTo(midX,4); c.lineTo(midX,h-4); c.stroke(); c.setLineDash([]);
+    c.fillStyle='rgba(170,183,214,.6)'; c.font='9px "IBM Plex Mono",monospace';
+    c.textAlign='left'; c.fillText('Original', 8,12); c.textAlign='right'; c.fillText('Vocoded', w-8,12);
+  };
+  if(kind==='noise') return (t)=>{ const {c,w,h}=fitCanvas(cv); c.clearRect(0,0,w,h);
+    // Clean waveform + gradually engulfing noise
+    c.strokeStyle=rgba('#16B9A6',.9); c.lineWidth=2; c.beginPath();
+    for(let x=0;x<=w;x+=2){ const y=h*0.5 - Math.sin(x*0.06 + t*3)*h*0.22; (x===0)?c.moveTo(x,y):c.lineTo(x,y);} c.stroke();
+    const sweep=(t*0.25)%1; // noise covers from the left
+    for(let i=0;i<120;i++){ const x=Math.random()*w; if(x> w*sweep+ w*0.15) continue;
+      const y=Math.random()*h; c.fillStyle=rgba('#F2895E',0.12+Math.random()*0.18);
+      c.fillRect(x,y,1.5,1.5); }
+    c.fillStyle=rgba('#F2895E',.85); c.fillRect(w*sweep,0,1.5,h);
+  };
+  if(kind==='locate') return (t)=>{ const {c,w,h}=fitCanvas(cv); c.clearRect(0,0,w,h);
+    const cx=w*0.5, cy=h*0.5;
+    // head
+    c.strokeStyle='rgba(234,240,251,.5)'; c.lineWidth=2; c.beginPath(); c.arc(cx,cy,10,0,6.2832); c.stroke();
+    // Orbiting sound source
+    const ang=t*1.2; const r=Math.min(w,h)*0.36; const sxx=cx+Math.cos(ang)*r, syy=cy+Math.sin(ang)*r*0.7;
+    c.fillStyle=rgba('#F2C14E',.9); c.shadowColor='#F2C14E'; c.shadowBlur=10; c.beginPath(); c.arc(sxx,syy,4,0,6.2832); c.fill(); c.shadowBlur=0;
+    // Question marks on both sides (localization confusion)
+    c.font='700 13px system-ui'; c.textAlign='center'; c.textBaseline='middle';
+    const blink=0.4+0.6*Math.abs(Math.sin(t*2));
+    c.fillStyle=rgba('#6C7CA3',blink); c.fillText('?',cx-22,cy); c.fillText('?',cx+22,cy);
+    // L / R wobble arrow
+    const sw=Math.sin(t*2); c.strokeStyle=rgba('#16B9A6',.6); c.lineWidth=2;
+    c.beginPath(); c.moveTo(cx-6,cy+18); c.lineTo(cx-6+sw*6,cy+18); c.stroke();
+  };
+  if(kind==='learn') return (t)=>{ const {c,w,h}=fitCanvas(cv); c.clearRect(0,0,w,h);
+    // Small neural graph: nodes + edges that light up / rewire over time
+    const nodes=[[0.15,0.3],[0.15,0.7],[0.45,0.5],[0.72,0.28],[0.72,0.72],[0.9,0.5]].map(p=>({x:p[0]*w,y:p[1]*h}));
+    const edges=[[0,2],[1,2],[2,3],[2,4],[3,5],[4,5],[1,4],[0,3]];
+    edges.forEach((e,i)=>{ const a=nodes[e[0]],b=nodes[e[1]]; const lit=0.5+0.5*Math.sin(t*1.6 - i*0.8);
+      c.strokeStyle=rgba('#16B9A6',0.12+0.5*lit); c.lineWidth=1+1.4*lit;
+      c.beginPath(); c.moveTo(a.x,a.y); c.lineTo(b.x,b.y); c.stroke();
+      // Pulse flowing along the edge
+      const pp=(t*0.4+i*0.13)%1; const px=a.x+(b.x-a.x)*pp, py=a.y+(b.y-a.y)*pp;
+      c.fillStyle=rgba('#7DC93F',0.7*lit); c.beginPath(); c.arc(px,py,1.6,0,6.2832); c.fill(); });
+    nodes.forEach((nd,i)=>{ const pulse=0.5+0.5*Math.sin(t*2+i); c.fillStyle=rgba('#EAF0FB',0.5+0.4*pulse);
+      c.beginPath(); c.arc(nd.x,nd.y,2.6,0,6.2832); c.fill(); });
+  };
+  if(kind==='cross') return (t)=>{ const {c,w,h}=fitCanvas(cv); c.clearRect(0,0,w,h);
+    const n=8, cy=h*0.5; const active=Math.floor((t*0.8)%n);
+    for(let i=0;i<n;i++){ const x=10+(w-20)*(i/(n-1)); const d=Math.abs(i-active);
+      const glow=Math.max(0, 1 - d*0.55); // current spreads to neighbors
+      const col=lerpColor(i/(n-1));
+      c.strokeStyle=rgba(rgbToHex(col),0.2); c.lineWidth=1; c.beginPath(); c.moveTo(x,12); c.lineTo(x,h-12); c.stroke();
+      if(glow>0){ c.fillStyle=rgba(rgbToHex(col),0.15*glow); c.beginPath(); c.arc(x,cy,10*glow,0,6.2832); c.fill(); }
+      c.fillStyle=rgba(rgbToHex(col),0.4+0.6*glow); c.shadowColor=rgbToHex(col); c.shadowBlur=glow>0.6?12:0;
+      c.beginPath(); c.arc(x,cy,3+2.4*glow,0,6.2832); c.fill(); c.shadowBlur=0; }
+    c.fillStyle='rgba(242,137,94,.75)'; c.font='9px "IBM Plex Mono",monospace'; c.textAlign='center';
+    c.fillText('Current spread → neighbors light up', w/2, h-4);
+  };
+  return null;
+}
+
+/* ---------- Scroll reveal ---------- */
+function initReveal(){
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce || !('IntersectionObserver' in window)) return;
+  const sel='.sec-head, .flow .step, .card, .stat, .timeline .t, .kids-copy, .pipe-wrap, .quiz, .cochlea-fig, .journey, .hairvs .hv';
+  const els=[...document.querySelectorAll(sel)];
+  els.forEach((el,i)=>{ el.classList.add('reveal'); el.style.transitionDelay=(Math.min(i%6,5)*0.05)+'s'; });
+  const io=new IntersectionObserver((ents)=>{
+    ents.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  },{threshold:0.12, rootMargin:'0px 0px -8% 0px'});
+  els.forEach(el=>io.observe(el));
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  buildHeroViz(); bind(); sizeCanvas(); updateAxis(); startViz();
+  startPipe(); initReveal();
+  buildJourney(); buildHairVs(); buildCardVizzes(); startDecor();
+  window.addEventListener('resize',()=>{ sizePipe(); });
+});
+</script>
+</body>
+</html>

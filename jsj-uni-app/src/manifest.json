@@ -1,0 +1,26 @@
+{
+  "name": "JSJ",
+  "appid": "",
+  "description": "JSJ UniApp 多端应用",
+  "versionName": "1.0.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "app-plus": {
+    "usingComponents": true,
+    "splashscreen": {
+      "alwaysShowBeforeRender": true,
+      "waiting": true,
+      "autoclose": true,
+      "delay": 0
+    }
+  },
+  "mp-weixin": {
+    "appid": "",
+    "setting": { "urlCheck": false },
+    "usingComponents": true
+  },
+  "h5": {
+    "title": "JSJ",
+    "router": { "mode": "hash" }
+  }
+}

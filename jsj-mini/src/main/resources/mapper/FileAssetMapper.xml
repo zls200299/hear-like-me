@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhs.dao.FileAssetDao">
+	<resultMap id="result_FileAssetMapper.xml" type="com.zhs.model.FileAsset">
+		<id column="id" property="id" />
+		<result column="asset_type" property="assetType" />
+		<result column="bucket_name" property="bucketName" />
+		<result column="object_key" property="objectKey" />
+		<result column="owner_user_id" property="ownerUserId" />
+		<result column="parent_asset_id" property="parentAssetId" />
+		<result column="storage_provider" property="storageProvider" />
+		<result column="original_filename" property="originalFilename" />
+		<result column="file_ext" property="fileExt" />
+		<result column="mime_type" property="mimeType" />
+		<result column="file_size" property="fileSize" />
+		<result column="sha256" property="sha256" />
+		<result column="duration_ms" property="durationMs" />
+		<result column="sample_rate" property="sampleRate" />
+		<result column="audio_channels" property="audioChannels" />
+		<result column="bit_depth" property="bitDepth" />
+		<result column="audio_codec" property="audioCodec" />
+		<result column="image_width" property="imageWidth" />
+		<result column="image_height" property="imageHeight" />
+		<result column="access_mode" property="accessMode" />
+		<result column="status" property="status" />
+		<result column="expire_time" property="expireTime" />
+		<result column="delete_time" property="deleteTime" />
+		<result column="create_time" property="createTime" />
+		<result column="update_time" property="updateTime" />
+		<result column="is_delete" property="isDelete" />
+	</resultMap>
+	<!-- 数据库中表名为:file_asset的列名 -->
+	<sql id="file_asset_Column">
+		id,owner_user_id,parent_asset_id,asset_type,storage_provider,bucket_name,object_key,original_filename,file_ext,mime_type,file_size,sha256,duration_ms,sample_rate,audio_channels,bit_depth,audio_codec,image_width,image_height,access_mode,status,expire_time,delete_time,create_time,update_time,is_delete
+	</sql>
+
+	<!-- 通过FileAsset的id获得对应数据库中表的数据对象 -->
+	<select id="selectFileAssetById" parameterType="Long" resultMap="result_FileAssetMapper.xml">
+		select
+		<include refid="file_asset_Column" />
+		from file_asset
+		where id = #{id}
+	</select>
+	
+	<!-- 获得一个FileAsset对象,以参数FileAsset对象中不为空的属性作为条件进行查询 -->
+	<select id="selectFileAssetObjSingle" parameterType="com.zhs.model.FileAsset" resultMap="result_FileAssetMapper.xml">
+		select
+		<include refid="file_asset_Column" />
+		from file_asset
+		<where>
+		<if test="ownerUserId != null"> and owner_user_id = #{ownerUserId}</if>
+		<if test="parentAssetId != null"> and parent_asset_id = #{parentAssetId}</if>
+		<if test="storageProvider != null"> and storage_provider = #{storageProvider}</if>
+		<if test="originalFilename != null"> and original_filename = #{originalFilename}</if>
+		<if test="fileExt != null"> and file_ext = #{fileExt}</if>
+		<if test="mimeType != null"> and mime_type = #{mimeType}</if>
+		<if test="fileSize != null"> and file_size = #{fileSize}</if>
+		<if test="sha256 != null"> and sha256 = #{sha256}</if>
+		<if test="durationMs != null"> and duration_ms = #{durationMs}</if>
+		<if test="sampleRate != null"> and sample_rate = #{sampleRate}</if>
+		<if test="audioChannels != null"> and audio_channels = #{audioChannels}</if>
+		<if test="bitDepth != null"> and bit_depth = #{bitDepth}</if>
+		<if test="audioCodec != null"> and audio_codec = #{audioCodec}</if>
+		<if test="imageWidth != null"> and image_width = #{imageWidth}</if>
+		<if test="imageHeight != null"> and image_height = #{imageHeight}</if>
+		<if test="accessMode != null"> and access_mode = #{accessMode}</if>
+		<if test="status != null"> and status = #{status}</if>
+		<if test="expireTime != null"> and expire_time = #{expireTime}</if>
+		<if test="deleteTime != null"> and delete_time = #{deleteTime}</if>
+		<if test="createTime != null"> and create_time = #{createTime}</if>
+		<if test="updateTime != null"> and update_time = #{updateTime}</if>
+		<if test="isDelete != null"> and is_delete = #{isDelete}</if>
+		<if test="assetType != null"> and asset_type = #{assetType}</if>
+		<if test="bucketName != null"> and bucket_name = #{bucketName}</if>
+		<if test="objectKey != null"> and object_key = #{objectKey}</if>
+		<if test="id != null"> and id = #{id} </if>
+		</where>
+		LIMIT 1
+	</select>
+	
+	<!-- 获得FileAsset对象,以参数FileAsset对象中不为空的属性作为条件进行查询 -->
+	<select id="selectFileAssetByObj" parameterType="com.zhs.model.FileAsset" resultMap="result_FileAssetMapper.xml">
+		select
+		<include refid="file_asset_Column" />
+		from file_asset
+		<where>
+		<if test="ownerUserId != null"> and owner_user_id = #{ownerUserId}</if>
+		<if test="parentAssetId != null"> and parent_asset_id = #{parentAssetId}</if>
+		<if test="storageProvider != null"> and storage_provider = #{storageProvider}</if>
+		<if test="originalFilename != null"> and original_filename = #{originalFilename}</if>
+		<if test="fileExt != null"> and file_ext = #{fileExt}</if>
+		<if test="mimeType != null"> and mime_type = #{mimeType}</if>
+		<if test="fileSize != null"> and file_size = #{fileSize}</if>
+		<if test="sha256 != null"> and sha256 = #{sha256}</if>
+		<if test="durationMs != null"> and duration_ms = #{durationMs}</if>
+		<if test="sampleRate != null"> and sample_rate = #{sampleRate}</if>
+		<if test="audioChannels != null"> and audio_channels = #{audioChannels}</if>
+		<if test="bitDepth != null"> and bit_depth = #{bitDepth}</if>
+		<if test="audioCodec != null"> and audio_codec = #{audioCodec}</if>
+		<if test="imageWidth != null"> and image_width = #{imageWidth}</if>
+		<if test="imageHeight != null"> and image_height = #{imageHeight}</if>
+		<if test="accessMode != null"> and access_mode = #{accessMode}</if>
+		<if test="status != null"> and status = #{status}</if>
+		<if test="expireTime != null"> and expire_time = #{expireTime}</if>
+		<if test="deleteTime != null"> and delete_time = #{deleteTime}</if>
+		<if test="createTime != null"> and create_time = #{createTime}</if>
+		<if test="updateTime != null"> and update_time = #{updateTime}</if>
+		<if test="isDelete != null"> and is_delete = #{isDelete}</if>
+		<if test="assetType != null"> and asset_type = #{assetType}</if>
+		<if test="bucketName != null"> and bucket_name = #{bucketName}</if>
+		<if test="objectKey != null"> and object_key = #{objectKey}</if>
+		<if test="id != null"> and id = #{id} </if>
+		</where>
+	</select>
+
+	<!-- 将FileAsset插入到对应数据库的表中,包括属性值为null的数据 -->
+	<insert id="insertFileAsset" parameterType="com.zhs.model.FileAsset">
+		insert into 
+		file_asset (id,owner_user_id,parent_asset_id,asset_type,storage_provider,bucket_name,object_key,original_filename,file_ext,mime_type,file_size,sha256,duration_ms,sample_rate,audio_channels,bit_depth,audio_codec,image_width,image_height,access_mode,status,expire_time,delete_time,create_time,update_time,is_delete) 
+		values(#{id},#{ownerUserId},#{parentAssetId},#{assetType},#{storageProvider},#{bucketName},#{objectKey},#{originalFilename},#{fileExt},#{mimeType},#{fileSize},#{sha256},#{durationMs},#{sampleRate},#{audioChannels},#{bitDepth},#{audioCodec},#{imageWidth},#{imageHeight},#{accessMode},#{status},#{expireTime},#{deleteTime},#{createTime},#{updateTime},#{isDelete})
+	</insert>
+
+	<!-- 将FileAsset中属性值不为null的数据,插入到对应数据库的表中 -->
+	<insert id="insertNotNullFileAsset" parameterType="com.zhs.model.FileAsset">
+		insert into file_asset
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="id != null">id,</if>
+			<if test="ownerUserId != null">owner_user_id,</if>
+			<if test="parentAssetId != null">parent_asset_id,</if>
+			<if test="assetType != null">asset_type,</if>
+			<if test="storageProvider != null">storage_provider,</if>
+			<if test="bucketName != null">bucket_name,</if>
+			<if test="objectKey != null">object_key,</if>
+			<if test="originalFilename != null">original_filename,</if>
+			<if test="fileExt != null">file_ext,</if>
+			<if test="mimeType != null">mime_type,</if>
+			<if test="fileSize != null">file_size,</if>
+			<if test="sha256 != null">sha256,</if>
+			<if test="durationMs != null">duration_ms,</if>
+			<if test="sampleRate != null">sample_rate,</if>
+			<if test="audioChannels != null">audio_channels,</if>
+			<if test="bitDepth != null">bit_depth,</if>
+			<if test="audioCodec != null">audio_codec,</if>
+			<if test="imageWidth != null">image_width,</if>
+			<if test="imageHeight != null">image_height,</if>
+			<if test="accessMode != null">access_mode,</if>
+			<if test="status != null">status,</if>
+			<if test="expireTime != null">expire_time,</if>
+			<if test="deleteTime != null">delete_time,</if>
+			<if test="createTime != null">create_time,</if>
+			<if test="updateTime != null">update_time,</if>
+			<if test="isDelete != null">is_delete,</if>
+		</trim>
+		<trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="id != null">#{id},</if>
+			<if test="ownerUserId != null">#{ownerUserId},</if>
+			<if test="parentAssetId != null">#{parentAssetId},</if>
+			<if test="assetType != null">#{assetType},</if>
+			<if test="storageProvider != null">#{storageProvider},</if>
+			<if test="bucketName != null">#{bucketName},</if>
+			<if test="objectKey != null">#{objectKey},</if>
+			<if test="originalFilename != null">#{originalFilename},</if>
+			<if test="fileExt != null">#{fileExt},</if>
+			<if test="mimeType != null">#{mimeType},</if>
+			<if test="fileSize != null">#{fileSize},</if>
+			<if test="sha256 != null">#{sha256},</if>
+			<if test="durationMs != null">#{durationMs},</if>
+			<if test="sampleRate != null">#{sampleRate},</if>
+			<if test="audioChannels != null">#{audioChannels},</if>
+			<if test="bitDepth != null">#{bitDepth},</if>
+			<if test="audioCodec != null">#{audioCodec},</if>
+			<if test="imageWidth != null">#{imageWidth},</if>
+			<if test="imageHeight != null">#{imageHeight},</if>
+			<if test="accessMode != null">#{accessMode},</if>
+			<if test="status != null">#{status},</if>
+			<if test="expireTime != null">#{expireTime},</if>
+			<if test="deleteTime != null">#{deleteTime},</if>
+			<if test="createTime != null">#{createTime},</if>
+			<if test="updateTime != null">#{updateTime},</if>
+			<if test="isDelete != null">#{isDelete},</if>
+		</trim>
+	</insert>
+
+	<!-- 将FileAsset批量插入到对应数据库的表中 -->
+	<insert id="insertFileAssetByBatch" parameterType="ArrayList">
+		insert into file_asset(id,owner_user_id,parent_asset_id,asset_type,storage_provider,bucket_name,object_key,original_filename,file_ext,mime_type,file_size,sha256,duration_ms,sample_rate,audio_channels,bit_depth,audio_codec,image_width,image_height,access_mode,status,expire_time,delete_time,create_time,update_time,is_delete) values
+		<foreach collection="list" item="item" index="index"
+			separator=",">
+			(#{id},#{ownerUserId},#{parentAssetId},#{assetType},#{storageProvider},#{bucketName},#{objectKey},#{originalFilename},#{fileExt},#{mimeType},#{fileSize},#{sha256},#{durationMs},#{sampleRate},#{audioChannels},#{bitDepth},#{audioCodec},#{imageWidth},#{imageHeight},#{accessMode},#{status},#{expireTime},#{deleteTime},#{createTime},#{updateTime},#{isDelete})
+		</foreach>
+	</insert>
+	
+	<!-- 通过FileAsset的id将数据库表中对应的数据删除 -->
+	<delete id="deleteFileAssetById" parameterType="Long">
+		delete from file_asset
+		where  id  =  #{id}
+	</delete>
+
+
+
+	<!-- 通过FileAsset的id将FileAsset的数据更新到数据库中对应的表,包括值null的数据 -->
+	<update id="updateFileAssetById" parameterType="com.zhs.model.FileAsset"> 
+		update file_asset set
+		<set>
+			owner_user_id = #{ownerUserId} , 
+			parent_asset_id = #{parentAssetId} , 
+			asset_type = #{assetType} , 
+			storage_provider = #{storageProvider} , 
+			bucket_name = #{bucketName} , 
+			object_key = #{objectKey} , 
+			original_filename = #{originalFilename} , 
+			file_ext = #{fileExt} , 
+			mime_type = #{mimeType} , 
+			file_size = #{fileSize} , 
+			sha256 = #{sha256} , 
+			duration_ms = #{durationMs} , 
+			sample_rate = #{sampleRate} , 
+			audio_channels = #{audioChannels} , 
+			bit_depth = #{bitDepth} , 
+			audio_codec = #{audioCodec} , 
+			image_width = #{imageWidth} , 
+			image_height = #{imageHeight} , 
+			access_mode = #{accessMode} , 
+			status = #{status} , 
+			expire_time = #{expireTime} , 
+			delete_time = #{deleteTime} , 
+			create_time = #{createTime} , 
+			update_time = #{updateTime} , 
+			is_delete = #{isDelete} , 
+		</set>
+		where id = #{id}
+	</update>
+	
+	<!-- 通过FileAsset的id将FileAsset中属性值不为null的数据更新到数据库对应的表中 -->
+	<update id="updateNotNullFileAssetById" parameterType="com.zhs.model.FileAsset">
+		update file_asset
+		<set>
+					<if test="ownerUserId != null">owner_user_id = #{ownerUserId},</if>
+					<if test="parentAssetId != null">parent_asset_id = #{parentAssetId},</if>
+					<if test="assetType != null">asset_type = #{assetType},</if>
+					<if test="storageProvider != null">storage_provider = #{storageProvider},</if>
+					<if test="bucketName != null">bucket_name = #{bucketName},</if>
+					<if test="objectKey != null">object_key = #{objectKey},</if>
+					<if test="originalFilename != null">original_filename = #{originalFilename},</if>
+					<if test="fileExt != null">file_ext = #{fileExt},</if>
+					<if test="mimeType != null">mime_type = #{mimeType},</if>
+					<if test="fileSize != null">file_size = #{fileSize},</if>
+					<if test="sha256 != null">sha256 = #{sha256},</if>
+					<if test="durationMs != null">duration_ms = #{durationMs},</if>
+					<if test="sampleRate != null">sample_rate = #{sampleRate},</if>
+					<if test="audioChannels != null">audio_channels = #{audioChannels},</if>
+					<if test="bitDepth != null">bit_depth = #{bitDepth},</if>
+					<if test="audioCodec != null">audio_codec = #{audioCodec},</if>
+					<if test="imageWidth != null">image_width = #{imageWidth},</if>
+					<if test="imageHeight != null">image_height = #{imageHeight},</if>
+					<if test="accessMode != null">access_mode = #{accessMode},</if>
+					<if test="status != null">status = #{status},</if>
+					<if test="expireTime != null">expire_time = #{expireTime},</if>
+					<if test="deleteTime != null">delete_time = #{deleteTime},</if>
+					<if test="createTime != null">create_time = #{createTime},</if>
+					<if test="updateTime != null">update_time = #{updateTime},</if>
+					<if test="isDelete != null">is_delete = #{isDelete},</if>
+		</set>
+		where id = #{id}
+	</update>
+
+</mapper>

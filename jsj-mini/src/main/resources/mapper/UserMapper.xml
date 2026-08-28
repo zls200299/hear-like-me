@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhs.dao.UserDao">
+	<resultMap id="result_UserMapper.xml" type="com.zhs.model.User">
+		<id column="id" property="id" />
+		<result column="nickname" property="nickname" />
+		<result column="avatar" property="avatar" />
+		<result column="bio" property="bio" />
+		<result column="status" property="status" />
+		<result column="source_type" property="sourceType" />
+		<result column="register_time" property="registerTime" />
+		<result column="last_active_time" property="lastActiveTime" />
+		<result column="create_time" property="createTime" />
+		<result column="update_time" property="updateTime" />
+		<result column="is_delete" property="isDelete" />
+	</resultMap>
+	<!-- 数据库中表名为:user的列名 -->
+	<sql id="user_Column">
+		id,nickname,avatar,bio,status,source_type,register_time,last_active_time,create_time,update_time,is_delete
+	</sql>
+
+	<!-- 通过User的id获得对应数据库中表的数据对象 -->
+	<select id="selectUserById" parameterType="Long" resultMap="result_UserMapper.xml">
+		select
+		<include refid="user_Column" />
+		from user
+		where id = #{id}
+	</select>
+	
+	<!-- 获得一个User对象,以参数User对象中不为空的属性作为条件进行查询 -->
+	<select id="selectUserObjSingle" parameterType="com.zhs.model.User" resultMap="result_UserMapper.xml">
+		select
+		<include refid="user_Column" />
+		from user
+		<where>
+		<if test="nickname != null"> and nickname = #{nickname}</if>
+		<if test="avatar != null"> and avatar = #{avatar}</if>
+		<if test="bio != null"> and bio = #{bio}</if>
+		<if test="status != null"> and status = #{status}</if>
+		<if test="sourceType != null"> and source_type = #{sourceType}</if>
+		<if test="registerTime != null"> and register_time = #{registerTime}</if>
+		<if test="lastActiveTime != null"> and last_active_time = #{lastActiveTime}</if>
+		<if test="createTime != null"> and create_time = #{createTime}</if>
+		<if test="updateTime != null"> and update_time = #{updateTime}</if>
+		<if test="isDelete != null"> and is_delete = #{isDelete}</if>
+		<if test="id != null"> and id = #{id} </if>
+		</where>
+		LIMIT 1
+	</select>
+	
+	<!-- 获得User对象,以参数User对象中不为空的属性作为条件进行查询 -->
+	<select id="selectUserByObj" parameterType="com.zhs.model.User" resultMap="result_UserMapper.xml">
+		select
+		<include refid="user_Column" />
+		from user
+		<where>
+		<if test="nickname != null"> and nickname = #{nickname}</if>
+		<if test="avatar != null"> and avatar = #{avatar}</if>
+		<if test="bio != null"> and bio = #{bio}</if>
+		<if test="status != null"> and status = #{status}</if>
+		<if test="sourceType != null"> and source_type = #{sourceType}</if>
+		<if test="registerTime != null"> and register_time = #{registerTime}</if>
+		<if test="lastActiveTime != null"> and last_active_time = #{lastActiveTime}</if>
+		<if test="createTime != null"> and create_time = #{createTime}</if>
+		<if test="updateTime != null"> and update_time = #{updateTime}</if>
+		<if test="isDelete != null"> and is_delete = #{isDelete}</if>
+		<if test="id != null"> and id = #{id} </if>
+		</where>
+	</select>
+
+	<!-- 将User插入到对应数据库的表中,包括属性值为null的数据 -->
+	<insert id="insertUser" parameterType="com.zhs.model.User">
+		insert into 
+		user (id,nickname,avatar,bio,status,source_type,register_time,last_active_time,create_time,update_time,is_delete) 
+		values(#{id},#{nickname},#{avatar},#{bio},#{status},#{sourceType},#{registerTime},#{lastActiveTime},#{createTime},#{updateTime},#{isDelete})
+	</insert>
+
+	<!-- 将User中属性值不为null的数据,插入到对应数据库的表中 -->
+	<insert id="insertNotNullUser" parameterType="com.zhs.model.User">
+		insert into user
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="id != null">id,</if>
+			<if test="nickname != null">nickname,</if>
+			<if test="avatar != null">avatar,</if>
+			<if test="bio != null">bio,</if>
+			<if test="status != null">status,</if>
+			<if test="sourceType != null">source_type,</if>
+			<if test="registerTime != null">register_time,</if>
+			<if test="lastActiveTime != null">last_active_time,</if>
+			<if test="createTime != null">create_time,</if>
+			<if test="updateTime != null">update_time,</if>
+			<if test="isDelete != null">is_delete,</if>
+		</trim>
+		<trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="id != null">#{id},</if>
+			<if test="nickname != null">#{nickname},</if>
+			<if test="avatar != null">#{avatar},</if>
+			<if test="bio != null">#{bio},</if>
+			<if test="status != null">#{status},</if>
+			<if test="sourceType != null">#{sourceType},</if>
+			<if test="registerTime != null">#{registerTime},</if>
+			<if test="lastActiveTime != null">#{lastActiveTime},</if>
+			<if test="createTime != null">#{createTime},</if>
+			<if test="updateTime != null">#{updateTime},</if>
+			<if test="isDelete != null">#{isDelete},</if>
+		</trim>
+	</insert>
+
+	<!-- 将User批量插入到对应数据库的表中 -->
+	<insert id="insertUserByBatch" parameterType="ArrayList">
+		insert into user(id,nickname,avatar,bio,status,source_type,register_time,last_active_time,create_time,update_time,is_delete) values
+		<foreach collection="list" item="item" index="index"
+			separator=",">
+			(#{id},#{nickname},#{avatar},#{bio},#{status},#{sourceType},#{registerTime},#{lastActiveTime},#{createTime},#{updateTime},#{isDelete})
+		</foreach>
+	</insert>
+	
+	<!-- 通过User的id将数据库表中对应的数据删除 -->
+	<delete id="deleteUserById" parameterType="Long">
+		delete from user
+		where  id  =  #{id}
+	</delete>
+
+
+
+	<!-- 通过User的id将User的数据更新到数据库中对应的表,包括值null的数据 -->
+	<update id="updateUserById" parameterType="com.zhs.model.User"> 
+		update user set
+		<set>
+			nickname = #{nickname} , 
+			avatar = #{avatar} , 
+			bio = #{bio} , 
+			status = #{status} , 
+			source_type = #{sourceType} , 
+			register_time = #{registerTime} , 
+			last_active_time = #{lastActiveTime} , 
+			create_time = #{createTime} , 
+			update_time = #{updateTime} , 
+			is_delete = #{isDelete} , 
+		</set>
+		where id = #{id}
+	</update>
+	
+	<!-- 通过User的id将User中属性值不为null的数据更新到数据库对应的表中 -->
+	<update id="updateNotNullUserById" parameterType="com.zhs.model.User">
+		update user
+		<set>
+					<if test="nickname != null">nickname = #{nickname},</if>
+					<if test="avatar != null">avatar = #{avatar},</if>
+					<if test="bio != null">bio = #{bio},</if>
+					<if test="status != null">status = #{status},</if>
+					<if test="sourceType != null">source_type = #{sourceType},</if>
+					<if test="registerTime != null">register_time = #{registerTime},</if>
+					<if test="lastActiveTime != null">last_active_time = #{lastActiveTime},</if>
+					<if test="createTime != null">create_time = #{createTime},</if>
+					<if test="updateTime != null">update_time = #{updateTime},</if>
+					<if test="isDelete != null">is_delete = #{isDelete},</if>
+		</set>
+		where id = #{id}
+	</update>
+
+</mapper>

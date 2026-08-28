@@ -1,0 +1,358 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhs.dao.AudioProcessingTaskDao">
+	<resultMap id="result_AudioProcessingTaskMapper.xml" type="com.zhs.model.AudioProcessingTask">
+		<id column="id" property="id" />
+		<result column="task_no" property="taskNo" />
+		<result column="source_type" property="sourceType" />
+		<result column="user_id" property="userId" />
+		<result column="sample_code" property="sampleCode" />
+		<result column="scenario_code" property="scenarioCode" />
+		<result column="source_asset_id" property="sourceAssetId" />
+		<result column="normalized_asset_id" property="normalizedAssetId" />
+		<result column="output_asset_id" property="outputAssetId" />
+		<result column="n_channels" property="nChannels" />
+		<result column="carrier" property="carrier" />
+		<result column="f_lo" property="fLo" />
+		<result column="f_hi" property="fHi" />
+		<result column="env_cut" property="envCut" />
+		<result column="spread" property="spread" />
+		<result column="noise_level" property="noiseLevel" />
+		<result column="env_amp" property="envAmp" />
+		<result column="wet_mix" property="wetMix" />
+		<result column="compress_enabled" property="compressEnabled" />
+		<result column="normalize_peak" property="normalizePeak" />
+		<result column="random_seed" property="randomSeed" />
+		<result column="algorithm_version" property="algorithmVersion" />
+		<result column="task_status" property="taskStatus" />
+		<result column="progress" property="progress" />
+		<result column="retry_count" property="retryCount" />
+		<result column="clarity_score" property="clarityScore" />
+		<result column="clarity_grade" property="clarityGrade" />
+		<result column="spectral_score" property="spectralScore" />
+		<result column="pitch_score" property="pitchScore" />
+		<result column="noise_margin" property="noiseMargin" />
+		<result column="error_code" property="errorCode" />
+		<result column="error_message" property="errorMessage" />
+		<result column="queue_wait_ms" property="queueWaitMs" />
+		<result column="processing_ms" property="processingMs" />
+		<result column="processing_started_time" property="processingStartedTime" />
+		<result column="processing_finished_time" property="processingFinishedTime" />
+		<result column="create_time" property="createTime" />
+		<result column="update_time" property="updateTime" />
+		<result column="is_delete" property="isDelete" />
+	</resultMap>
+	<!-- 数据库中表名为:audio_processing_task的列名 -->
+	<sql id="audio_processing_task_Column">
+		id,task_no,user_id,source_type,sample_code,scenario_code,source_asset_id,normalized_asset_id,output_asset_id,n_channels,carrier,f_lo,f_hi,env_cut,spread,noise_level,env_amp,wet_mix,compress_enabled,normalize_peak,random_seed,algorithm_version,task_status,progress,retry_count,clarity_score,clarity_grade,spectral_score,pitch_score,noise_margin,error_code,error_message,queue_wait_ms,processing_ms,processing_started_time,processing_finished_time,create_time,update_time,is_delete
+	</sql>
+
+	<!-- 通过AudioProcessingTask的id获得对应数据库中表的数据对象 -->
+	<select id="selectAudioProcessingTaskById" parameterType="Long" resultMap="result_AudioProcessingTaskMapper.xml">
+		select
+		<include refid="audio_processing_task_Column" />
+		from audio_processing_task
+		where id = #{id}
+	</select>
+	
+	<!-- 获得一个AudioProcessingTask对象,以参数AudioProcessingTask对象中不为空的属性作为条件进行查询 -->
+	<select id="selectAudioProcessingTaskObjSingle" parameterType="com.zhs.model.AudioProcessingTask" resultMap="result_AudioProcessingTaskMapper.xml">
+		select
+		<include refid="audio_processing_task_Column" />
+		from audio_processing_task
+		<where>
+		<if test="userId != null"> and user_id = #{userId}</if>
+		<if test="sampleCode != null"> and sample_code = #{sampleCode}</if>
+		<if test="scenarioCode != null"> and scenario_code = #{scenarioCode}</if>
+		<if test="sourceAssetId != null"> and source_asset_id = #{sourceAssetId}</if>
+		<if test="normalizedAssetId != null"> and normalized_asset_id = #{normalizedAssetId}</if>
+		<if test="outputAssetId != null"> and output_asset_id = #{outputAssetId}</if>
+		<if test="nChannels != null"> and n_channels = #{nChannels}</if>
+		<if test="carrier != null"> and carrier = #{carrier}</if>
+		<if test="fLo != null"> and f_lo = #{fLo}</if>
+		<if test="fHi != null"> and f_hi = #{fHi}</if>
+		<if test="envCut != null"> and env_cut = #{envCut}</if>
+		<if test="spread != null"> and spread = #{spread}</if>
+		<if test="noiseLevel != null"> and noise_level = #{noiseLevel}</if>
+		<if test="envAmp != null"> and env_amp = #{envAmp}</if>
+		<if test="wetMix != null"> and wet_mix = #{wetMix}</if>
+		<if test="compressEnabled != null"> and compress_enabled = #{compressEnabled}</if>
+		<if test="normalizePeak != null"> and normalize_peak = #{normalizePeak}</if>
+		<if test="randomSeed != null"> and random_seed = #{randomSeed}</if>
+		<if test="algorithmVersion != null"> and algorithm_version = #{algorithmVersion}</if>
+		<if test="taskStatus != null"> and task_status = #{taskStatus}</if>
+		<if test="progress != null"> and progress = #{progress}</if>
+		<if test="retryCount != null"> and retry_count = #{retryCount}</if>
+		<if test="clarityScore != null"> and clarity_score = #{clarityScore}</if>
+		<if test="clarityGrade != null"> and clarity_grade = #{clarityGrade}</if>
+		<if test="spectralScore != null"> and spectral_score = #{spectralScore}</if>
+		<if test="pitchScore != null"> and pitch_score = #{pitchScore}</if>
+		<if test="noiseMargin != null"> and noise_margin = #{noiseMargin}</if>
+		<if test="errorCode != null"> and error_code = #{errorCode}</if>
+		<if test="errorMessage != null"> and error_message = #{errorMessage}</if>
+		<if test="queueWaitMs != null"> and queue_wait_ms = #{queueWaitMs}</if>
+		<if test="processingMs != null"> and processing_ms = #{processingMs}</if>
+		<if test="processingStartedTime != null"> and processing_started_time = #{processingStartedTime}</if>
+		<if test="processingFinishedTime != null"> and processing_finished_time = #{processingFinishedTime}</if>
+		<if test="createTime != null"> and create_time = #{createTime}</if>
+		<if test="updateTime != null"> and update_time = #{updateTime}</if>
+		<if test="isDelete != null"> and is_delete = #{isDelete}</if>
+		<if test="taskNo != null"> and task_no = #{taskNo}</if>
+		<if test="sourceType != null"> and source_type = #{sourceType}</if>
+		<if test="id != null"> and id = #{id} </if>
+		</where>
+		LIMIT 1
+	</select>
+	
+	<!-- 获得AudioProcessingTask对象,以参数AudioProcessingTask对象中不为空的属性作为条件进行查询 -->
+	<select id="selectAudioProcessingTaskByObj" parameterType="com.zhs.model.AudioProcessingTask" resultMap="result_AudioProcessingTaskMapper.xml">
+		select
+		<include refid="audio_processing_task_Column" />
+		from audio_processing_task
+		<where>
+		<if test="userId != null"> and user_id = #{userId}</if>
+		<if test="sampleCode != null"> and sample_code = #{sampleCode}</if>
+		<if test="scenarioCode != null"> and scenario_code = #{scenarioCode}</if>
+		<if test="sourceAssetId != null"> and source_asset_id = #{sourceAssetId}</if>
+		<if test="normalizedAssetId != null"> and normalized_asset_id = #{normalizedAssetId}</if>
+		<if test="outputAssetId != null"> and output_asset_id = #{outputAssetId}</if>
+		<if test="nChannels != null"> and n_channels = #{nChannels}</if>
+		<if test="carrier != null"> and carrier = #{carrier}</if>
+		<if test="fLo != null"> and f_lo = #{fLo}</if>
+		<if test="fHi != null"> and f_hi = #{fHi}</if>
+		<if test="envCut != null"> and env_cut = #{envCut}</if>
+		<if test="spread != null"> and spread = #{spread}</if>
+		<if test="noiseLevel != null"> and noise_level = #{noiseLevel}</if>
+		<if test="envAmp != null"> and env_amp = #{envAmp}</if>
+		<if test="wetMix != null"> and wet_mix = #{wetMix}</if>
+		<if test="compressEnabled != null"> and compress_enabled = #{compressEnabled}</if>
+		<if test="normalizePeak != null"> and normalize_peak = #{normalizePeak}</if>
+		<if test="randomSeed != null"> and random_seed = #{randomSeed}</if>
+		<if test="algorithmVersion != null"> and algorithm_version = #{algorithmVersion}</if>
+		<if test="taskStatus != null"> and task_status = #{taskStatus}</if>
+		<if test="progress != null"> and progress = #{progress}</if>
+		<if test="retryCount != null"> and retry_count = #{retryCount}</if>
+		<if test="clarityScore != null"> and clarity_score = #{clarityScore}</if>
+		<if test="clarityGrade != null"> and clarity_grade = #{clarityGrade}</if>
+		<if test="spectralScore != null"> and spectral_score = #{spectralScore}</if>
+		<if test="pitchScore != null"> and pitch_score = #{pitchScore}</if>
+		<if test="noiseMargin != null"> and noise_margin = #{noiseMargin}</if>
+		<if test="errorCode != null"> and error_code = #{errorCode}</if>
+		<if test="errorMessage != null"> and error_message = #{errorMessage}</if>
+		<if test="queueWaitMs != null"> and queue_wait_ms = #{queueWaitMs}</if>
+		<if test="processingMs != null"> and processing_ms = #{processingMs}</if>
+		<if test="processingStartedTime != null"> and processing_started_time = #{processingStartedTime}</if>
+		<if test="processingFinishedTime != null"> and processing_finished_time = #{processingFinishedTime}</if>
+		<if test="createTime != null"> and create_time = #{createTime}</if>
+		<if test="updateTime != null"> and update_time = #{updateTime}</if>
+		<if test="isDelete != null"> and is_delete = #{isDelete}</if>
+		<if test="taskNo != null"> and task_no = #{taskNo}</if>
+		<if test="sourceType != null"> and source_type = #{sourceType}</if>
+		<if test="id != null"> and id = #{id} </if>
+		</where>
+	</select>
+
+	<!-- 将AudioProcessingTask插入到对应数据库的表中,包括属性值为null的数据 -->
+	<insert id="insertAudioProcessingTask" parameterType="com.zhs.model.AudioProcessingTask">
+		insert into 
+		audio_processing_task (id,task_no,user_id,source_type,sample_code,scenario_code,source_asset_id,normalized_asset_id,output_asset_id,n_channels,carrier,f_lo,f_hi,env_cut,spread,noise_level,env_amp,wet_mix,compress_enabled,normalize_peak,random_seed,algorithm_version,task_status,progress,retry_count,clarity_score,clarity_grade,spectral_score,pitch_score,noise_margin,error_code,error_message,queue_wait_ms,processing_ms,processing_started_time,processing_finished_time,create_time,update_time,is_delete) 
+		values(#{id},#{taskNo},#{userId},#{sourceType},#{sampleCode},#{scenarioCode},#{sourceAssetId},#{normalizedAssetId},#{outputAssetId},#{nChannels},#{carrier},#{fLo},#{fHi},#{envCut},#{spread},#{noiseLevel},#{envAmp},#{wetMix},#{compressEnabled},#{normalizePeak},#{randomSeed},#{algorithmVersion},#{taskStatus},#{progress},#{retryCount},#{clarityScore},#{clarityGrade},#{spectralScore},#{pitchScore},#{noiseMargin},#{errorCode},#{errorMessage},#{queueWaitMs},#{processingMs},#{processingStartedTime},#{processingFinishedTime},#{createTime},#{updateTime},#{isDelete})
+	</insert>
+
+	<!-- 将AudioProcessingTask中属性值不为null的数据,插入到对应数据库的表中 -->
+	<insert id="insertNotNullAudioProcessingTask" parameterType="com.zhs.model.AudioProcessingTask">
+		insert into audio_processing_task
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="id != null">id,</if>
+			<if test="taskNo != null">task_no,</if>
+			<if test="userId != null">user_id,</if>
+			<if test="sourceType != null">source_type,</if>
+			<if test="sampleCode != null">sample_code,</if>
+			<if test="scenarioCode != null">scenario_code,</if>
+			<if test="sourceAssetId != null">source_asset_id,</if>
+			<if test="normalizedAssetId != null">normalized_asset_id,</if>
+			<if test="outputAssetId != null">output_asset_id,</if>
+			<if test="nChannels != null">n_channels,</if>
+			<if test="carrier != null">carrier,</if>
+			<if test="fLo != null">f_lo,</if>
+			<if test="fHi != null">f_hi,</if>
+			<if test="envCut != null">env_cut,</if>
+			<if test="spread != null">spread,</if>
+			<if test="noiseLevel != null">noise_level,</if>
+			<if test="envAmp != null">env_amp,</if>
+			<if test="wetMix != null">wet_mix,</if>
+			<if test="compressEnabled != null">compress_enabled,</if>
+			<if test="normalizePeak != null">normalize_peak,</if>
+			<if test="randomSeed != null">random_seed,</if>
+			<if test="algorithmVersion != null">algorithm_version,</if>
+			<if test="taskStatus != null">task_status,</if>
+			<if test="progress != null">progress,</if>
+			<if test="retryCount != null">retry_count,</if>
+			<if test="clarityScore != null">clarity_score,</if>
+			<if test="clarityGrade != null">clarity_grade,</if>
+			<if test="spectralScore != null">spectral_score,</if>
+			<if test="pitchScore != null">pitch_score,</if>
+			<if test="noiseMargin != null">noise_margin,</if>
+			<if test="errorCode != null">error_code,</if>
+			<if test="errorMessage != null">error_message,</if>
+			<if test="queueWaitMs != null">queue_wait_ms,</if>
+			<if test="processingMs != null">processing_ms,</if>
+			<if test="processingStartedTime != null">processing_started_time,</if>
+			<if test="processingFinishedTime != null">processing_finished_time,</if>
+			<if test="createTime != null">create_time,</if>
+			<if test="updateTime != null">update_time,</if>
+			<if test="isDelete != null">is_delete,</if>
+		</trim>
+		<trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="id != null">#{id},</if>
+			<if test="taskNo != null">#{taskNo},</if>
+			<if test="userId != null">#{userId},</if>
+			<if test="sourceType != null">#{sourceType},</if>
+			<if test="sampleCode != null">#{sampleCode},</if>
+			<if test="scenarioCode != null">#{scenarioCode},</if>
+			<if test="sourceAssetId != null">#{sourceAssetId},</if>
+			<if test="normalizedAssetId != null">#{normalizedAssetId},</if>
+			<if test="outputAssetId != null">#{outputAssetId},</if>
+			<if test="nChannels != null">#{nChannels},</if>
+			<if test="carrier != null">#{carrier},</if>
+			<if test="fLo != null">#{fLo},</if>
+			<if test="fHi != null">#{fHi},</if>
+			<if test="envCut != null">#{envCut},</if>
+			<if test="spread != null">#{spread},</if>
+			<if test="noiseLevel != null">#{noiseLevel},</if>
+			<if test="envAmp != null">#{envAmp},</if>
+			<if test="wetMix != null">#{wetMix},</if>
+			<if test="compressEnabled != null">#{compressEnabled},</if>
+			<if test="normalizePeak != null">#{normalizePeak},</if>
+			<if test="randomSeed != null">#{randomSeed},</if>
+			<if test="algorithmVersion != null">#{algorithmVersion},</if>
+			<if test="taskStatus != null">#{taskStatus},</if>
+			<if test="progress != null">#{progress},</if>
+			<if test="retryCount != null">#{retryCount},</if>
+			<if test="clarityScore != null">#{clarityScore},</if>
+			<if test="clarityGrade != null">#{clarityGrade},</if>
+			<if test="spectralScore != null">#{spectralScore},</if>
+			<if test="pitchScore != null">#{pitchScore},</if>
+			<if test="noiseMargin != null">#{noiseMargin},</if>
+			<if test="errorCode != null">#{errorCode},</if>
+			<if test="errorMessage != null">#{errorMessage},</if>
+			<if test="queueWaitMs != null">#{queueWaitMs},</if>
+			<if test="processingMs != null">#{processingMs},</if>
+			<if test="processingStartedTime != null">#{processingStartedTime},</if>
+			<if test="processingFinishedTime != null">#{processingFinishedTime},</if>
+			<if test="createTime != null">#{createTime},</if>
+			<if test="updateTime != null">#{updateTime},</if>
+			<if test="isDelete != null">#{isDelete},</if>
+		</trim>
+	</insert>
+
+	<!-- 将AudioProcessingTask批量插入到对应数据库的表中 -->
+	<insert id="insertAudioProcessingTaskByBatch" parameterType="ArrayList">
+		insert into audio_processing_task(id,task_no,user_id,source_type,sample_code,scenario_code,source_asset_id,normalized_asset_id,output_asset_id,n_channels,carrier,f_lo,f_hi,env_cut,spread,noise_level,env_amp,wet_mix,compress_enabled,normalize_peak,random_seed,algorithm_version,task_status,progress,retry_count,clarity_score,clarity_grade,spectral_score,pitch_score,noise_margin,error_code,error_message,queue_wait_ms,processing_ms,processing_started_time,processing_finished_time,create_time,update_time,is_delete) values
+		<foreach collection="list" item="item" index="index"
+			separator=",">
+			(#{id},#{taskNo},#{userId},#{sourceType},#{sampleCode},#{scenarioCode},#{sourceAssetId},#{normalizedAssetId},#{outputAssetId},#{nChannels},#{carrier},#{fLo},#{fHi},#{envCut},#{spread},#{noiseLevel},#{envAmp},#{wetMix},#{compressEnabled},#{normalizePeak},#{randomSeed},#{algorithmVersion},#{taskStatus},#{progress},#{retryCount},#{clarityScore},#{clarityGrade},#{spectralScore},#{pitchScore},#{noiseMargin},#{errorCode},#{errorMessage},#{queueWaitMs},#{processingMs},#{processingStartedTime},#{processingFinishedTime},#{createTime},#{updateTime},#{isDelete})
+		</foreach>
+	</insert>
+	
+	<!-- 通过AudioProcessingTask的id将数据库表中对应的数据删除 -->
+	<delete id="deleteAudioProcessingTaskById" parameterType="Long">
+		delete from audio_processing_task
+		where  id  =  #{id}
+	</delete>
+
+
+
+	<!-- 通过AudioProcessingTask的id将AudioProcessingTask的数据更新到数据库中对应的表,包括值null的数据 -->
+	<update id="updateAudioProcessingTaskById" parameterType="com.zhs.model.AudioProcessingTask"> 
+		update audio_processing_task set
+		<set>
+			task_no = #{taskNo} , 
+			user_id = #{userId} , 
+			source_type = #{sourceType} , 
+			sample_code = #{sampleCode} , 
+			scenario_code = #{scenarioCode} , 
+			source_asset_id = #{sourceAssetId} , 
+			normalized_asset_id = #{normalizedAssetId} , 
+			output_asset_id = #{outputAssetId} , 
+			n_channels = #{nChannels} , 
+			carrier = #{carrier} , 
+			f_lo = #{fLo} , 
+			f_hi = #{fHi} , 
+			env_cut = #{envCut} , 
+			spread = #{spread} , 
+			noise_level = #{noiseLevel} , 
+			env_amp = #{envAmp} , 
+			wet_mix = #{wetMix} , 
+			compress_enabled = #{compressEnabled} , 
+			normalize_peak = #{normalizePeak} , 
+			random_seed = #{randomSeed} , 
+			algorithm_version = #{algorithmVersion} , 
+			task_status = #{taskStatus} , 
+			progress = #{progress} , 
+			retry_count = #{retryCount} , 
+			clarity_score = #{clarityScore} , 
+			clarity_grade = #{clarityGrade} , 
+			spectral_score = #{spectralScore} , 
+			pitch_score = #{pitchScore} , 
+			noise_margin = #{noiseMargin} , 
+			error_code = #{errorCode} , 
+			error_message = #{errorMessage} , 
+			queue_wait_ms = #{queueWaitMs} , 
+			processing_ms = #{processingMs} , 
+			processing_started_time = #{processingStartedTime} , 
+			processing_finished_time = #{processingFinishedTime} , 
+			create_time = #{createTime} , 
+			update_time = #{updateTime} , 
+			is_delete = #{isDelete} , 
+		</set>
+		where id = #{id}
+	</update>
+	
+	<!-- 通过AudioProcessingTask的id将AudioProcessingTask中属性值不为null的数据更新到数据库对应的表中 -->
+	<update id="updateNotNullAudioProcessingTaskById" parameterType="com.zhs.model.AudioProcessingTask">
+		update audio_processing_task
+		<set>
+					<if test="taskNo != null">task_no = #{taskNo},</if>
+					<if test="userId != null">user_id = #{userId},</if>
+					<if test="sourceType != null">source_type = #{sourceType},</if>
+					<if test="sampleCode != null">sample_code = #{sampleCode},</if>
+					<if test="scenarioCode != null">scenario_code = #{scenarioCode},</if>
+					<if test="sourceAssetId != null">source_asset_id = #{sourceAssetId},</if>
+					<if test="normalizedAssetId != null">normalized_asset_id = #{normalizedAssetId},</if>
+					<if test="outputAssetId != null">output_asset_id = #{outputAssetId},</if>
+					<if test="nChannels != null">n_channels = #{nChannels},</if>
+					<if test="carrier != null">carrier = #{carrier},</if>
+					<if test="fLo != null">f_lo = #{fLo},</if>
+					<if test="fHi != null">f_hi = #{fHi},</if>
+					<if test="envCut != null">env_cut = #{envCut},</if>
+					<if test="spread != null">spread = #{spread},</if>
+					<if test="noiseLevel != null">noise_level = #{noiseLevel},</if>
+					<if test="envAmp != null">env_amp = #{envAmp},</if>
+					<if test="wetMix != null">wet_mix = #{wetMix},</if>
+					<if test="compressEnabled != null">compress_enabled = #{compressEnabled},</if>
+					<if test="normalizePeak != null">normalize_peak = #{normalizePeak},</if>
+					<if test="randomSeed != null">random_seed = #{randomSeed},</if>
+					<if test="algorithmVersion != null">algorithm_version = #{algorithmVersion},</if>
+					<if test="taskStatus != null">task_status = #{taskStatus},</if>
+					<if test="progress != null">progress = #{progress},</if>
+					<if test="retryCount != null">retry_count = #{retryCount},</if>
+					<if test="clarityScore != null">clarity_score = #{clarityScore},</if>
+					<if test="clarityGrade != null">clarity_grade = #{clarityGrade},</if>
+					<if test="spectralScore != null">spectral_score = #{spectralScore},</if>
+					<if test="pitchScore != null">pitch_score = #{pitchScore},</if>
+					<if test="noiseMargin != null">noise_margin = #{noiseMargin},</if>
+					<if test="errorCode != null">error_code = #{errorCode},</if>
+					<if test="errorMessage != null">error_message = #{errorMessage},</if>
+					<if test="queueWaitMs != null">queue_wait_ms = #{queueWaitMs},</if>
+					<if test="processingMs != null">processing_ms = #{processingMs},</if>
+					<if test="processingStartedTime != null">processing_started_time = #{processingStartedTime},</if>
+					<if test="processingFinishedTime != null">processing_finished_time = #{processingFinishedTime},</if>
+					<if test="createTime != null">create_time = #{createTime},</if>
+					<if test="updateTime != null">update_time = #{updateTime},</if>
+					<if test="isDelete != null">is_delete = #{isDelete},</if>
+		</set>
+		where id = #{id}
+	</update>
+
+</mapper>

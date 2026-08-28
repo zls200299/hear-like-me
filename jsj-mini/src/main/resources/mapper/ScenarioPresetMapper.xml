@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhs.dao.ScenarioPresetDao">
+	<resultMap id="result_ScenarioPresetMapper.xml" type="com.zhs.model.ScenarioPreset">
+		<id column="id" property="id" />
+		<result column="scenario_code" property="scenarioCode" />
+		<result column="name_cn" property="nameCn" />
+		<result column="name_en" property="nameEn" />
+		<result column="description_cn" property="descriptionCn" />
+		<result column="description_en" property="descriptionEn" />
+		<result column="icon" property="icon" />
+		<result column="n_channels" property="nChannels" />
+		<result column="carrier" property="carrier" />
+		<result column="f_lo" property="fLo" />
+		<result column="f_hi" property="fHi" />
+		<result column="env_cut" property="envCut" />
+		<result column="spread" property="spread" />
+		<result column="noise_level" property="noiseLevel" />
+		<result column="env_amp" property="envAmp" />
+		<result column="wet_mix" property="wetMix" />
+		<result column="compress_enabled" property="compressEnabled" />
+		<result column="normalize_peak" property="normalizePeak" />
+		<result column="default_sample_code" property="defaultSampleCode" />
+		<result column="sort_order" property="sortOrder" />
+		<result column="enabled" property="enabled" />
+		<result column="create_time" property="createTime" />
+		<result column="update_time" property="updateTime" />
+		<result column="is_delete" property="isDelete" />
+	</resultMap>
+	<!-- 数据库中表名为:scenario_preset的列名 -->
+	<sql id="scenario_preset_Column">
+		id,scenario_code,name_cn,name_en,description_cn,description_en,icon,n_channels,carrier,f_lo,f_hi,env_cut,spread,noise_level,env_amp,wet_mix,compress_enabled,normalize_peak,default_sample_code,sort_order,enabled,create_time,update_time,is_delete
+	</sql>
+
+	<!-- 通过ScenarioPreset的id获得对应数据库中表的数据对象 -->
+	<select id="selectScenarioPresetById" parameterType="Long" resultMap="result_ScenarioPresetMapper.xml">
+		select
+		<include refid="scenario_preset_Column" />
+		from scenario_preset
+		where id = #{id}
+	</select>
+	
+	<!-- 获得一个ScenarioPreset对象,以参数ScenarioPreset对象中不为空的属性作为条件进行查询 -->
+	<select id="selectScenarioPresetObjSingle" parameterType="com.zhs.model.ScenarioPreset" resultMap="result_ScenarioPresetMapper.xml">
+		select
+		<include refid="scenario_preset_Column" />
+		from scenario_preset
+		<where>
+		<if test="nameEn != null"> and name_en = #{nameEn}</if>
+		<if test="descriptionCn != null"> and description_cn = #{descriptionCn}</if>
+		<if test="descriptionEn != null"> and description_en = #{descriptionEn}</if>
+		<if test="icon != null"> and icon = #{icon}</if>
+		<if test="nChannels != null"> and n_channels = #{nChannels}</if>
+		<if test="carrier != null"> and carrier = #{carrier}</if>
+		<if test="fLo != null"> and f_lo = #{fLo}</if>
+		<if test="fHi != null"> and f_hi = #{fHi}</if>
+		<if test="envCut != null"> and env_cut = #{envCut}</if>
+		<if test="spread != null"> and spread = #{spread}</if>
+		<if test="noiseLevel != null"> and noise_level = #{noiseLevel}</if>
+		<if test="envAmp != null"> and env_amp = #{envAmp}</if>
+		<if test="wetMix != null"> and wet_mix = #{wetMix}</if>
+		<if test="compressEnabled != null"> and compress_enabled = #{compressEnabled}</if>
+		<if test="normalizePeak != null"> and normalize_peak = #{normalizePeak}</if>
+		<if test="defaultSampleCode != null"> and default_sample_code = #{defaultSampleCode}</if>
+		<if test="sortOrder != null"> and sort_order = #{sortOrder}</if>
+		<if test="enabled != null"> and enabled = #{enabled}</if>
+		<if test="createTime != null"> and create_time = #{createTime}</if>
+		<if test="updateTime != null"> and update_time = #{updateTime}</if>
+		<if test="isDelete != null"> and is_delete = #{isDelete}</if>
+		<if test="scenarioCode != null"> and scenario_code = #{scenarioCode}</if>
+		<if test="nameCn != null"> and name_cn = #{nameCn}</if>
+		<if test="id != null"> and id = #{id} </if>
+		</where>
+		LIMIT 1
+	</select>
+	
+	<!-- 获得ScenarioPreset对象,以参数ScenarioPreset对象中不为空的属性作为条件进行查询 -->
+	<select id="selectScenarioPresetByObj" parameterType="com.zhs.model.ScenarioPreset" resultMap="result_ScenarioPresetMapper.xml">
+		select
+		<include refid="scenario_preset_Column" />
+		from scenario_preset
+		<where>
+		<if test="nameEn != null"> and name_en = #{nameEn}</if>
+		<if test="descriptionCn != null"> and description_cn = #{descriptionCn}</if>
+		<if test="descriptionEn != null"> and description_en = #{descriptionEn}</if>
+		<if test="icon != null"> and icon = #{icon}</if>
+		<if test="nChannels != null"> and n_channels = #{nChannels}</if>
+		<if test="carrier != null"> and carrier = #{carrier}</if>
+		<if test="fLo != null"> and f_lo = #{fLo}</if>
+		<if test="fHi != null"> and f_hi = #{fHi}</if>
+		<if test="envCut != null"> and env_cut = #{envCut}</if>
+		<if test="spread != null"> and spread = #{spread}</if>
+		<if test="noiseLevel != null"> and noise_level = #{noiseLevel}</if>
+		<if test="envAmp != null"> and env_amp = #{envAmp}</if>
+		<if test="wetMix != null"> and wet_mix = #{wetMix}</if>
+		<if test="compressEnabled != null"> and compress_enabled = #{compressEnabled}</if>
+		<if test="normalizePeak != null"> and normalize_peak = #{normalizePeak}</if>
+		<if test="defaultSampleCode != null"> and default_sample_code = #{defaultSampleCode}</if>
+		<if test="sortOrder != null"> and sort_order = #{sortOrder}</if>
+		<if test="enabled != null"> and enabled = #{enabled}</if>
+		<if test="createTime != null"> and create_time = #{createTime}</if>
+		<if test="updateTime != null"> and update_time = #{updateTime}</if>
+		<if test="isDelete != null"> and is_delete = #{isDelete}</if>
+		<if test="scenarioCode != null"> and scenario_code = #{scenarioCode}</if>
+		<if test="nameCn != null"> and name_cn = #{nameCn}</if>
+		<if test="id != null"> and id = #{id} </if>
+		</where>
+	</select>
+
+	<!-- 将ScenarioPreset插入到对应数据库的表中,包括属性值为null的数据 -->
+	<insert id="insertScenarioPreset" parameterType="com.zhs.model.ScenarioPreset">
+		insert into 
+		scenario_preset (id,scenario_code,name_cn,name_en,description_cn,description_en,icon,n_channels,carrier,f_lo,f_hi,env_cut,spread,noise_level,env_amp,wet_mix,compress_enabled,normalize_peak,default_sample_code,sort_order,enabled,create_time,update_time,is_delete) 
+		values(#{id},#{scenarioCode},#{nameCn},#{nameEn},#{descriptionCn},#{descriptionEn},#{icon},#{nChannels},#{carrier},#{fLo},#{fHi},#{envCut},#{spread},#{noiseLevel},#{envAmp},#{wetMix},#{compressEnabled},#{normalizePeak},#{defaultSampleCode},#{sortOrder},#{enabled},#{createTime},#{updateTime},#{isDelete})
+	</insert>
+
+	<!-- 将ScenarioPreset中属性值不为null的数据,插入到对应数据库的表中 -->
+	<insert id="insertNotNullScenarioPreset" parameterType="com.zhs.model.ScenarioPreset">
+		insert into scenario_preset
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="id != null">id,</if>
+			<if test="scenarioCode != null">scenario_code,</if>
+			<if test="nameCn != null">name_cn,</if>
+			<if test="nameEn != null">name_en,</if>
+			<if test="descriptionCn != null">description_cn,</if>
+			<if test="descriptionEn != null">description_en,</if>
+			<if test="icon != null">icon,</if>
+			<if test="nChannels != null">n_channels,</if>
+			<if test="carrier != null">carrier,</if>
+			<if test="fLo != null">f_lo,</if>
+			<if test="fHi != null">f_hi,</if>
+			<if test="envCut != null">env_cut,</if>
+			<if test="spread != null">spread,</if>
+			<if test="noiseLevel != null">noise_level,</if>
+			<if test="envAmp != null">env_amp,</if>
+			<if test="wetMix != null">wet_mix,</if>
+			<if test="compressEnabled != null">compress_enabled,</if>
+			<if test="normalizePeak != null">normalize_peak,</if>
+			<if test="defaultSampleCode != null">default_sample_code,</if>
+			<if test="sortOrder != null">sort_order,</if>
+			<if test="enabled != null">enabled,</if>
+			<if test="createTime != null">create_time,</if>
+			<if test="updateTime != null">update_time,</if>
+			<if test="isDelete != null">is_delete,</if>
+		</trim>
+		<trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="id != null">#{id},</if>
+			<if test="scenarioCode != null">#{scenarioCode},</if>
+			<if test="nameCn != null">#{nameCn},</if>
+			<if test="nameEn != null">#{nameEn},</if>
+			<if test="descriptionCn != null">#{descriptionCn},</if>
+			<if test="descriptionEn != null">#{descriptionEn},</if>
+			<if test="icon != null">#{icon},</if>
+			<if test="nChannels != null">#{nChannels},</if>
+			<if test="carrier != null">#{carrier},</if>
+			<if test="fLo != null">#{fLo},</if>
+			<if test="fHi != null">#{fHi},</if>
+			<if test="envCut != null">#{envCut},</if>
+			<if test="spread != null">#{spread},</if>
+			<if test="noiseLevel != null">#{noiseLevel},</if>
+			<if test="envAmp != null">#{envAmp},</if>
+			<if test="wetMix != null">#{wetMix},</if>
+			<if test="compressEnabled != null">#{compressEnabled},</if>
+			<if test="normalizePeak != null">#{normalizePeak},</if>
+			<if test="defaultSampleCode != null">#{defaultSampleCode},</if>
+			<if test="sortOrder != null">#{sortOrder},</if>
+			<if test="enabled != null">#{enabled},</if>
+			<if test="createTime != null">#{createTime},</if>
+			<if test="updateTime != null">#{updateTime},</if>
+			<if test="isDelete != null">#{isDelete},</if>
+		</trim>
+	</insert>
+
+	<!-- 将ScenarioPreset批量插入到对应数据库的表中 -->
+	<insert id="insertScenarioPresetByBatch" parameterType="ArrayList">
+		insert into scenario_preset(id,scenario_code,name_cn,name_en,description_cn,description_en,icon,n_channels,carrier,f_lo,f_hi,env_cut,spread,noise_level,env_amp,wet_mix,compress_enabled,normalize_peak,default_sample_code,sort_order,enabled,create_time,update_time,is_delete) values
+		<foreach collection="list" item="item" index="index"
+			separator=",">
+			(#{id},#{scenarioCode},#{nameCn},#{nameEn},#{descriptionCn},#{descriptionEn},#{icon},#{nChannels},#{carrier},#{fLo},#{fHi},#{envCut},#{spread},#{noiseLevel},#{envAmp},#{wetMix},#{compressEnabled},#{normalizePeak},#{defaultSampleCode},#{sortOrder},#{enabled},#{createTime},#{updateTime},#{isDelete})
+		</foreach>
+	</insert>
+	
+	<!-- 通过ScenarioPreset的id将数据库表中对应的数据删除 -->
+	<delete id="deleteScenarioPresetById" parameterType="Long">
+		delete from scenario_preset
+		where  id  =  #{id}
+	</delete>
+
+
+
+	<!-- 通过ScenarioPreset的id将ScenarioPreset的数据更新到数据库中对应的表,包括值null的数据 -->
+	<update id="updateScenarioPresetById" parameterType="com.zhs.model.ScenarioPreset"> 
+		update scenario_preset set
+		<set>
+			scenario_code = #{scenarioCode} , 
+			name_cn = #{nameCn} , 
+			name_en = #{nameEn} , 
+			description_cn = #{descriptionCn} , 
+			description_en = #{descriptionEn} , 
+			icon = #{icon} , 
+			n_channels = #{nChannels} , 
+			carrier = #{carrier} , 
+			f_lo = #{fLo} , 
+			f_hi = #{fHi} , 
+			env_cut = #{envCut} , 
+			spread = #{spread} , 
+			noise_level = #{noiseLevel} , 
+			env_amp = #{envAmp} , 
+			wet_mix = #{wetMix} , 
+			compress_enabled = #{compressEnabled} , 
+			normalize_peak = #{normalizePeak} , 
+			default_sample_code = #{defaultSampleCode} , 
+			sort_order = #{sortOrder} , 
+			enabled = #{enabled} , 
+			create_time = #{createTime} , 
+			update_time = #{updateTime} , 
+			is_delete = #{isDelete} , 
+		</set>
+		where id = #{id}
+	</update>
+	
+	<!-- 通过ScenarioPreset的id将ScenarioPreset中属性值不为null的数据更新到数据库对应的表中 -->
+	<update id="updateNotNullScenarioPresetById" parameterType="com.zhs.model.ScenarioPreset">
+		update scenario_preset
+		<set>
+					<if test="scenarioCode != null">scenario_code = #{scenarioCode},</if>
+					<if test="nameCn != null">name_cn = #{nameCn},</if>
+					<if test="nameEn != null">name_en = #{nameEn},</if>
+					<if test="descriptionCn != null">description_cn = #{descriptionCn},</if>
+					<if test="descriptionEn != null">description_en = #{descriptionEn},</if>
+					<if test="icon != null">icon = #{icon},</if>
+					<if test="nChannels != null">n_channels = #{nChannels},</if>
+					<if test="carrier != null">carrier = #{carrier},</if>
+					<if test="fLo != null">f_lo = #{fLo},</if>
+					<if test="fHi != null">f_hi = #{fHi},</if>
+					<if test="envCut != null">env_cut = #{envCut},</if>
+					<if test="spread != null">spread = #{spread},</if>
+					<if test="noiseLevel != null">noise_level = #{noiseLevel},</if>
+					<if test="envAmp != null">env_amp = #{envAmp},</if>
+					<if test="wetMix != null">wet_mix = #{wetMix},</if>
+					<if test="compressEnabled != null">compress_enabled = #{compressEnabled},</if>
+					<if test="normalizePeak != null">normalize_peak = #{normalizePeak},</if>
+					<if test="defaultSampleCode != null">default_sample_code = #{defaultSampleCode},</if>
+					<if test="sortOrder != null">sort_order = #{sortOrder},</if>
+					<if test="enabled != null">enabled = #{enabled},</if>
+					<if test="createTime != null">create_time = #{createTime},</if>
+					<if test="updateTime != null">update_time = #{updateTime},</if>
+					<if test="isDelete != null">is_delete = #{isDelete},</if>
+		</set>
+		where id = #{id}
+	</update>
+
+</mapper>

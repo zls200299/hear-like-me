@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhs.dao.UserSensitiveInfoDao">
+	<resultMap id="result_UserSensitiveInfoMapper.xml" type="com.zhs.model.UserSensitiveInfo">
+		<id column="id" property="id" />
+		<result column="user_id" property="userId" />
+		<result column="open_id" property="openId" />
+		<result column="union_id" property="unionId" />
+		<result column="mini_app_id" property="miniAppId" />
+		<result column="official_app_id" property="officialAppId" />
+		<result column="is_delete" property="isDelete" />
+		<result column="create_time" property="createTime" />
+		<result column="update_time" property="updateTime" />
+	</resultMap>
+	<!-- 数据库中表名为:user_sensitive_info的列名 -->
+	<sql id="user_sensitive_info_Column">
+		id,user_id,open_id,union_id,mini_app_id,official_app_id,is_delete,create_time,update_time
+	</sql>
+
+	<!-- 通过UserSensitiveInfo的id获得对应数据库中表的数据对象 -->
+	<select id="selectUserSensitiveInfoById" parameterType="Long" resultMap="result_UserSensitiveInfoMapper.xml">
+		select
+		<include refid="user_sensitive_info_Column" />
+		from user_sensitive_info
+		where id = #{id}
+	</select>
+	
+	<!-- 获得一个UserSensitiveInfo对象,以参数UserSensitiveInfo对象中不为空的属性作为条件进行查询 -->
+	<select id="selectUserSensitiveInfoObjSingle" parameterType="com.zhs.model.UserSensitiveInfo" resultMap="result_UserSensitiveInfoMapper.xml">
+		select
+		<include refid="user_sensitive_info_Column" />
+		from user_sensitive_info
+		<where>
+		<if test="openId != null"> and open_id = #{openId}</if>
+		<if test="unionId != null"> and union_id = #{unionId}</if>
+		<if test="miniAppId != null"> and mini_app_id = #{miniAppId}</if>
+		<if test="officialAppId != null"> and official_app_id = #{officialAppId}</if>
+		<if test="isDelete != null"> and is_delete = #{isDelete}</if>
+		<if test="createTime != null"> and create_time = #{createTime}</if>
+		<if test="updateTime != null"> and update_time = #{updateTime}</if>
+		<if test="userId != null"> and user_id = #{userId}</if>
+		<if test="id != null"> and id = #{id} </if>
+		</where>
+		LIMIT 1
+	</select>
+	
+	<!-- 获得UserSensitiveInfo对象,以参数UserSensitiveInfo对象中不为空的属性作为条件进行查询 -->
+	<select id="selectUserSensitiveInfoByObj" parameterType="com.zhs.model.UserSensitiveInfo" resultMap="result_UserSensitiveInfoMapper.xml">
+		select
+		<include refid="user_sensitive_info_Column" />
+		from user_sensitive_info
+		<where>
+		<if test="openId != null"> and open_id = #{openId}</if>
+		<if test="unionId != null"> and union_id = #{unionId}</if>
+		<if test="miniAppId != null"> and mini_app_id = #{miniAppId}</if>
+		<if test="officialAppId != null"> and official_app_id = #{officialAppId}</if>
+		<if test="isDelete != null"> and is_delete = #{isDelete}</if>
+		<if test="createTime != null"> and create_time = #{createTime}</if>
+		<if test="updateTime != null"> and update_time = #{updateTime}</if>
+		<if test="userId != null"> and user_id = #{userId}</if>
+		<if test="id != null"> and id = #{id} </if>
+		</where>
+	</select>
+
+	<!-- 将UserSensitiveInfo插入到对应数据库的表中,包括属性值为null的数据 -->
+	<insert id="insertUserSensitiveInfo" parameterType="com.zhs.model.UserSensitiveInfo">
+		insert into 
+		user_sensitive_info (id,user_id,open_id,union_id,mini_app_id,official_app_id,is_delete,create_time,update_time) 
+		values(#{id},#{userId},#{openId},#{unionId},#{miniAppId},#{officialAppId},#{isDelete},#{createTime},#{updateTime})
+	</insert>
+
+	<!-- 将UserSensitiveInfo中属性值不为null的数据,插入到对应数据库的表中 -->
+	<insert id="insertNotNullUserSensitiveInfo" parameterType="com.zhs.model.UserSensitiveInfo">
+		insert into user_sensitive_info
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="id != null">id,</if>
+			<if test="userId != null">user_id,</if>
+			<if test="openId != null">open_id,</if>
+			<if test="unionId != null">union_id,</if>
+			<if test="miniAppId != null">mini_app_id,</if>
+			<if test="officialAppId != null">official_app_id,</if>
+			<if test="isDelete != null">is_delete,</if>
+			<if test="createTime != null">create_time,</if>
+			<if test="updateTime != null">update_time,</if>
+		</trim>
+		<trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="id != null">#{id},</if>
+			<if test="userId != null">#{userId},</if>
+			<if test="openId != null">#{openId},</if>
+			<if test="unionId != null">#{unionId},</if>
+			<if test="miniAppId != null">#{miniAppId},</if>
+			<if test="officialAppId != null">#{officialAppId},</if>
+			<if test="isDelete != null">#{isDelete},</if>
+			<if test="createTime != null">#{createTime},</if>
+			<if test="updateTime != null">#{updateTime},</if>
+		</trim>
+	</insert>
+
+	<!-- 将UserSensitiveInfo批量插入到对应数据库的表中 -->
+	<insert id="insertUserSensitiveInfoByBatch" parameterType="ArrayList">
+		insert into user_sensitive_info(id,user_id,open_id,union_id,mini_app_id,official_app_id,is_delete,create_time,update_time) values
+		<foreach collection="list" item="item" index="index"
+			separator=",">
+			(#{id},#{userId},#{openId},#{unionId},#{miniAppId},#{officialAppId},#{isDelete},#{createTime},#{updateTime})
+		</foreach>
+	</insert>
+	
+	<!-- 通过UserSensitiveInfo的id将数据库表中对应的数据删除 -->
+	<delete id="deleteUserSensitiveInfoById" parameterType="Long">
+		delete from user_sensitive_info
+		where  id  =  #{id}
+	</delete>
+
+
+
+	<!-- 通过UserSensitiveInfo的id将UserSensitiveInfo的数据更新到数据库中对应的表,包括值null的数据 -->
+	<update id="updateUserSensitiveInfoById" parameterType="com.zhs.model.UserSensitiveInfo"> 
+		update user_sensitive_info set
+		<set>
+			user_id = #{userId} , 
+			open_id = #{openId} , 
+			union_id = #{unionId} , 
+			mini_app_id = #{miniAppId} , 
+			official_app_id = #{officialAppId} , 
+			is_delete = #{isDelete} , 
+			create_time = #{createTime} , 
+			update_time = #{updateTime} , 
+		</set>
+		where id = #{id}
+	</update>
+	
+	<!-- 通过UserSensitiveInfo的id将UserSensitiveInfo中属性值不为null的数据更新到数据库对应的表中 -->
+	<update id="updateNotNullUserSensitiveInfoById" parameterType="com.zhs.model.UserSensitiveInfo">
+		update user_sensitive_info
+		<set>
+					<if test="userId != null">user_id = #{userId},</if>
+					<if test="openId != null">open_id = #{openId},</if>
+					<if test="unionId != null">union_id = #{unionId},</if>
+					<if test="miniAppId != null">mini_app_id = #{miniAppId},</if>
+					<if test="officialAppId != null">official_app_id = #{officialAppId},</if>
+					<if test="isDelete != null">is_delete = #{isDelete},</if>
+					<if test="createTime != null">create_time = #{createTime},</if>
+					<if test="updateTime != null">update_time = #{updateTime},</if>
+		</set>
+		where id = #{id}
+	</update>
+
+</mapper>

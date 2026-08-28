@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="[%p] %d{yyyy-MM-dd HH:mm:ss} --&gt; %m --&gt; %F:%L%n"/>
+        </Console>
+        <RollingFile name="InfoFile" fileName="logs/info/info.log"
+                     filePattern="logs/info/info-%d{yyyy-MM-dd}.log">
+            <PatternLayout pattern="[%p] %d{yyyy-MM-dd HH:mm:ss} --&gt; %m --&gt; %F:%L%n%n"/>
+        </RollingFile>
+        <RollingFile name="ErrorFile" fileName="logs/error/error.log"
+                     filePattern="logs/error/error-%d{yyyy-MM-dd}.log">
+            <ThresholdFilter level="ERROR" onMatch="ACCEPT" onMismatch="DENY"/>
+            <PatternLayout pattern="[%p] %d{yyyy-MM-dd HH:mm:ss} --&gt; %m --&gt; %F:%L%n%n"/>
+        </RollingFile>
+    </Appenders>
+    <Loggers>
+        <Root level="debug">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="InfoFile"/>
+            <AppenderRef ref="ErrorFile"/>
+        </Root>
+    </Loggers>
+</Configuration>

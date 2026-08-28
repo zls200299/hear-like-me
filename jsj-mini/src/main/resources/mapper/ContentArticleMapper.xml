@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhs.dao.ContentArticleDao">
+	<resultMap id="result_ContentArticleMapper.xml" type="com.zhs.model.ContentArticle">
+		<id column="id" property="id" />
+		<result column="category_id" property="categoryId" />
+		<result column="slug" property="slug" />
+		<result column="title" property="title" />
+		<result column="content_body" property="contentBody" />
+		<result column="lang" property="lang" />
+		<result column="subtitle" property="subtitle" />
+		<result column="summary" property="summary" />
+		<result column="content_format" property="contentFormat" />
+		<result column="cover_asset_id" property="coverAssetId" />
+		<result column="status" property="status" />
+		<result column="sort_order" property="sortOrder" />
+		<result column="published_time" property="publishedTime" />
+		<result column="create_time" property="createTime" />
+		<result column="update_time" property="updateTime" />
+		<result column="is_delete" property="isDelete" />
+	</resultMap>
+	<!-- 数据库中表名为:content_article的列名 -->
+	<sql id="content_article_Column">
+		id,category_id,slug,lang,title,subtitle,summary,content_format,content_body,cover_asset_id,status,sort_order,published_time,create_time,update_time,is_delete
+	</sql>
+
+	<!-- 通过ContentArticle的id获得对应数据库中表的数据对象 -->
+	<select id="selectContentArticleById" parameterType="Long" resultMap="result_ContentArticleMapper.xml">
+		select
+		<include refid="content_article_Column" />
+		from content_article
+		where id = #{id}
+	</select>
+	
+	<!-- 获得一个ContentArticle对象,以参数ContentArticle对象中不为空的属性作为条件进行查询 -->
+	<select id="selectContentArticleObjSingle" parameterType="com.zhs.model.ContentArticle" resultMap="result_ContentArticleMapper.xml">
+		select
+		<include refid="content_article_Column" />
+		from content_article
+		<where>
+		<if test="lang != null"> and lang = #{lang}</if>
+		<if test="subtitle != null"> and subtitle = #{subtitle}</if>
+		<if test="summary != null"> and summary = #{summary}</if>
+		<if test="contentFormat != null"> and content_format = #{contentFormat}</if>
+		<if test="coverAssetId != null"> and cover_asset_id = #{coverAssetId}</if>
+		<if test="status != null"> and status = #{status}</if>
+		<if test="sortOrder != null"> and sort_order = #{sortOrder}</if>
+		<if test="publishedTime != null"> and published_time = #{publishedTime}</if>
+		<if test="createTime != null"> and create_time = #{createTime}</if>
+		<if test="updateTime != null"> and update_time = #{updateTime}</if>
+		<if test="isDelete != null"> and is_delete = #{isDelete}</if>
+		<if test="categoryId != null"> and category_id = #{categoryId}</if>
+		<if test="slug != null"> and slug = #{slug}</if>
+		<if test="title != null"> and title = #{title}</if>
+		<if test="contentBody != null"> and content_body = #{contentBody}</if>
+		<if test="id != null"> and id = #{id} </if>
+		</where>
+		LIMIT 1
+	</select>
+	
+	<!-- 获得ContentArticle对象,以参数ContentArticle对象中不为空的属性作为条件进行查询 -->
+	<select id="selectContentArticleByObj" parameterType="com.zhs.model.ContentArticle" resultMap="result_ContentArticleMapper.xml">
+		select
+		<include refid="content_article_Column" />
+		from content_article
+		<where>
+		<if test="lang != null"> and lang = #{lang}</if>
+		<if test="subtitle != null"> and subtitle = #{subtitle}</if>
+		<if test="summary != null"> and summary = #{summary}</if>
+		<if test="contentFormat != null"> and content_format = #{contentFormat}</if>
+		<if test="coverAssetId != null"> and cover_asset_id = #{coverAssetId}</if>
+		<if test="status != null"> and status = #{status}</if>
+		<if test="sortOrder != null"> and sort_order = #{sortOrder}</if>
+		<if test="publishedTime != null"> and published_time = #{publishedTime}</if>
+		<if test="createTime != null"> and create_time = #{createTime}</if>
+		<if test="updateTime != null"> and update_time = #{updateTime}</if>
+		<if test="isDelete != null"> and is_delete = #{isDelete}</if>
+		<if test="categoryId != null"> and category_id = #{categoryId}</if>
+		<if test="slug != null"> and slug = #{slug}</if>
+		<if test="title != null"> and title = #{title}</if>
+		<if test="contentBody != null"> and content_body = #{contentBody}</if>
+		<if test="id != null"> and id = #{id} </if>
+		</where>
+	</select>
+
+	<!-- 将ContentArticle插入到对应数据库的表中,包括属性值为null的数据 -->
+	<insert id="insertContentArticle" parameterType="com.zhs.model.ContentArticle">
+		insert into 
+		content_article (id,category_id,slug,lang,title,subtitle,summary,content_format,content_body,cover_asset_id,status,sort_order,published_time,create_time,update_time,is_delete) 
+		values(#{id},#{categoryId},#{slug},#{lang},#{title},#{subtitle},#{summary},#{contentFormat},#{contentBody},#{coverAssetId},#{status},#{sortOrder},#{publishedTime},#{createTime},#{updateTime},#{isDelete})
+	</insert>
+
+	<!-- 将ContentArticle中属性值不为null的数据,插入到对应数据库的表中 -->
+	<insert id="insertNotNullContentArticle" parameterType="com.zhs.model.ContentArticle">
+		insert into content_article
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="id != null">id,</if>
+			<if test="categoryId != null">category_id,</if>
+			<if test="slug != null">slug,</if>
+			<if test="lang != null">lang,</if>
+			<if test="title != null">title,</if>
+			<if test="subtitle != null">subtitle,</if>
+			<if test="summary != null">summary,</if>
+			<if test="contentFormat != null">content_format,</if>
+			<if test="contentBody != null">content_body,</if>
+			<if test="coverAssetId != null">cover_asset_id,</if>
+			<if test="status != null">status,</if>
+			<if test="sortOrder != null">sort_order,</if>
+			<if test="publishedTime != null">published_time,</if>
+			<if test="createTime != null">create_time,</if>
+			<if test="updateTime != null">update_time,</if>
+			<if test="isDelete != null">is_delete,</if>
+		</trim>
+		<trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="id != null">#{id},</if>
+			<if test="categoryId != null">#{categoryId},</if>
+			<if test="slug != null">#{slug},</if>
+			<if test="lang != null">#{lang},</if>
+			<if test="title != null">#{title},</if>
+			<if test="subtitle != null">#{subtitle},</if>
+			<if test="summary != null">#{summary},</if>
+			<if test="contentFormat != null">#{contentFormat},</if>
+			<if test="contentBody != null">#{contentBody},</if>
+			<if test="coverAssetId != null">#{coverAssetId},</if>
+			<if test="status != null">#{status},</if>
+			<if test="sortOrder != null">#{sortOrder},</if>
+			<if test="publishedTime != null">#{publishedTime},</if>
+			<if test="createTime != null">#{createTime},</if>
+			<if test="updateTime != null">#{updateTime},</if>
+			<if test="isDelete != null">#{isDelete},</if>
+		</trim>
+	</insert>
+
+	<!-- 将ContentArticle批量插入到对应数据库的表中 -->
+	<insert id="insertContentArticleByBatch" parameterType="ArrayList">
+		insert into content_article(id,category_id,slug,lang,title,subtitle,summary,content_format,content_body,cover_asset_id,status,sort_order,published_time,create_time,update_time,is_delete) values
+		<foreach collection="list" item="item" index="index"
+			separator=",">
+			(#{id},#{categoryId},#{slug},#{lang},#{title},#{subtitle},#{summary},#{contentFormat},#{contentBody},#{coverAssetId},#{status},#{sortOrder},#{publishedTime},#{createTime},#{updateTime},#{isDelete})
+		</foreach>
+	</insert>
+	
+	<!-- 通过ContentArticle的id将数据库表中对应的数据删除 -->
+	<delete id="deleteContentArticleById" parameterType="Long">
+		delete from content_article
+		where  id  =  #{id}
+	</delete>
+
+
+
+	<!-- 通过ContentArticle的id将ContentArticle的数据更新到数据库中对应的表,包括值null的数据 -->
+	<update id="updateContentArticleById" parameterType="com.zhs.model.ContentArticle"> 
+		update content_article set
+		<set>
+			category_id = #{categoryId} , 
+			slug = #{slug} , 
+			lang = #{lang} , 
+			title = #{title} , 
+			subtitle = #{subtitle} , 
+			summary = #{summary} , 
+			content_format = #{contentFormat} , 
+			content_body = #{contentBody} , 
+			cover_asset_id = #{coverAssetId} , 
+			status = #{status} , 
+			sort_order = #{sortOrder} , 
+			published_time = #{publishedTime} , 
+			create_time = #{createTime} , 
+			update_time = #{updateTime} , 
+			is_delete = #{isDelete} , 
+		</set>
+		where id = #{id}
+	</update>
+	
+	<!-- 通过ContentArticle的id将ContentArticle中属性值不为null的数据更新到数据库对应的表中 -->
+	<update id="updateNotNullContentArticleById" parameterType="com.zhs.model.ContentArticle">
+		update content_article
+		<set>
+					<if test="categoryId != null">category_id = #{categoryId},</if>
+					<if test="slug != null">slug = #{slug},</if>
+					<if test="lang != null">lang = #{lang},</if>
+					<if test="title != null">title = #{title},</if>
+					<if test="subtitle != null">subtitle = #{subtitle},</if>
+					<if test="summary != null">summary = #{summary},</if>
+					<if test="contentFormat != null">content_format = #{contentFormat},</if>
+					<if test="contentBody != null">content_body = #{contentBody},</if>
+					<if test="coverAssetId != null">cover_asset_id = #{coverAssetId},</if>
+					<if test="status != null">status = #{status},</if>
+					<if test="sortOrder != null">sort_order = #{sortOrder},</if>
+					<if test="publishedTime != null">published_time = #{publishedTime},</if>
+					<if test="createTime != null">create_time = #{createTime},</if>
+					<if test="updateTime != null">update_time = #{updateTime},</if>
+					<if test="isDelete != null">is_delete = #{isDelete},</if>
+		</set>
+		where id = #{id}
+	</update>
+
+</mapper>

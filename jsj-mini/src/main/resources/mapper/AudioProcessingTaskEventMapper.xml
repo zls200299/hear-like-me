@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhs.dao.AudioProcessingTaskEventDao">
+	<resultMap id="result_AudioProcessingTaskEventMapper.xml" type="com.zhs.model.AudioProcessingTaskEvent">
+		<id column="id" property="id" />
+		<result column="task_id" property="taskId" />
+		<result column="event_type" property="eventType" />
+		<result column="stage" property="stage" />
+		<result column="progress" property="progress" />
+		<result column="message" property="message" />
+		<result column="detail_json" property="detailJson" />
+		<result column="create_time" property="createTime" />
+	</resultMap>
+	<!-- 数据库中表名为:audio_processing_task_event的列名 -->
+	<sql id="audio_processing_task_event_Column">
+		id,task_id,event_type,stage,progress,message,detail_json,create_time
+	</sql>
+
+	<!-- 通过AudioProcessingTaskEvent的id获得对应数据库中表的数据对象 -->
+	<select id="selectAudioProcessingTaskEventById" parameterType="Long" resultMap="result_AudioProcessingTaskEventMapper.xml">
+		select
+		<include refid="audio_processing_task_event_Column" />
+		from audio_processing_task_event
+		where id = #{id}
+	</select>
+	
+	<!-- 获得一个AudioProcessingTaskEvent对象,以参数AudioProcessingTaskEvent对象中不为空的属性作为条件进行查询 -->
+	<select id="selectAudioProcessingTaskEventObjSingle" parameterType="com.zhs.model.AudioProcessingTaskEvent" resultMap="result_AudioProcessingTaskEventMapper.xml">
+		select
+		<include refid="audio_processing_task_event_Column" />
+		from audio_processing_task_event
+		<where>
+		<if test="stage != null"> and stage = #{stage}</if>
+		<if test="progress != null"> and progress = #{progress}</if>
+		<if test="message != null"> and message = #{message}</if>
+		<if test="detailJson != null"> and detail_json = #{detailJson}</if>
+		<if test="createTime != null"> and create_time = #{createTime}</if>
+		<if test="taskId != null"> and task_id = #{taskId}</if>
+		<if test="eventType != null"> and event_type = #{eventType}</if>
+		<if test="id != null"> and id = #{id} </if>
+		</where>
+		LIMIT 1
+	</select>
+	
+	<!-- 获得AudioProcessingTaskEvent对象,以参数AudioProcessingTaskEvent对象中不为空的属性作为条件进行查询 -->
+	<select id="selectAudioProcessingTaskEventByObj" parameterType="com.zhs.model.AudioProcessingTaskEvent" resultMap="result_AudioProcessingTaskEventMapper.xml">
+		select
+		<include refid="audio_processing_task_event_Column" />
+		from audio_processing_task_event
+		<where>
+		<if test="stage != null"> and stage = #{stage}</if>
+		<if test="progress != null"> and progress = #{progress}</if>
+		<if test="message != null"> and message = #{message}</if>
+		<if test="detailJson != null"> and detail_json = #{detailJson}</if>
+		<if test="createTime != null"> and create_time = #{createTime}</if>
+		<if test="taskId != null"> and task_id = #{taskId}</if>
+		<if test="eventType != null"> and event_type = #{eventType}</if>
+		<if test="id != null"> and id = #{id} </if>
+		</where>
+	</select>
+
+	<!-- 将AudioProcessingTaskEvent插入到对应数据库的表中,包括属性值为null的数据 -->
+	<insert id="insertAudioProcessingTaskEvent" parameterType="com.zhs.model.AudioProcessingTaskEvent">
+		insert into 
+		audio_processing_task_event (id,task_id,event_type,stage,progress,message,detail_json,create_time) 
+		values(#{id},#{taskId},#{eventType},#{stage},#{progress},#{message},#{detailJson},#{createTime})
+	</insert>
+
+	<!-- 将AudioProcessingTaskEvent中属性值不为null的数据,插入到对应数据库的表中 -->
+	<insert id="insertNotNullAudioProcessingTaskEvent" parameterType="com.zhs.model.AudioProcessingTaskEvent">
+		insert into audio_processing_task_event
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="id != null">id,</if>
+			<if test="taskId != null">task_id,</if>
+			<if test="eventType != null">event_type,</if>
+			<if test="stage != null">stage,</if>
+			<if test="progress != null">progress,</if>
+			<if test="message != null">message,</if>
+			<if test="detailJson != null">detail_json,</if>
+			<if test="createTime != null">create_time,</if>
+		</trim>
+		<trim prefix="values (" suffix=")" suffixOverrides=",">
+			<if test="id != null">#{id},</if>
+			<if test="taskId != null">#{taskId},</if>
+			<if test="eventType != null">#{eventType},</if>
+			<if test="stage != null">#{stage},</if>
+			<if test="progress != null">#{progress},</if>
+			<if test="message != null">#{message},</if>
+			<if test="detailJson != null">#{detailJson},</if>
+			<if test="createTime != null">#{createTime},</if>
+		</trim>
+	</insert>
+
+	<!-- 将AudioProcessingTaskEvent批量插入到对应数据库的表中 -->
+	<insert id="insertAudioProcessingTaskEventByBatch" parameterType="ArrayList">
+		insert into audio_processing_task_event(id,task_id,event_type,stage,progress,message,detail_json,create_time) values
+		<foreach collection="list" item="item" index="index"
+			separator=",">
+			(#{id},#{taskId},#{eventType},#{stage},#{progress},#{message},#{detailJson},#{createTime})
+		</foreach>
+	</insert>
+	
+	<!-- 通过AudioProcessingTaskEvent的id将数据库表中对应的数据删除 -->
+	<delete id="deleteAudioProcessingTaskEventById" parameterType="Long">
+		delete from audio_processing_task_event
+		where  id  =  #{id}
+	</delete>
+
+
+
+	<!-- 通过AudioProcessingTaskEvent的id将AudioProcessingTaskEvent的数据更新到数据库中对应的表,包括值null的数据 -->
+	<update id="updateAudioProcessingTaskEventById" parameterType="com.zhs.model.AudioProcessingTaskEvent"> 
+		update audio_processing_task_event set
+		<set>
+			task_id = #{taskId} , 
+			event_type = #{eventType} , 
+			stage = #{stage} , 
+			progress = #{progress} , 
+			message = #{message} , 
+			detail_json = #{detailJson} , 
+			create_time = #{createTime} , 
+		</set>
+		where id = #{id}
+	</update>
+	
+	<!-- 通过AudioProcessingTaskEvent的id将AudioProcessingTaskEvent中属性值不为null的数据更新到数据库对应的表中 -->
+	<update id="updateNotNullAudioProcessingTaskEventById" parameterType="com.zhs.model.AudioProcessingTaskEvent">
+		update audio_processing_task_event
+		<set>
+					<if test="taskId != null">task_id = #{taskId},</if>
+					<if test="eventType != null">event_type = #{eventType},</if>
+					<if test="stage != null">stage = #{stage},</if>
+					<if test="progress != null">progress = #{progress},</if>
+					<if test="message != null">message = #{message},</if>
+					<if test="detailJson != null">detail_json = #{detailJson},</if>
+					<if test="createTime != null">create_time = #{createTime},</if>
+		</set>
+		where id = #{id}
+	</update>
+
+</mapper>

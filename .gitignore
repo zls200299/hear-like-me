@@ -1,0 +1,38 @@
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Java / Maven
+target/
+*.class
+hs_err_pid*
+
+# Node
+node_modules/
+dist/
+*.log
+
+# Env & secrets
+.env
+.env.*
+*.local
+
+# Generator local DB (machine-specific)
+generator/config/ConfigDB.db
+
+# WeChat mini program
+jsj-mini-app/miniprogram_npm/
+
+# UniApp
+jsj-uni-app/unpackage/
+
+# Logs & temp
+logs/
+tmp/
+temp/
