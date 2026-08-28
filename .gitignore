@@ -28,6 +28,7 @@ generator/config/ConfigDB.db
 
 # WeChat mini program
 jsj-mini-app/miniprogram_npm/
+jsj-mini-app/project.private.config.json
 
 # UniApp
 jsj-uni-app/unpackage/
