@@ -8,7 +8,7 @@ import com.zhs.model.AudioProcessingTask;
 import com.zhs.model.FileAsset;
 import com.zhs.model.SampleAudio;
 import com.zhs.model.ScenarioPreset;
-import com.zhs.request.api.AudioTaskCreateReq;
+import com.zhs.request.AudioTaskCreateReq;
 import com.zhs.service.IAudioProcessingTaskService;
 import com.zhs.service.IFileAssetService;
 import com.zhs.service.ISampleAudioService;
