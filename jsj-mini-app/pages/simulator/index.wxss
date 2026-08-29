@@ -481,6 +481,20 @@
   word-break: break-all;
 }
 
+.error-message__title {
+  font-weight: 600;
+}
+
+.error-message__detail {
+  margin-top: 8rpx;
+}
+
+.result-status-hint {
+  margin-bottom: 20rpx;
+  font-size: 24rpx;
+  color: #35D0BA;
+}
+
 .loading-bar {
   margin-top: 24rpx;
   height: 8rpx;

@@ -81,6 +81,10 @@ function buildSampleLabels(samples) {
   return labels
 }
 
+function clamp(value, lo, hi) {
+  return Math.max(lo, Math.min(hi, value))
+}
+
 Page({
   data: {
     sourceType: 'sample',
@@ -129,6 +133,7 @@ Page({
     taskNo: '',
     outputAssetId: null,
     processedAudioUrl: '',
+    processedKey: '',
     clarityScore: null,
     clarityGrade: '',
     errorMessage: '',
@@ -144,7 +149,9 @@ Page({
   onLoad() {
     this._scenarioPresets = { ...SCENARIO_PRESETS }
     this._sampleLabels = { ...SAMPLE_LABELS }
-    this._loadRemoteData()
+    this._loadRemoteData().then(() => {
+      this._updateLocalClarity()
+    })
   },
 
   onUnload() {
@@ -217,22 +224,98 @@ Page({
   },
 
   _resetConvertStatus() {
-    this.setData({
-      isProcessing: false,
-      taskNo: '',
-      outputAssetId: null,
-      processedAudioUrl: '',
-      clarityScore: null,
-      clarityGrade: '',
-      errorMessage: '',
-      clarityDesc: ''
-    })
-    const status = this.data.taskStatus
-    if (status === 'processing' || status === 'success' || status === 'failed') {
-      this.setData({
-        taskStatus: this.data.sourceType === 'upload' && this.data.sourceAssetId ? 'ready' : 'idle'
-      })
+    this._invalidateProcessedResult()
+  },
+
+  _resolveReadyStatus() {
+    if (this.data.sourceType === 'upload' && this.data.sourceAssetId) {
+      return 'ready'
     }
+    if (this.data.sourceType === 'sample') {
+      const cache = this._sampleSourceCache[this.data.selectedSample]
+      return cache ? 'ready' : 'idle'
+    }
+    return 'idle'
+  },
+
+  _buildProcessKey() {
+    return [
+      this.data.sourceType,
+      this.data.sourceAssetId || '',
+      this.data.selectedSample || '',
+      this.data.selectedScenario || '',
+      this.data.nChannels,
+      this.data.carrier,
+      this.data.frequencyRange,
+      this.data.envCut,
+      this.data.spread,
+      this.data.noiseLevel
+    ].join('|')
+  },
+
+  _invalidateProcessedResult(options = {}) {
+    const patch = {
+      processedAudioUrl: '',
+      outputAssetId: null,
+      processedKey: '',
+      taskNo: '',
+      errorMessage: ''
+    }
+
+    if (!options.keepStatus && !this.data.isProcessing && this.data.taskStatus !== 'uploading') {
+      const status = this.data.taskStatus
+      if (status === 'processing' || status === 'success' || status === 'failed') {
+        patch.taskStatus = this._resolveReadyStatus()
+      }
+    }
+
+    this.setData(patch, () => {
+      this._updateLocalClarity()
+    })
+  },
+
+  _computeLocalClarity() {
+    const spreadRatio = this.data.spread / 100
+    const noiseRatio = this.data.noiseLevel / 100
+    const eff = this.data.nChannels * (1 - 0.5 * spreadRatio)
+    const specShow = clamp(1 - Math.pow(0.72, eff), 0, 1)
+    const spec = Math.pow(specShow, 1.6)
+    let pitch = clamp(Math.sqrt(Math.max(0, this.data.envCut - 20) / 480), 0, 1)
+    if (this.data.carrier === 'sine') {
+      pitch = clamp(pitch + 0.12, 0, 1)
+    }
+    const noiseMargin = clamp(1 - noiseRatio * 1.05, 0, 1)
+    const { fLo, fHi } = this._parseFrequencyRange(this.data.frequencyRange)
+    const cover = clamp(
+      (Math.log(fHi) - Math.log(fLo)) / (Math.log(8000) - Math.log(80)),
+      0.4,
+      1
+    )
+    const core = clamp(spec * 0.90 + pitch * 0.08, 0, 1)
+    const s01 = clamp(core * (0.30 + 0.70 * noiseMargin) * (0.78 + 0.22 * cover), 0, 1)
+    const score = Math.round(s01 * 100)
+
+    let grade
+    if (score < 24) grade = '几乎听不懂'
+    else if (score < 44) grade = '很吃力'
+    else if (score < 66) grade = '大致能懂'
+    else if (score < 86) grade = '比较清楚'
+    else grade = '接近清晰'
+
+    return {
+      score,
+      grade,
+      desc: this._getClarityDesc(score, grade)
+    }
+  },
+
+  _updateLocalClarity() {
+    const { score, grade, desc } = this._computeLocalClarity()
+    this.setData({
+      clarityScore: score,
+      clarityGrade: grade,
+      clarityDesc: desc
+    })
   },
 
   _getClarityDesc(score, grade) {
@@ -244,7 +327,7 @@ Page({
       if (num >= 24) return '声音被明显压缩，识别难度较高。'
       return '只保留了很少的信息，几乎难以听懂。'
     }
-    return '当前音频已完成声码器处理，可以对比试听原声和模拟声。'
+    return '当前参数下的可懂度参考，可对比试听原声和模拟声。'
   },
 
   _formatErrorMessage(err) {
@@ -389,13 +472,6 @@ Page({
       const cache = this._sampleSourceCache[this.data.selectedSample]
       const label = this._getSampleLabel(this.data.selectedSample)
       this.setData({
-        processedAudioUrl: '',
-        clarityScore: null,
-        clarityGrade: '',
-        clarityDesc: '',
-        errorMessage: '',
-        taskNo: '',
-        outputAssetId: null,
         isProcessing: false,
         sourceType: 'sample',
         sourceAssetId: cache ? cache.assetId : null,
@@ -405,6 +481,8 @@ Page({
         taskStatus: cache ? 'ready' : 'idle',
         statusText: `已选择${label}`,
         sourceHint: ''
+      }, () => {
+        this._invalidateProcessedResult()
       })
       return
     }
@@ -438,16 +516,11 @@ Page({
       originalAudioUrl: cache ? cache.url : '',
       uploadedFileName: cache ? cache.fileName : '',
       uploadedObjectKey: cache ? cache.objectKey : '',
-      processedAudioUrl: '',
-      clarityScore: null,
-      clarityGrade: '',
-      clarityDesc: '',
-      errorMessage: '',
-      taskNo: '',
-      outputAssetId: null,
       isProcessing: false,
       taskStatus: cache ? 'ready' : 'idle',
       statusText: `已选择${label}`
+    }, () => {
+      this._invalidateProcessedResult()
     })
   },
 
@@ -459,7 +532,6 @@ Page({
     const scenarioItem = this.data.scenarioList.find((item) => item.code === code)
     const scenarioName = scenarioItem ? scenarioItem.name : code
 
-    this._resetConvertStatus()
     this._updateElectrodeDots(preset.nChannels)
     this.setData({
       selectedScenario: code,
@@ -470,71 +542,80 @@ Page({
       noiseLevel: preset.noiseLevel,
       carrier: preset.carrier || this.data.carrier,
       statusText: `已切换至${scenarioName}场景`
+    }, () => {
+      this._invalidateProcessedResult()
     })
   },
 
   changeChannels(e) {
     const value = Number(e.detail.value)
-    this._resetConvertStatus()
     this._updateElectrodeDots(value)
     this.setData({
       nChannels: value,
       statusText: `已设置 ${value} 通道`
+    }, () => {
+      this._invalidateProcessedResult()
     })
   },
 
   quickSetChannels(e) {
     const value = Number(e.currentTarget.dataset.value)
-    this._resetConvertStatus()
     this._updateElectrodeDots(value)
     this.setData({
       nChannels: value,
       statusText: `已设置 ${value} 通道`
+    }, () => {
+      this._invalidateProcessedResult()
     })
   },
 
   selectCarrier(e) {
     const value = e.currentTarget.dataset.value
-    this._resetConvertStatus()
     this.setData({
       carrier: value,
       statusText: value === 'noise' ? '已选择噪声载体' : '已选择正弦载体'
+    }, () => {
+      this._invalidateProcessedResult()
     })
   },
 
   selectFrequencyRange(e) {
     const value = e.currentTarget.dataset.value
-    this._resetConvertStatus()
     this.setData({
       frequencyRange: value,
       statusText: `频率范围已设为 ${value} Hz`
+    }, () => {
+      this._invalidateProcessedResult()
     })
   },
 
   changeEnvCut(e) {
     const value = Number(e.detail.value)
-    this._resetConvertStatus()
     this.setData({
       envCut: value,
       statusText: `包络细节已设为 ${value} Hz`
+    }, () => {
+      this._invalidateProcessedResult()
     })
   },
 
   changeSpread(e) {
     const value = Number(e.detail.value)
-    this._resetConvertStatus()
     this.setData({
       spread: value,
       statusText: `电流扩散已设为 ${value}%`
+    }, () => {
+      this._invalidateProcessedResult()
     })
   },
 
   changeNoiseLevel(e) {
     const value = Number(e.detail.value)
-    this._resetConvertStatus()
     this.setData({
       noiseLevel: value,
       statusText: `环境噪声已设为 ${value}%`
+    }, () => {
+      this._invalidateProcessedResult()
     })
   },
 
@@ -585,13 +666,12 @@ Page({
         taskNo: '',
         outputAssetId: null,
         processedAudioUrl: '',
-        clarityScore: null,
-        clarityGrade: '',
-        errorMessage: '',
-        clarityDesc: '',
+        processedKey: '',
         taskStatus: 'ready',
-        statusText: '音频上传成功，可以播放原声或开始转换',
+        statusText: '音频上传成功，可以播放原声或模拟声',
         sourceHint: ''
+      }, () => {
+        this._invalidateProcessedResult({ keepStatus: true })
       })
     } catch (err) {
       console.error(err)
@@ -663,7 +743,7 @@ Page({
     }
   },
 
-  async startProcess() {
+  async playProcessedAuto() {
     if (this.data.isProcessing) return
 
     if (this.data.sourceType === 'record') {
@@ -677,59 +757,58 @@ Page({
     }
 
     let sourceAssetId = ''
-    let sourceType = 'UPLOAD'
-    let sampleCode = ''
 
-    if (this.data.sourceType === 'sample') {
-      try {
+    try {
+      if (this.data.sourceType === 'sample') {
         const sampleSource = await this._ensureSampleSource()
         sourceAssetId = sampleSource.assetId
-        sourceType = 'SAMPLE'
-        sampleCode = this.data.selectedSample
-      } catch (err) {
-        console.error(err)
-        const errorMessage = this._formatErrorMessage(err)
-        this.setData({
-          taskStatus: 'failed',
-          statusText: '示例声音准备失败',
-          errorMessage
-        })
-        wx.showToast({ title: '示例准备失败', icon: 'none' })
+      } else if (this.data.sourceType === 'upload') {
+        sourceAssetId = this._resolveSourceAssetId()
+        if (!sourceAssetId) {
+          wx.showToast({ title: '请先上传音频', icon: 'none' })
+          return
+        }
+      } else {
         return
       }
-    } else if (this.data.sourceType === 'upload') {
-      sourceAssetId = this._resolveSourceAssetId()
-      if (!sourceAssetId) {
-        wx.showToast({
-          title: '请先上传音频',
-          icon: 'none'
-        })
-        return
-      }
-    } else {
+    } catch (err) {
+      console.error(err)
+      const errorMessage = this._formatErrorMessage(err)
+      this.setData({
+        taskStatus: 'failed',
+        statusText: '示例声音准备失败',
+        errorMessage
+      })
+      wx.showToast({ title: '示例准备失败', icon: 'none' })
+      return
+    }
+
+    const key = this._buildProcessKey()
+
+    if (this.data.processedAudioUrl && this.data.processedKey === key) {
+      this._playAudio(
+        this.data.processedAudioUrl,
+        '正在播放人工耳蜗模拟声音',
+        '模拟声音播放结束',
+        '模拟声音播放失败，请检查文件地址'
+      )
       return
     }
 
     const { fLo, fHi } = this._parseFrequencyRange(this.data.frequencyRange)
 
     this.setData({
-      taskStatus: 'processing',
       isProcessing: true,
-      statusText: '正在模拟人工耳蜗声音...',
-      taskNo: '',
-      outputAssetId: null,
-      processedAudioUrl: '',
-      clarityScore: null,
-      clarityGrade: '',
-      errorMessage: '',
-      clarityDesc: ''
+      taskStatus: 'processing',
+      statusText: '正在生成模拟声音...',
+      errorMessage: ''
     })
 
     try {
       const result = await createTask({
-        sourceType,
+        sourceType: this.data.sourceType === 'sample' ? 'SAMPLE' : 'UPLOAD',
         sourceAssetId,
-        sampleCode: sampleCode || undefined,
+        sampleCode: this.data.sourceType === 'sample' ? this.data.selectedSample : '',
         scenarioCode: this.data.selectedScenario,
         nChannels: this.data.nChannels,
         carrier: this.data.carrier,
@@ -740,57 +819,48 @@ Page({
         noiseLevel: this.data.noiseLevel / 100
       })
 
-      if (result.status === 'SUCCESS' && result.processedAudioUrl) {
-        const clarityGrade = result.clarityGrade || '模拟完成'
-        const clarityDesc = this._getClarityDesc(result.clarityScore, clarityGrade)
-        this.setData({
-          taskNo: result.taskNo,
-          outputAssetId: result.outputAssetId,
-          processedAudioUrl: result.processedAudioUrl,
-          clarityScore: result.clarityScore,
-          clarityGrade,
-          clarityDesc,
-          taskStatus: 'success',
-          isProcessing: false,
-          statusText: '转换完成，可以对比试听原声和模拟声',
-          errorMessage: ''
-        })
-        return
+      if (!result || result.status !== 'SUCCESS' || !result.processedAudioUrl) {
+        throw new Error((result && result.errorMessage) ? result.errorMessage : '生成失败')
       }
 
-      throw new Error(result.errorMessage || '转换未成功')
+      const clarityScore = result.clarityScore != null ? result.clarityScore : this.data.clarityScore
+      const clarityGrade = result.clarityGrade || this.data.clarityGrade || '模拟完成'
+      const clarityDesc = this._getClarityDesc(clarityScore, clarityGrade)
+
+      this.setData({
+        taskNo: result.taskNo,
+        outputAssetId: result.outputAssetId,
+        processedAudioUrl: result.processedAudioUrl,
+        processedKey: key,
+        clarityScore,
+        clarityGrade,
+        clarityDesc,
+        taskStatus: 'success',
+        isProcessing: false,
+        statusText: '正在播放人工耳蜗模拟声音',
+        errorMessage: ''
+      })
+
+      this._playAudio(
+        result.processedAudioUrl,
+        '正在播放人工耳蜗模拟声音',
+        '模拟声音播放结束',
+        '模拟声音播放失败，请检查文件地址'
+      )
     } catch (err) {
       console.error(err)
       const errorMessage = this._formatErrorMessage(err)
       this.setData({
         taskStatus: 'failed',
         isProcessing: false,
-        statusText: '转换失败，请重试',
-        errorMessage,
-        clarityDesc: ''
+        statusText: '生成失败，请重试',
+        errorMessage
       })
-      wx.showToast({
-        title: '转换失败',
-        icon: 'none'
-      })
+      wx.showToast({ title: '生成失败', icon: 'none' })
     }
   },
 
   playProcessed() {
-    if (this.data.taskStatus !== 'success' || !this.data.processedAudioUrl) {
-      wx.showToast({
-        title: '请先完成转换',
-        icon: 'none',
-        duration: 2000
-      })
-      return
-    }
-
-    this._playAudio(
-      this.data.processedAudioUrl,
-      '正在播放人工耳蜗模拟声音',
-      '模拟声音播放结束',
-      '模拟声音播放失败，请检查文件地址'
-    )
+    return this.playProcessedAuto()
   }
 })
