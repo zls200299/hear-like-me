@@ -30,7 +30,8 @@ function normalizeTask(data) {
     processedAudioUrl: data.processedAudioUrl || data.outputUrl || '',
     clarityScore: data.clarityScore != null ? data.clarityScore : null,
     clarityGrade: data.clarityGrade || '',
-    errorMessage: data.errorMessage || ''
+    visualizationData: data.visualizationData || null,
+    visualizationUrl: data.visualizationUrl || ''
   }
 }
 

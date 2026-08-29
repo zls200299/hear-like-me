@@ -114,7 +114,10 @@ Page({
     statusText: '请选择音频来源',
     sourceHint: '',
     electrodeDots: buildElectrodeDots(8),
-    electrodeVisualList: [],
+    electrodeBarLevels: [],
+    visualizationFrames: [],
+    visualizationFps: 20,
+    visualizationDurationMs: 0,
     clarityLevelClass: 'level-mid',
     freqCoverageLeft: '0%',
     freqCoverageWidth: '100%',
@@ -169,6 +172,7 @@ Page({
   _shouldAutoPlayProcessed: false,
   _runtimeParams: null,
   audioCtx: null,
+  _visualPlaybackTimer: null,
 
   onLoad() {
     this._ensurePageState()
@@ -185,6 +189,7 @@ Page({
   onUnload() {
     this._unloaded = true
     this._cancelAutoRefresh()
+    this._stopVisualPlayback()
     this._stopAudio('已退出页面')
   },
 
@@ -277,38 +282,174 @@ Page({
     }
   },
 
-  _buildElectrodeVisualState() {
-    const nChannels = Number(this.data.nChannels) || 8
-    const spread = Number(this.data.spread) || 0
-    const noiseLevel = Number(this.data.noiseLevel) || 0
-    const isPlaying = this.data.isAudioPlaying
-    const playingKind = this.data.playingKind
-    const isProcessedPlaying = isPlaying && playingKind === 'processed'
-    const isOriginalPlaying = isPlaying && playingKind === 'original'
-
-    let spreadLevel = 'spread-low'
-    if (spread >= 66) spreadLevel = 'spread-high'
-    else if (spread >= 33) spreadLevel = 'spread-mid'
-
-    const list = []
-    for (let i = 0; i < ELECTRODE_TOTAL; i++) {
-      const active = i < nChannels
-      const centerDist = nChannels > 1 ? Math.abs(i - (nChannels - 1) / 2) / ((nChannels - 1) / 2) : 0
-      const intensity = active ? clamp(1 - centerDist * 0.35, 0.55, 1) : 0.15
-      const noiseFlicker = active && noiseLevel >= 25 && (isProcessedPlaying || noiseLevel >= 50)
-
-      list.push({
-        index: i,
-        active,
-        intensity,
-        pulse: active && isProcessedPlaying,
-        weakPulse: active && isOriginalPlaying && !isProcessedPlaying,
-        spreadLevel: active ? spreadLevel : '',
-        noiseFlicker,
-        opacity: active ? (0.65 + intensity * 0.35).toFixed(2) : '0.2'
-      })
+  _normalizeChannelFrame(frame, channelCount) {
+    const n = channelCount || Number(this.data.nChannels) || 8
+    const src = Array.isArray(frame) ? frame : []
+    const out = []
+    for (let i = 0; i < n; i++) {
+      const value = src[i] != null ? Number(src[i]) : 0.05
+      out.push(clamp(Number.isFinite(value) ? value : 0.05, 0, 1))
     }
-    return list
+    return out
+  },
+
+  _getFrameAtCurrentTime(frames) {
+    const fps = this.data.visualizationFps || 20
+    const n = Number(this.data.nChannels) || 8
+    if (!frames || !frames.length) {
+      return this._normalizeChannelFrame([], n)
+    }
+
+    let t = 0
+    if (this.audioCtx && typeof this.audioCtx.currentTime === 'number') {
+      t = this.audioCtx.currentTime
+    }
+
+    const durationSec = this.data.visualizationDurationMs > 0
+      ? this.data.visualizationDurationMs / 1000
+      : frames.length / fps
+    const loopT = durationSec > 0 ? t % durationSec : 0
+    let idx = Math.floor(loopT * fps)
+    if (idx < 0) idx = 0
+    if (idx >= frames.length) idx = frames.length - 1
+
+    return this._normalizeChannelFrame(frames[idx], n)
+  },
+
+  _buildFallbackElectrodeFrame() {
+    const n = Number(this.data.nChannels) || 8
+    const spreadRatio = (Number(this.data.spread) || 0) / 100
+    const noiseRatio = (Number(this.data.noiseLevel) || 0) / 100
+    const envCut = Number(this.data.envCut) || 160
+    const carrier = this.data.carrier || 'noise'
+    const isProcessed = this.data.isAudioPlaying && this.data.playingKind === 'processed'
+    const isOriginal = this.data.isAudioPlaying && this.data.playingKind === 'original'
+    const t = Date.now() / 1000
+    const speed = 0.75 + (envCut / 500) * 1.35
+    const frame = []
+
+    for (let i = 0; i < n; i++) {
+      const center = n > 1 ? 1 - Math.abs(i - (n - 1) / 2) / ((n - 1) / 2) : 1
+      let level = 0.14 + 0.22 * center * (1 - spreadRatio * 0.45)
+
+      if (carrier === 'sine') {
+        level += 0.2 * Math.sin(t * speed + i * 0.72)
+      } else {
+        level += (pseudoRandom(i + Math.floor(t * 12)) - 0.5) * 0.14 * (1 + noiseRatio)
+      }
+
+      if (isProcessed) {
+        level += 0.28 * Math.sin(t * speed * 1.5 + i * 0.95)
+        level += (pseudoRandom(i * 1.7 + Math.floor(t * 20)) - 0.5) * 0.16 * (1 + noiseRatio * 2)
+      } else if (isOriginal) {
+        level += 0.07 * Math.sin(t * 0.55 + i * 0.48)
+      } else {
+        level = 0.1 + 0.06 * Math.sin(t * 0.65 + i * 0.7)
+      }
+
+      if (spreadRatio > 0 && n > 1) {
+        const prev = frame[i - 1]
+        const nextBase = 0.14 + 0.22 * (1 - spreadRatio * 0.45)
+        if (i > 0) {
+          level = level * (1 - spreadRatio * 0.25) + prev * (spreadRatio * 0.25)
+        } else {
+          level = level * (1 - spreadRatio * 0.1) + nextBase * (spreadRatio * 0.1)
+        }
+      }
+
+      frame.push(clamp(level, 0.04, 1))
+    }
+    return frame
+  },
+
+  _getCurrentFrameLevels() {
+    const frames = this.data.visualizationFrames
+    const useRealFrames = frames
+      && frames.length
+      && this.data.isAudioPlaying
+      && this.data.playingKind === 'processed'
+
+    if (useRealFrames) {
+      return this._getFrameAtCurrentTime(frames)
+    }
+    return this._buildFallbackElectrodeFrame()
+  },
+
+  _updateElectrodeBarsFromFrame(frame) {
+    const levels = this._normalizeChannelFrame(frame, Number(this.data.nChannels) || 8)
+    const isActive = this.data.isAudioPlaying && this.data.playingKind === 'processed'
+
+    return levels.map((value, index) => {
+      const percent = Math.max(4, Math.round(value * 100))
+      const opacity = (0.32 + value * 0.68).toFixed(2)
+      return {
+        value,
+        percent,
+        opacity,
+        colorIndex: index % 8,
+        glow: isActive && value > 0.38
+      }
+    })
+  },
+
+  _applyCurrentVisualFrame() {
+    if (this._unloaded) return
+    const bars = this._updateElectrodeBarsFromFrame(this._getCurrentFrameLevels())
+    this.setData({ electrodeBarLevels: bars })
+  },
+
+  _startVisualPlayback() {
+    this._stopVisualPlayback(false)
+    const fps = this.data.visualizationFps || 20
+    const interval = Math.max(33, Math.round(1000 / fps))
+    this._visualPlaybackTimer = setInterval(() => {
+      this._applyCurrentVisualFrame()
+    }, interval)
+    this._applyCurrentVisualFrame()
+  },
+
+  _stopVisualPlayback(resetBars = true) {
+    if (this._visualPlaybackTimer) {
+      clearInterval(this._visualPlaybackTimer)
+      this._visualPlaybackTimer = null
+    }
+    if (resetBars && !this._unloaded) {
+      const bars = this._updateElectrodeBarsFromFrame(this._buildFallbackElectrodeFrame())
+      this.setData({ electrodeBarLevels: bars })
+    }
+  },
+
+  _applyVisualizationFromResult(result) {
+    const viz = result && result.visualizationData
+    if (viz && Array.isArray(viz.frames) && viz.frames.length) {
+      this.setData({
+        visualizationFrames: viz.frames,
+        visualizationFps: viz.fps || 20,
+        visualizationDurationMs: viz.durationMs || 0
+      })
+      return
+    }
+    this.setData({
+      visualizationFrames: [],
+      visualizationFps: 20,
+      visualizationDurationMs: 0
+    })
+  },
+
+  _clearVisualizationData() {
+    this.setData({
+      visualizationFrames: [],
+      visualizationFps: 20,
+      visualizationDurationMs: 0
+    })
+  },
+
+  _syncVisualPlaybackState() {
+    if (this.data.isAudioPlaying) {
+      this._startVisualPlayback()
+      return
+    }
+    this._stopVisualPlayback()
   },
 
   _buildNeuralBars() {
@@ -394,7 +535,7 @@ Page({
     const freqStyle = this._getFrequencyCoverageStyle()
     const { fLo, fHi } = this._parseFrequencyRange(this.data.frequencyRange)
 
-    this.setData({
+    const patch = {
       clarityScore: score,
       clarityGrade: grade,
       clarityDesc: desc,
@@ -402,10 +543,15 @@ Page({
       freqCoverageLeft: freqStyle.left,
       freqCoverageWidth: freqStyle.width,
       freqCoverageLabel: `${fLo} - ${fHi} Hz`,
-      electrodeVisualList: this._buildElectrodeVisualState(),
       neuralBars: this._buildNeuralBars(),
       listenHint: this._resolveListenHint()
-    })
+    }
+
+    if (!this._visualPlaybackTimer) {
+      patch.electrodeBarLevels = this._updateElectrodeBarsFromFrame(this._getCurrentFrameLevels())
+    }
+
+    this.setData(patch)
   },
 
   _resetConvertStatus() {
@@ -520,7 +666,10 @@ Page({
       outputAssetId: null,
       processedKey: '',
       taskNo: '',
-      errorMessage: ''
+      errorMessage: '',
+      visualizationFrames: [],
+      visualizationFps: 20,
+      visualizationDurationMs: 0
     }
 
     if (!options.keepStatus && !this.data.isProcessing && this.data.taskStatus !== 'uploading') {
@@ -708,6 +857,7 @@ Page({
   },
 
   _stopAudio(statusText = '已停止播放') {
+    this._stopVisualPlayback()
     if (this.audioCtx) {
       try {
         this.audioCtx.stop()
@@ -742,6 +892,7 @@ Page({
     if (!this._unloaded) {
       this.setData({ statusText: onPlayText }, () => {
         this._refreshVisualFeedback()
+        this._syncVisualPlaybackState()
       })
     }
     return true
@@ -780,11 +931,13 @@ Page({
         statusText: onPlayText
       }, () => {
         this._refreshVisualFeedback()
+        this._syncVisualPlaybackState()
       })
     })
 
     audioCtx.onStop(() => {
       if (this._unloaded) return
+      this._stopVisualPlayback()
       this.setData({
         isAudioPlaying: false,
         playingKind: '',
@@ -796,6 +949,7 @@ Page({
 
     audioCtx.onEnded(() => {
       if (this._unloaded) return
+      this._stopVisualPlayback()
       this.setData({
         isAudioPlaying: false,
         playingKind: '',
@@ -808,6 +962,7 @@ Page({
     audioCtx.onError((err) => {
       console.error(err)
       if (this._unloaded) return
+      this._stopVisualPlayback()
       this.setData({
         isAudioPlaying: false,
         playingKind: '',
@@ -1338,6 +1493,7 @@ Page({
       const clarityScore = result.clarityScore != null ? result.clarityScore : this.data.clarityScore
       const clarityGrade = result.clarityGrade || this.data.clarityGrade || '模拟完成'
       const clarityDesc = this._getClarityDesc(clarityScore, clarityGrade)
+      this._applyVisualizationFromResult(result)
 
       this.setData({
         taskNo: result.taskNo,
@@ -1353,6 +1509,9 @@ Page({
         statusText: replacePlaying ? '模拟声已按新参数更新' : '正在循环播放人工耳蜗模拟声音'
       }, () => {
         this._refreshVisualFeedback()
+        if (this.data.isAudioPlaying && this.data.playingKind === 'processed') {
+          this._syncVisualPlaybackState()
+        }
       })
 
       if (autoPlay) {

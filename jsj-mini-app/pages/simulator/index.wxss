@@ -474,40 +474,6 @@
   100% { transform: translateX(350%); }
 }
 
-/* 状态卡片 */
-.status-card {
-  margin-bottom: 0;
-}
-
-.status-text {
-  font-size: 28rpx;
-  line-height: 1.6;
-  color: #EAF2FF;
-  margin-top: 8rpx;
-}
-
-.status-processing {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  margin-top: 16rpx;
-  font-size: 24rpx;
-  color: #35D0BA;
-}
-
-.status-dot {
-  width: 12rpx;
-  height: 12rpx;
-  border-radius: 50%;
-  background: #35D0BA;
-  animation: pulse 1s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 0.4; transform: scale(0.9); }
-  50% { opacity: 1; transform: scale(1.1); }
-}
-
 /* 视觉化反馈 */
 .visual-card-desc {
   margin-top: 8rpx;
@@ -701,7 +667,77 @@
   min-width: 0;
 }
 
-/* 电极视觉增强 */
+/* 电极条阵列 */
+.electrode-array-wrap {
+  padding: 8rpx 0 4rpx;
+}
+
+.electrode-array {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.electrode-row {
+  width: 100%;
+}
+
+.electrode-row-track {
+  position: relative;
+  height: 18rpx;
+  border-radius: 9rpx;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.electrode-row-fill {
+  height: 100%;
+  min-width: 4%;
+  border-radius: 9rpx;
+  transition: width 0.08s linear, opacity 0.08s linear;
+}
+
+.electrode-row-fill--glow {
+  box-shadow: 0 0 14rpx rgba(53, 208, 186, 0.45);
+}
+
+.electrode-row-fill-0 {
+  background: linear-gradient(90deg, #2B2E83, #3A3F9E);
+}
+
+.electrode-row-fill-1 {
+  background: linear-gradient(90deg, #1E5FA8, #1E7CC2);
+}
+
+.electrode-row-fill-2 {
+  background: linear-gradient(90deg, #128F86, #16B9A6);
+}
+
+.electrode-row-fill-3 {
+  background: linear-gradient(90deg, #35D0BA, #5ED9C5);
+}
+
+.electrode-row-fill-4 {
+  background: linear-gradient(90deg, #5CB832, #7DC93F);
+}
+
+.electrode-row-fill-5 {
+  background: linear-gradient(90deg, #9BB82E, #C4D43A);
+}
+
+.electrode-row-fill-6 {
+  background: linear-gradient(90deg, #D9A82E, #F2C14E);
+}
+
+.electrode-row-fill-7 {
+  background: linear-gradient(90deg, #E89B4A, #F2A65A);
+}
+
+.visual-meta {
+  margin-top: 12rpx;
+}
+
+/* 电极视觉增强（旧点阵保留供兼容） */
 .electrode-panel--visual {
   margin-top: 0;
   padding: 20rpx 16rpx;
