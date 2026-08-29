@@ -522,6 +522,8 @@ def main(argv=None) -> int:
     print(f"  包络截止: {cfg.env_cut:.0f} Hz · 扩散: {cfg.spread*100:.0f}% · "
           f"噪声: {cfg.noise_level*100:.0f}%")
     print(f"  可懂度估分: {ii['score']}/100 ({ii['grade']})")
+    # 供 Java 后端解析（避免 Windows 控制台 GBK 编码导致中文匹配失败）
+    print(f"CLARITY_SCORE={ii['score']}")
     return 0
 
 

@@ -22,6 +22,8 @@ import java.util.regex.Pattern;
 @Service
 public class CochlearVocoderEngineService {
 
+    private static final Pattern CLARITY_SCORE_ASCII =
+            Pattern.compile("CLARITY_SCORE=(\\d+)", Pattern.MULTILINE);
     private static final Pattern CLARITY_PATTERN =
             Pattern.compile("可懂度估分:\\s*(\\d+)/100\\s*\\(([^)]+)\\)");
 
@@ -66,8 +68,22 @@ public class CochlearVocoderEngineService {
 
         VocoderResult result = new VocoderResult();
         result.setOutputPath(outputWavPath);
-        parseClarity(processResult.stdout(), result);
+        if (!parseClarity(processResult.stdout(), result)) {
+            log.warn("Cochlear Vocoder 未解析到可懂度估分，stdout 摘要: {}",
+                    tailForLog(processResult.stdout()));
+        }
         return result;
+    }
+
+    private static String tailForLog(String text) {
+        if (!StringUtils.hasText(text)) {
+            return "";
+        }
+        String trimmed = text.trim();
+        if (trimmed.length() <= 300) {
+            return trimmed;
+        }
+        return trimmed.substring(trimmed.length() - 300);
     }
 
     private List<String> buildCommand(Path scriptPath, Path inputWavPath, Path outputWavPath,
@@ -129,19 +145,49 @@ public class CochlearVocoderEngineService {
         }
     }
 
-    private static void parseClarity(String output, VocoderResult result) {
+    private static boolean parseClarity(String output, VocoderResult result) {
         if (!StringUtils.hasText(output)) {
-            return;
+            return false;
         }
+
+        Matcher asciiMatcher = CLARITY_SCORE_ASCII.matcher(output);
+        if (asciiMatcher.find()) {
+            try {
+                int score = Integer.parseInt(asciiMatcher.group(1));
+                result.setClarityScore(score);
+                result.setClarityGrade(gradeFromScore(score));
+                return true;
+            } catch (NumberFormatException ignored) {
+                // fall through
+            }
+        }
+
         Matcher matcher = CLARITY_PATTERN.matcher(output);
         if (!matcher.find()) {
-            return;
+            return false;
         }
         try {
             result.setClarityScore(Integer.parseInt(matcher.group(1)));
         } catch (NumberFormatException ignored) {
-            // ignore
+            return false;
         }
-        result.setClarityGrade(matcher.group(2));
+        result.setClarityGrade(matcher.group(2).trim());
+        return true;
+    }
+
+    private static String gradeFromScore(int score) {
+        if (score < 24) {
+            return "几乎听不懂";
+        }
+        if (score < 44) {
+            return "很吃力";
+        }
+        if (score < 66) {
+            return "大致能懂";
+        }
+        if (score < 86) {
+            return "比较清楚";
+        }
+        return "接近清晰";
     }
 }

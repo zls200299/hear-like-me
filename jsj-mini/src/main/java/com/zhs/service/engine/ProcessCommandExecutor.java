@@ -32,6 +32,8 @@ public class ProcessCommandExecutor {
 
         long startMs = System.currentTimeMillis();
         ProcessBuilder builder = new ProcessBuilder(command);
+        builder.environment().put("PYTHONIOENCODING", "utf-8");
+        builder.environment().put("PYTHONUTF8", "1");
 
         Process process;
         try {
