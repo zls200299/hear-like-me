@@ -145,7 +145,7 @@ Page({
   _scenarioPresets: null,
   _sampleLabels: null,
   _sampleSourceCache: {},
-  _preparingSampleCode: '',
+  _samplePreparePromises: {},
   _unloaded: false,
   _autoRefreshTimer: null,
   _autoRefreshSeq: 0,
@@ -451,27 +451,34 @@ Page({
       return cached
     }
 
-    if (this._preparingSampleCode === sampleCode) {
-      throw new Error('示例声音正在准备中，请稍候')
+    const pending = this._samplePreparePromises[sampleCode]
+    if (pending) {
+      return pending
     }
 
-    this._preparingSampleCode = sampleCode
-    this.setData({
-      sourceType: 'sample',
-      taskStatus: 'uploading',
-      statusText: '正在准备示例声音...'
-    })
-
-    try {
-      const result = await prepareSampleSource(sampleCode)
-      this._sampleSourceCache[sampleCode] = result
-      this._applySampleSourceToData(result)
-      return result
-    } finally {
-      if (this._preparingSampleCode === sampleCode) {
-        this._preparingSampleCode = ''
+    const preparePromise = (async () => {
+      if (!this._unloaded) {
+        this.setData({
+          sourceType: 'sample',
+          taskStatus: 'uploading',
+          statusText: '正在准备示例声音...'
+        })
       }
-    }
+
+      try {
+        const result = await prepareSampleSource(sampleCode)
+        this._sampleSourceCache[sampleCode] = result
+        if (!this._unloaded) {
+          this._applySampleSourceToData(result)
+        }
+        return result
+      } finally {
+        delete this._samplePreparePromises[sampleCode]
+      }
+    })()
+
+    this._samplePreparePromises[sampleCode] = preparePromise
+    return preparePromise
   },
 
   _stopAudio(statusText = '已停止播放') {
