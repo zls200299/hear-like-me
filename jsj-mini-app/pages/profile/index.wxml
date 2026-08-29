@@ -1,0 +1,10 @@
+<view class="page safe-bottom">
+  <view class="page-title">我的</view>
+  <view class="page-desc">管理账号、查看处理历史，了解项目与隐私说明。</view>
+
+  <view class="card">
+    <view class="card-title">我的</view>
+    <view class="card-desc">这里后续会放置个人中心相关功能入口。</view>
+    <view class="placeholder">页面框架已创建，业务功能后续接入。后续将支持：微信登录、处理历史、隐私说明、关于 hear like me。</view>
+  </view>
+</view>

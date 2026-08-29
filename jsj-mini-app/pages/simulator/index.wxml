@@ -1,0 +1,11 @@
+<view class="page safe-bottom">
+  <view class="page-title">hear like me</view>
+  <view class="page-subtitle">人工耳蜗听觉模拟</view>
+  <view class="page-desc">选择声音，调整通道数和场景参数，体验人工耳蜗声音模拟效果。</view>
+
+  <view class="card">
+    <view class="card-title">听觉模拟</view>
+    <view class="card-desc">这里后续会放置音频来源、场景选择、参数调节和播放控制。</view>
+    <view class="placeholder">页面框架已创建，业务功能后续接入。后续将支持：示例声音、上传音频、录制声音、实时麦克风、参数调节、原声/处理后试听。</view>
+  </view>
+</view>

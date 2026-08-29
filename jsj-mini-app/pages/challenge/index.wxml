@@ -1,0 +1,10 @@
+<view class="page safe-bottom">
+  <view class="page-title">听音挑战</view>
+  <view class="page-desc">通过听辨不同通道数的声音，体验人工耳蜗听觉分辨能力。</view>
+
+  <view class="card">
+    <view class="card-title">听音挑战</view>
+    <view class="card-desc">这里后续会放置听辨小游戏与答题反馈。</view>
+    <view class="placeholder">页面框架已创建，业务功能后续接入。后续将支持：播放神秘声音、选择通道数、显示答题反馈。</view>
+  </view>
+</view>

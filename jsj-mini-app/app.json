@@ -1,12 +1,40 @@
 {
   "pages": [
-    "pages/index/index"
+    "pages/simulator/index",
+    "pages/challenge/index",
+    "pages/learn/index",
+    "pages/profile/index"
   ],
   "window": {
-    "navigationBarTitleText": "小程序",
-    "navigationBarBackgroundColor": "#ffffff",
-    "navigationBarTextStyle": "black",
-    "backgroundColor": "#f8f8f8"
+    "navigationBarTitleText": "hear like me",
+    "navigationBarBackgroundColor": "#0B1020",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#0B1020",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#7A8CA8",
+    "selectedColor": "#35D0BA",
+    "backgroundColor": "#0B1020",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/simulator/index",
+        "text": "听觉模拟"
+      },
+      {
+        "pagePath": "pages/challenge/index",
+        "text": "听音挑战"
+      },
+      {
+        "pagePath": "pages/learn/index",
+        "text": "科普学习"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "我的"
+      }
+    ]
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json"

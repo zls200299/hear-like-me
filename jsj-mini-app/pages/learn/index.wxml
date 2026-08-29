@@ -1,0 +1,10 @@
+<view class="page safe-bottom">
+  <view class="page-title">科普学习</view>
+  <view class="page-desc">了解人工耳蜗原理、声音处理流程与听力康复相关知识。</view>
+
+  <view class="card">
+    <view class="card-title">科普学习</view>
+    <view class="card-desc">这里后续会放置图文科普内容与分类导航。</view>
+    <view class="placeholder">页面框架已创建，业务功能后续接入。后续将支持：人工耳蜗原理、声音处理流程、儿童听力科普、免责声明。</view>
+  </view>
+</view>
