@@ -1,0 +1,368 @@
+const { getDpr } = require('../../utils/simulator/visual/common.js')
+const {
+  getFrameAtCurrentTime,
+  buildFallbackFrame,
+  buildElectrodeBars,
+  buildCochleaElectrodes
+} = require('../../utils/simulator/visual/frames.js')
+const { drawNeuroColumn, clearNeuroCanvas } = require('../../utils/simulator/visual/draw-neuro.js')
+const { drawWave } = require('../../utils/simulator/visual/draw-wave.js')
+const { drawSpecColumn, clearSpecCanvas } = require('../../utils/simulator/visual/draw-spec.js')
+
+const VIZ_TABS = [
+  { id: 'bars', label: '电极阵列' },
+  { id: 'wave', label: '示波器' },
+  { id: 'spec', label: '频谱图' },
+  { id: 'cochlea', label: '耳蜗' },
+  { id: 'neuro', label: '神经元放电' }
+]
+
+function parseFreqRange(text) {
+  const match = String(text || '').match(/(\d+)\s*-\s*(\d+)/)
+  if (!match) return { lo: 150, hi: 7000 }
+  return { lo: Number(match[1]), hi: Number(match[2]) }
+}
+
+function formatFreqHi(hi) {
+  return hi >= 1000 ? `${(hi / 1000).toFixed(hi % 1000 === 0 ? 0 : 1)} kHz` : `${hi} Hz`
+}
+
+Component({
+  options: {
+    styleIsolation: 'isolated'
+  },
+
+  properties: {
+    nChannels: { type: Number, value: 8 },
+    spread: { type: Number, value: 0 },
+    carrier: { type: String, value: 'noise' },
+    noiseLevel: { type: Number, value: 0 },
+    envCut: { type: Number, value: 160 },
+    frequencyRange: { type: String, value: '150-7000' },
+    isAudioPlaying: { type: Boolean, value: false },
+    playingKind: { type: String, value: '' },
+    audioSeekSec: { type: Number, value: 0 }
+  },
+
+  data: {
+    vizTabs: VIZ_TABS,
+    activeView: 'bars',
+    vizMeta: '',
+    freqLo: '150',
+    freqHiLabel: '7 kHz',
+    electrodeBarLevels: [],
+    cochleaElectrodes: []
+  },
+
+  lifetimes: {
+    attached() {
+      this._vizCanvas = null
+      this._vizCtx = null
+      this._specCanvas = null
+      this._specCtx = null
+      this._dpr = 2
+      this._neuroChannelCount = 0
+      this._playbackTimer = null
+      this._idleTimer = null
+      this._visualizationFrames = []
+      this._visualizationFps = 20
+      this._visualizationDurationMs = 0
+      this._idleInitRetry = 0
+      this._updateMeta()
+      this._refreshStaticViews()
+    },
+
+    ready() {
+      this._initCanvases(0, () => {
+        this.syncPlaybackState()
+      })
+    },
+
+    detached() {
+      this._stopPlaybackTimer()
+      this._stopIdleTimer()
+    }
+  },
+
+  observers: {
+    'nChannels, spread, carrier, noiseLevel, envCut, frequencyRange': function () {
+      this._updateMeta()
+      this._refreshStaticViews()
+      if (this.data.activeView === 'neuro' || this.data.activeView === 'spec') {
+        this._resetScrollViews()
+      }
+    },
+    'isAudioPlaying, playingKind': function () {
+      this.syncPlaybackState()
+    },
+    audioSeekSec() {
+      if (this._playbackTimer) return
+      this._refreshStaticViews()
+    }
+  },
+
+  methods: {
+    onTabTap(e) {
+      const view = e.currentTarget.dataset.view
+      if (!view || view === this.data.activeView) return
+      this._stopIdleTimer()
+      this.setData({ activeView: view }, () => {
+        this._vizCanvas = null
+        this._vizCtx = null
+        this._specCanvas = null
+        this._specCtx = null
+        this._neuroChannelCount = 0
+        if (view === 'bars' || view === 'cochlea') {
+          this._refreshStaticViews()
+          this.syncPlaybackState()
+          return
+        }
+        wx.nextTick(() => {
+          this._initCanvases(0, () => {
+            this.syncPlaybackState()
+          })
+        })
+      })
+    },
+
+    applyVisualizationData(viz) {
+      if (viz && Array.isArray(viz.frames) && viz.frames.length) {
+        this._visualizationFrames = viz.frames
+        this._visualizationFps = viz.fps || 20
+        this._visualizationDurationMs = viz.durationMs || 0
+      } else {
+        this._visualizationFrames = []
+        this._visualizationFps = 20
+        this._visualizationDurationMs = 0
+      }
+      this._resetScrollViews()
+      this._refreshStaticViews()
+    },
+
+    clearVisualizationData() {
+      this.applyVisualizationData(null)
+    },
+
+    syncPlaybackState() {
+      if (this.properties.isAudioPlaying) {
+        this._stopIdleTimer()
+        this._startPlaybackTimer()
+        return
+      }
+      this._stopPlaybackTimer(true)
+      this._startIdleTimer()
+    },
+
+    refreshViews() {
+      this._refreshStaticViews()
+    },
+
+    _getRuntimeFlags() {
+      const isPlaying = !!this.properties.isAudioPlaying
+      const playingKind = this.properties.playingKind || ''
+      return {
+        isPlaying,
+        isProcessed: isPlaying && playingKind === 'processed',
+        isOriginal: isPlaying && playingKind === 'original'
+      }
+    },
+
+    _getCurrentLevels() {
+      const flags = this._getRuntimeFlags()
+      const nChannels = Number(this.properties.nChannels) || 8
+      if (this._visualizationFrames && this._visualizationFrames.length && flags.isProcessed) {
+        return getFrameAtCurrentTime(this._visualizationFrames, {
+          channelCount: nChannels,
+          fps: this._visualizationFps,
+          durationMs: this._visualizationDurationMs,
+          audioSeekSec: Number(this.properties.audioSeekSec) || 0
+        })
+      }
+      return buildFallbackFrame({
+        nChannels,
+        spread: this.properties.spread,
+        noiseLevel: this.properties.noiseLevel,
+        envCut: this.properties.envCut,
+        carrier: this.properties.carrier,
+        isProcessed: flags.isProcessed,
+        isOriginal: flags.isOriginal,
+        isPlaying: flags.isPlaying
+      })
+    },
+
+    _getDrawOpts() {
+      const flags = this._getRuntimeFlags()
+      return {
+        nChannels: Number(this.properties.nChannels) || 8,
+        spread: this.properties.spread,
+        carrier: this.properties.carrier,
+        noiseLevel: this.properties.noiseLevel,
+        isPlaying: flags.isPlaying,
+        playingKind: this.properties.playingKind,
+        isProcessed: flags.isProcessed
+      }
+    },
+
+    _updateMeta() {
+      const { lo, hi } = parseFreqRange(this.properties.frequencyRange)
+      const carrierLabel = this.properties.carrier === 'sine' ? '正弦载波' : '噪声载波'
+      this.setData({
+        vizMeta: `${this.properties.nChannels} 个通道 · ${carrierLabel}`,
+        freqLo: String(lo),
+        freqHiLabel: formatFreqHi(hi)
+      })
+    },
+
+    _refreshStaticViews() {
+      const levels = this._getCurrentLevels()
+      const flags = this._getRuntimeFlags()
+      this.setData({
+        electrodeBarLevels: buildElectrodeBars(levels, { isProcessed: flags.isProcessed }),
+        cochleaElectrodes: buildCochleaElectrodes(levels, { isProcessed: flags.isProcessed })
+      })
+    },
+
+    _initCanvases(retry = 0, done) {
+      const view = this.data.activeView
+      if (view === 'bars' || view === 'cochlea') {
+        if (typeof done === 'function') done()
+        return
+      }
+
+      const selector = view === 'spec' ? '#specCanvas' : '#vizCanvas'
+      this.createSelectorQuery()
+        .in(this)
+        .select(selector)
+        .fields({ node: true, size: true })
+        .exec((res) => {
+          const item = res && res[0]
+          if (!item || !item.node || !item.width || !item.height) {
+            if (retry < 12) {
+              setTimeout(() => this._initCanvases(retry + 1, done), 80 + retry * 60)
+              return
+            }
+            if (typeof done === 'function') done()
+            return
+          }
+          this._setupCanvas(view === 'spec' ? 'spec' : 'viz', item)
+          this._drawActiveCanvasFrame()
+          if (typeof done === 'function') done()
+        })
+    },
+
+    _setupCanvas(kind, item) {
+      const canvas = item.node
+      const ctx = canvas.getContext('2d')
+      const dpr = getDpr()
+      canvas.width = Math.max(1, Math.round(item.width * dpr))
+      canvas.height = Math.max(1, Math.round(item.height * dpr))
+      if (kind === 'viz') {
+        this._vizCanvas = canvas
+        this._vizCtx = ctx
+      } else {
+        this._specCanvas = canvas
+        this._specCtx = ctx
+      }
+      this._dpr = dpr
+    },
+
+    _resetScrollViews() {
+      this._neuroChannelCount = 0
+      clearNeuroCanvas(this._vizCtx, this._vizCanvas)
+      clearSpecCanvas(this._specCtx, this._specCanvas)
+      this._drawActiveCanvasFrame()
+    },
+
+    _drawActiveCanvasFrame() {
+      const view = this.data.activeView
+      const levels = this._getCurrentLevels()
+      const opts = this._getDrawOpts()
+      const flags = this._getRuntimeFlags()
+
+      if (view === 'wave' && this._vizCtx && this._vizCanvas) {
+        drawWave(this._vizCtx, this._vizCanvas, this._dpr, opts)
+        return
+      }
+
+      if (view === 'neuro' && this._vizCtx && this._vizCanvas) {
+        const N = levels.length
+        if (N !== this._neuroChannelCount) {
+          this._neuroChannelCount = N
+          clearNeuroCanvas(this._vizCtx, this._vizCanvas)
+        }
+        drawNeuroColumn(this._vizCtx, this._vizCanvas, levels, this._dpr, flags.isProcessed)
+        return
+      }
+
+      if (view === 'spec' && this._specCtx && this._specCanvas) {
+        drawSpecColumn(this._specCtx, this._specCanvas, this._dpr, opts)
+      }
+    },
+
+    _tickPlayback() {
+      this._refreshStaticViews()
+      this._drawActiveCanvasFrame()
+    },
+
+    _tickIdle() {
+      const view = this.data.activeView
+      if (view === 'bars' || view === 'cochlea') {
+        this._refreshStaticViews()
+        return
+      }
+      this._drawActiveCanvasFrame()
+    },
+
+    _startPlaybackTimer() {
+      this._stopPlaybackTimer(false)
+      const fps = this._visualizationFps || 20
+      const interval = Math.max(33, Math.round(1000 / fps))
+      this._playbackTimer = setInterval(() => this._tickPlayback(), interval)
+      this._tickPlayback()
+    },
+
+    _stopPlaybackTimer(reset = true) {
+      if (this._playbackTimer) {
+        clearInterval(this._playbackTimer)
+        this._playbackTimer = null
+      }
+      if (reset) {
+        this._refreshStaticViews()
+        this._resetScrollViews()
+      }
+    },
+
+    _startIdleTimer() {
+      if (this._idleTimer || this.properties.isAudioPlaying) return
+      const view = this.data.activeView
+      if (view === 'bars' || view === 'cochlea') {
+        this._tickIdle()
+        this._idleTimer = setInterval(() => this._tickIdle(), 500)
+        return
+      }
+      if (view !== 'spec' && !this._vizCtx) {
+        if ((this._idleInitRetry || 0) < 12) {
+          this._idleInitRetry = (this._idleInitRetry || 0) + 1
+          this._initCanvases(0, () => this._startIdleTimer())
+        }
+        return
+      }
+      if (view === 'spec' && !this._specCtx) {
+        if ((this._idleInitRetry || 0) < 12) {
+          this._idleInitRetry = (this._idleInitRetry || 0) + 1
+          this._initCanvases(0, () => this._startIdleTimer())
+        }
+        return
+      }
+      this._idleInitRetry = 0
+      this._tickIdle()
+      this._idleTimer = setInterval(() => this._tickIdle(), 62)
+    },
+
+    _stopIdleTimer() {
+      if (!this._idleTimer) return
+      clearInterval(this._idleTimer)
+      this._idleTimer = null
+    }
+  }
+})

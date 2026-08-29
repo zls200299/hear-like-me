@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "听觉模拟"
+  "navigationBarTitleText": "听觉模拟",
+  "usingComponents": {
+    "simulator-visual": "/components/simulator-visual/index"
+  }
 }

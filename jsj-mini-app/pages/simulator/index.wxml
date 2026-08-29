@@ -250,41 +250,17 @@
     <view class="card-title">视觉化反馈</view>
     <view class="visual-card-desc">根据当前参数模拟电极激活和神经活动，仅用于科普展示。</view>
 
-    <view class="visual-block visual-block--first">
-      <view class="visual-block-title">电极活动</view>
-      <view class="visual-section electrode-array-wrap">
-        <view class="electrode-array">
-          <view
-            wx:for="{{electrodeBarLevels}}"
-            wx:key="index"
-            class="electrode-row"
-          >
-            <view class="electrode-row-track">
-              <view
-                class="electrode-row-fill electrode-row-fill-{{item.colorIndex}} {{item.glow ? 'electrode-row-fill--glow' : ''}}"
-                style="width: {{item.percent}}%; opacity: {{item.opacity}};"
-              ></view>
-            </view>
-          </view>
-        </view>
-      </view>
-      <view class="visual-block-hint visual-meta">激活 {{nChannels}} / 22 通道 · 扩散 {{spread}}%</view>
-    </view>
-
-    <view class="visual-block visual-block--last">
-      <view class="visual-block-title">神经活动</view>
-      <view class="neuro-canvas-wrap">
-        <canvas
-          type="2d"
-          id="neuroCanvas"
-          class="neuro-canvas"
-          bindready="onNeuroCanvasReady"
-        ></canvas>
-      </view>
-      <view class="visual-block-hint">
-        神经放电图 · 持续向左滚动，播放模拟声时放电更密集
-        · {{nChannels}} 通道
-      </view>
-    </view>
+    <simulator-visual
+      id="visualPanel"
+      nChannels="{{nChannels}}"
+      spread="{{spread}}"
+      carrier="{{carrier}}"
+      noiseLevel="{{noiseLevel}}"
+      envCut="{{envCut}}"
+      frequencyRange="{{frequencyRange}}"
+      isAudioPlaying="{{isAudioPlaying}}"
+      playingKind="{{playingKind}}"
+      audioSeekSec="{{audioSeekSec}}"
+    />
   </view>
 </view>

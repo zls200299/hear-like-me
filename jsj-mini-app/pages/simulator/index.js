@@ -58,41 +58,7 @@ function buildElectrodeDots(count) {
   return Array.from({ length: count }, (_, index) => index)
 }
 
-function pseudoRandom(seed) {
-  const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453
-  return x - Math.floor(x)
-}
-
 const ELECTRODE_TOTAL = 22
-const NEURO_RAMP = ['#2B2E83', '#1E7CC2', '#16B9A6', '#7DC93F', '#F2C14E']
-
-function hexToRgb(hex) {
-  return [
-    parseInt(hex.slice(1, 3), 16),
-    parseInt(hex.slice(3, 5), 16),
-    parseInt(hex.slice(5, 7), 16)
-  ]
-}
-
-function lerpNeuroColor(t) {
-  const clamped = clamp(t, 0, 1)
-  const seg = clamped * (NEURO_RAMP.length - 1)
-  const i = Math.floor(seg)
-  const f = seg - i
-  const c1 = hexToRgb(NEURO_RAMP[i])
-  const c2 = hexToRgb(NEURO_RAMP[Math.min(i + 1, NEURO_RAMP.length - 1)])
-  const r = Math.round(c1[0] + (c2[0] - c1[0]) * f)
-  const g = Math.round(c1[1] + (c2[1] - c1[1]) * f)
-  const b = Math.round(c1[2] + (c2[2] - c1[2]) * f)
-  return `rgb(${r},${g},${b})`
-}
-
-function rgbaFromColor(color, alpha) {
-  if (!color) return `rgba(22,185,166,${alpha})`
-  const match = color.match(/rgb\((\d+),(\d+),(\d+)\)/)
-  if (!match) return `rgba(22,185,166,${alpha})`
-  return `rgba(${match[1]},${match[2]},${match[3]},${alpha})`
-}
 
 function buildScenarioPresets(scenarios) {
   const presets = {}
@@ -140,10 +106,7 @@ Page({
     statusText: '请选择音频来源',
     sourceHint: '',
     electrodeDots: buildElectrodeDots(8),
-    electrodeBarLevels: [],
-    visualizationFrames: [],
-    visualizationFps: 20,
-    visualizationDurationMs: 0,
+    audioSeekSec: 0,
     clarityLevelClass: 'level-mid',
     sourceOptions: [
       { type: 'sample', label: '示例声音' },
@@ -194,12 +157,6 @@ Page({
   _shouldAutoPlayProcessed: false,
   _runtimeParams: null,
   audioCtx: null,
-  _visualPlaybackTimer: null,
-  _neuroIdleTimer: null,
-  _neuroCanvas: null,
-  _neuroCtx: null,
-  _neuroDpr: 2,
-  _neuroChannelCount: 0,
 
   onLoad() {
     this._ensurePageState()
@@ -213,11 +170,18 @@ Page({
     this._refreshVisualFeedback()
   },
 
+  onShow() {
+    if (this._unloaded) return
+    this._syncVisualPlaybackState()
+  },
+
+  onReady() {
+    this._syncVisualPlaybackState()
+  },
+
   onUnload() {
     this._unloaded = true
     this._cancelAutoRefresh()
-    this._stopNeuroIdleScroll()
-    this._stopVisualPlayback(false, false)
     this._stopAudio('已退出页面')
   },
 
@@ -293,341 +257,53 @@ Page({
     return 'level-best'
   },
 
-  _normalizeChannelFrame(frame, channelCount) {
-    const n = channelCount || Number(this.data.nChannels) || 8
-    const src = Array.isArray(frame) ? frame : []
-    const out = []
-    for (let i = 0; i < n; i++) {
-      const value = src[i] != null ? Number(src[i]) : 0.05
-      out.push(clamp(Number.isFinite(value) ? value : 0.05, 0, 1))
+  _getVisualPanel() {
+    if (!this._visualPanel) {
+      this._visualPanel = this.selectComponent('#visualPanel')
     }
-    return out
-  },
-
-  _getFrameAtCurrentTime(frames) {
-    const fps = this.data.visualizationFps || 20
-    const n = Number(this.data.nChannels) || 8
-    if (!frames || !frames.length) {
-      return this._normalizeChannelFrame([], n)
-    }
-
-    let t = 0
-    if (this.audioCtx && typeof this.audioCtx.currentTime === 'number') {
-      t = this.audioCtx.currentTime
-    }
-
-    const durationSec = this.data.visualizationDurationMs > 0
-      ? this.data.visualizationDurationMs / 1000
-      : frames.length / fps
-    const loopT = durationSec > 0 ? t % durationSec : 0
-    let idx = Math.floor(loopT * fps)
-    if (idx < 0) idx = 0
-    if (idx >= frames.length) idx = frames.length - 1
-
-    return this._normalizeChannelFrame(frames[idx], n)
-  },
-
-  _buildFallbackElectrodeFrame() {
-    const n = Number(this.data.nChannels) || 8
-    const spreadRatio = (Number(this.data.spread) || 0) / 100
-    const noiseRatio = (Number(this.data.noiseLevel) || 0) / 100
-    const envCut = Number(this.data.envCut) || 160
-    const carrier = this.data.carrier || 'noise'
-    const isProcessed = this.data.isAudioPlaying && this.data.playingKind === 'processed'
-    const isOriginal = this.data.isAudioPlaying && this.data.playingKind === 'original'
-    const t = Date.now() / 1000
-    const speed = 0.75 + (envCut / 500) * 1.35
-    const frame = []
-
-    for (let i = 0; i < n; i++) {
-      const center = n > 1 ? 1 - Math.abs(i - (n - 1) / 2) / ((n - 1) / 2) : 1
-      let level = 0.14 + 0.22 * center * (1 - spreadRatio * 0.45)
-
-      if (carrier === 'sine') {
-        level += 0.2 * Math.sin(t * speed + i * 0.72)
-      } else {
-        level += (pseudoRandom(i + Math.floor(t * 12)) - 0.5) * 0.14 * (1 + noiseRatio)
-      }
-
-      if (isProcessed) {
-        level += 0.28 * Math.sin(t * speed * 1.5 + i * 0.95)
-        level += (pseudoRandom(i * 1.7 + Math.floor(t * 20)) - 0.5) * 0.16 * (1 + noiseRatio * 2)
-      } else if (isOriginal) {
-        level += 0.07 * Math.sin(t * 0.55 + i * 0.48)
-      } else {
-        level = 0.1 + 0.06 * Math.sin(t * 0.65 + i * 0.7)
-      }
-
-      if (spreadRatio > 0 && n > 1) {
-        const prev = frame[i - 1]
-        const nextBase = 0.14 + 0.22 * (1 - spreadRatio * 0.45)
-        if (i > 0) {
-          level = level * (1 - spreadRatio * 0.25) + prev * (spreadRatio * 0.25)
-        } else {
-          level = level * (1 - spreadRatio * 0.1) + nextBase * (spreadRatio * 0.1)
-        }
-      }
-
-      frame.push(clamp(level, 0.04, 1))
-    }
-    return frame
-  },
-
-  _getCurrentFrameLevels() {
-    const frames = this.data.visualizationFrames
-    const useRealFrames = frames
-      && frames.length
-      && this.data.isAudioPlaying
-      && this.data.playingKind === 'processed'
-
-    if (useRealFrames) {
-      return this._getFrameAtCurrentTime(frames)
-    }
-    return this._buildFallbackElectrodeFrame()
-  },
-
-  _updateElectrodeBarsFromFrame(frame) {
-    const levels = this._normalizeChannelFrame(frame, Number(this.data.nChannels) || 8)
-    const isActive = this.data.isAudioPlaying && this.data.playingKind === 'processed'
-
-    return levels.map((value, index) => {
-      const percent = Math.max(4, Math.round(value * 100))
-      const opacity = (0.32 + value * 0.68).toFixed(2)
-      return {
-        value,
-        percent,
-        opacity,
-        colorIndex: index % 8,
-        glow: isActive && value > 0.38
-      }
-    })
-  },
-
-  _buildVisualLevelsFromFrame(frame) {
-    const normalized = this._normalizeChannelFrame(frame, Number(this.data.nChannels) || 8)
-    return {
-      electrodeBarLevels: this._updateElectrodeBarsFromFrame(normalized),
-      neuroLevels: normalized
-    }
-  },
-
-  onNeuroCanvasReady() {
-    this._initNeuroCanvas()
-  },
-
-  _initNeuroCanvas(retry = 0) {
-    if (this._unloaded) return
-    const query = wx.createSelectorQuery().in(this)
-    query.select('#neuroCanvas')
-      .fields({ node: true, size: true })
-      .exec((res) => {
-        if (!res || !res[0] || !res[0].node) {
-          if (retry < 3) {
-            setTimeout(() => this._initNeuroCanvas(retry + 1), 120)
-          }
-          return
-        }
-        const canvas = res[0].node
-        const ctx = canvas.getContext('2d')
-        const dpr = wx.getSystemInfoSync().pixelRatio || 2
-        const width = res[0].width
-        const height = res[0].height
-        canvas.width = width * dpr
-        canvas.height = height * dpr
-        this._neuroCanvas = canvas
-        this._neuroCtx = ctx
-        this._neuroDpr = dpr
-        this._neuroWidth = width * dpr
-        this._neuroHeight = height * dpr
-        this._neuroChannelCount = 0
-        this._clearNeuroCanvas()
-        this._drawNeuroColumn(this._getCurrentFrameLevels())
-        if (!this.data.isAudioPlaying) {
-          this._startNeuroIdleScroll()
-        }
-      })
-  },
-
-  _clearNeuroCanvas() {
-    const ctx = this._neuroCtx
-    if (!ctx || !this._neuroCanvas) return
-    ctx.fillStyle = 'rgba(12, 18, 32, 1)'
-    ctx.fillRect(0, 0, this._neuroCanvas.width, this._neuroCanvas.height)
-  },
-
-  _drawNeuroColumn(levels) {
-    const ctx = this._neuroCtx
-    const canvas = this._neuroCanvas
-    if (!ctx || !canvas || !levels || !levels.length) return
-
-    const N = levels.length
-    if (N !== this._neuroChannelCount) {
-      this._neuroChannelCount = N
-      this._clearNeuroCanvas()
-    }
-
-    const W = canvas.width
-    const H = canvas.height
-    const dpr = this._neuroDpr
-    const step = Math.max(1, Math.round(2 * dpr))
-    const isProcessed = this.data.isAudioPlaying && this.data.playingKind === 'processed'
-
-    ctx.drawImage(canvas, -step, 0)
-    ctx.fillStyle = 'rgba(12, 18, 32, 1)'
-    ctx.fillRect(W - step, 0, step, H)
-
-    const rh = H / N
-    const now = Date.now()
-
-    for (let i = 0; i < N; i++) {
-      const y0 = H - (i + 1) * rh
-      const cy = y0 + rh / 2
-      const col = lerpNeuroColor(i / Math.max(N - 1, 1))
-      const lvl = clamp(levels[i], 0, 1)
-      const level = isProcessed
-        ? lvl
-        : 0.1 + 0.07 * Math.sin(now / 700 + i * 0.8)
-
-      ctx.fillStyle = 'rgba(255,255,255,0.03)'
-      ctx.fillRect(W - step, Math.round(cy), step, 1)
-
-      const pSpike = isProcessed
-        ? clamp(0.1 + level * level * 1.15, 0, 0.94)
-        : 0.07
-
-      if (Math.random() < pSpike) {
-        const amp = rh * 0.42 * (0.5 + 0.5 * level)
-        ctx.strokeStyle = rgbaFromColor(col, 0.5 + 0.5 * level)
-        ctx.lineWidth = Math.max(1, 1.2 * dpr * 0.5)
-        ctx.beginPath()
-        ctx.moveTo(W - step * 0.5, cy - amp)
-        ctx.lineTo(W - step * 0.5, cy + amp)
-        ctx.stroke()
-        if (level > 0.55) {
-          ctx.fillStyle = rgbaFromColor(col, 0.9)
-          ctx.beginPath()
-          ctx.arc(W - step * 0.5, cy, Math.max(1, 1.3 * dpr), 0, Math.PI * 2)
-          ctx.fill()
-        }
-      }
-    }
-
-    ctx.fillStyle = 'rgba(22,185,166,0.25)'
-    ctx.fillRect(W - Math.max(1, dpr), 0, Math.max(1, dpr), H)
-  },
-
-  _applyCurrentVisualFrame() {
-    if (this._unloaded) return
-    const frame = this._getCurrentFrameLevels()
-    const levels = this._buildVisualLevelsFromFrame(frame)
-    this.setData({ electrodeBarLevels: levels.electrodeBarLevels })
-    this._drawNeuroColumn(frame)
-  },
-
-  _tickNeuroIdle() {
-    if (this._unloaded || this.data.isAudioPlaying) return
-    this._drawNeuroColumn(this._getCurrentFrameLevels())
-  },
-
-  _startNeuroIdleScroll() {
-    if (this._unloaded || this._neuroIdleTimer || this.data.isAudioPlaying) return
-    if (!this._neuroCtx) return
-    const fps = 16
-    this._neuroIdleTimer = setInterval(() => {
-      this._tickNeuroIdle()
-    }, Math.round(1000 / fps))
-    this._tickNeuroIdle()
-  },
-
-  _stopNeuroIdleScroll() {
-    if (!this._neuroIdleTimer) return
-    clearInterval(this._neuroIdleTimer)
-    this._neuroIdleTimer = null
-  },
-
-  _startVisualPlayback() {
-    this._stopNeuroIdleScroll()
-    this._stopVisualPlayback(false, false)
-    const fps = this.data.visualizationFps || 20
-    const interval = Math.max(33, Math.round(1000 / fps))
-    this._visualPlaybackTimer = setInterval(() => {
-      this._applyCurrentVisualFrame()
-    }, interval)
-    this._applyCurrentVisualFrame()
-  },
-
-  _stopVisualPlayback(resetBars = true, startIdle = true) {
-    if (this._visualPlaybackTimer) {
-      clearInterval(this._visualPlaybackTimer)
-      this._visualPlaybackTimer = null
-    }
-    if (resetBars && !this._unloaded) {
-      const frame = this._buildFallbackElectrodeFrame()
-      const levels = this._buildVisualLevelsFromFrame(frame)
-      this.setData({ electrodeBarLevels: levels.electrodeBarLevels })
-      this._clearNeuroCanvas()
-      this._drawNeuroColumn(frame)
-    }
-    if (startIdle && !this._unloaded && !this.data.isAudioPlaying) {
-      this._startNeuroIdleScroll()
-    }
-  },
-
-  _applyVisualizationFromResult(result) {
-    const viz = result && result.visualizationData
-    if (viz && Array.isArray(viz.frames) && viz.frames.length) {
-      this.setData({
-        visualizationFrames: viz.frames,
-        visualizationFps: viz.fps || 20,
-        visualizationDurationMs: viz.durationMs || 0
-      })
-      return
-    }
-    this.setData({
-      visualizationFrames: [],
-      visualizationFps: 20,
-      visualizationDurationMs: 0
-    })
-  },
-
-  _clearVisualizationData() {
-    this.setData({
-      visualizationFrames: [],
-      visualizationFps: 20,
-      visualizationDurationMs: 0
-    })
+    return this._visualPanel
   },
 
   _syncVisualPlaybackState() {
-    if (this.data.isAudioPlaying) {
-      this._startVisualPlayback()
+    const panel = this._getVisualPanel()
+    if (!panel) return
+    const patch = {}
+    if (this.audioCtx && typeof this.audioCtx.currentTime === 'number') {
+      patch.audioSeekSec = this.audioCtx.currentTime
+    }
+    if (Object.keys(patch).length) {
+      this.setData(patch, () => panel.syncPlaybackState())
       return
     }
-    this._stopVisualPlayback()
+    panel.syncPlaybackState()
+  },
+
+  _applyVisualizationFromResult(result) {
+    const panel = this._getVisualPanel()
+    if (panel) {
+      panel.applyVisualizationData(result && result.visualizationData)
+    }
+  },
+
+  _clearVisualizationData() {
+    const panel = this._getVisualPanel()
+    if (panel) panel.clearVisualizationData()
   },
 
   _refreshVisualFeedback() {
     if (this._unloaded) return
 
     const { score, grade, desc } = this._computeLocalClarity()
-    const frameLevels = this._getCurrentFrameLevels()
-
-    const patch = {
+    this.setData({
       clarityScore: score,
       clarityGrade: grade,
       clarityDesc: desc,
       clarityLevelClass: this._getClarityLevelClass(score),
       listenHint: this._resolveListenHint()
-    }
+    })
 
-    if (!this._visualPlaybackTimer) {
-      const visual = this._buildVisualLevelsFromFrame(frameLevels)
-      patch.electrodeBarLevels = visual.electrodeBarLevels
-      this.setData(patch)
-      return
-    }
-
-    this.setData(patch)
+    const panel = this._getVisualPanel()
+    if (panel) panel.refreshViews()
   },
 
   _resolveListenHint() {
@@ -756,9 +432,6 @@ Page({
       processedKey: '',
       taskNo: '',
       errorMessage: '',
-      visualizationFrames: [],
-      visualizationFps: 20,
-      visualizationDurationMs: 0
     }
 
     if (!options.keepStatus && !this.data.isProcessing && this.data.taskStatus !== 'uploading') {
@@ -776,6 +449,7 @@ Page({
     }
 
     this.setData(patch, () => {
+      this._clearVisualizationData()
       this._refreshVisualFeedback()
     })
   },
@@ -946,7 +620,6 @@ Page({
   },
 
   _stopAudio(statusText = '已停止播放') {
-    this._stopVisualPlayback()
     if (this.audioCtx) {
       try {
         this.audioCtx.stop()
@@ -964,6 +637,7 @@ Page({
       playingKind: '',
       statusText
     }, () => {
+      this._syncVisualPlaybackState()
       this._refreshVisualFeedback()
     })
   },
@@ -1012,6 +686,11 @@ Page({
     audioCtx.src = url
     audioCtx.loop = true
 
+    audioCtx.onTimeUpdate(() => {
+      if (this._unloaded || !this.audioCtx) return
+      this.setData({ audioSeekSec: this.audioCtx.currentTime })
+    })
+
     audioCtx.onPlay(() => {
       if (this._unloaded) return
       this.setData({
@@ -1026,7 +705,7 @@ Page({
 
     audioCtx.onStop(() => {
       if (this._unloaded) return
-      this._stopVisualPlayback()
+      this._syncVisualPlaybackState()
       this.setData({
         isAudioPlaying: false,
         playingKind: '',
@@ -1038,7 +717,7 @@ Page({
 
     audioCtx.onEnded(() => {
       if (this._unloaded) return
-      this._stopVisualPlayback()
+      this._syncVisualPlaybackState()
       this.setData({
         isAudioPlaying: false,
         playingKind: '',
@@ -1051,7 +730,7 @@ Page({
     audioCtx.onError((err) => {
       console.error(err)
       if (this._unloaded) return
-      this._stopVisualPlayback()
+      this._syncVisualPlaybackState()
       this.setData({
         isAudioPlaying: false,
         playingKind: '',

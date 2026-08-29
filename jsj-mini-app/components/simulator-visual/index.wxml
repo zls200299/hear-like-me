@@ -1,0 +1,63 @@
+<view class="sv-root">
+  <scroll-view class="sv-tab-scroll" scroll-x enable-flex show-scrollbar="{{false}}">
+    <view class="sv-tab-row">
+      <view
+        wx:for="{{vizTabs}}"
+        wx:key="id"
+        class="sv-tab {{activeView === item.id ? 'sv-tab--active' : ''}}"
+        data-view="{{item.id}}"
+        bindtap="onTabTap"
+      >{{item.label}}</view>
+    </view>
+  </scroll-view>
+
+  <view class="sv-meta">{{vizMeta}}</view>
+
+  <view class="sv-stage">
+    <view wx:if="{{activeView === 'bars'}}" class="sv-pane">
+      <view class="sv-bars">
+        <view wx:for="{{electrodeBarLevels}}" wx:key="index" class="sv-bar-row">
+          <view class="sv-bar-track">
+            <view
+              class="sv-bar-fill sv-bar-fill-{{item.colorIndex}} {{item.glow ? 'sv-bar-fill--glow' : ''}}"
+              style="width: {{item.percent}}%; opacity: {{item.opacity}};"
+            ></view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view wx:elif="{{activeView === 'cochlea'}}" class="sv-pane sv-pane--cochlea">
+      <view class="sv-cochlea-spiral"></view>
+      <view
+        wx:for="{{cochleaElectrodes}}"
+        wx:key="index"
+        class="sv-cochlea-dot sv-cochlea-dot-{{item.colorIndex}} {{item.pulse ? 'sv-cochlea-dot--pulse' : ''}}"
+        style="left: {{item.x}}%; top: {{item.y}}%; opacity: {{item.opacity}};"
+      >
+        <view class="sv-cochlea-halo" style="width: {{item.haloR}}rpx; height: {{item.haloR}}rpx;"></view>
+        <view class="sv-cochlea-core" style="width: {{item.dotR}}rpx; height: {{item.dotR}}rpx;"></view>
+      </view>
+    </view>
+
+    <canvas
+      wx:elif="{{activeView === 'wave' || activeView === 'neuro'}}"
+      type="2d"
+      id="vizCanvas"
+      class="sv-canvas"
+    ></canvas>
+
+    <canvas
+      wx:elif="{{activeView === 'spec'}}"
+      type="2d"
+      id="specCanvas"
+      class="sv-canvas"
+    ></canvas>
+  </view>
+
+  <view class="sv-axis">
+    <text>{{freqLo}} Hz</text>
+    <text>频率通道（耳顶 → 耳底）</text>
+    <text>{{freqHiLabel}}</text>
+  </view>
+</view>
