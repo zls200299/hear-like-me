@@ -938,11 +938,10 @@ Page({
 
     try {
       const { fLo, fHi } = this._parseFrequencyRange(this.data.frequencyRange)
-      const result = await createTask({
+      const taskPayload = {
         sourceType: this.data.sourceType === 'sample' ? 'SAMPLE' : 'UPLOAD',
         sourceAssetId,
         sampleCode: this.data.sourceType === 'sample' ? this.data.selectedSample : '',
-        scenarioCode: this.data.selectedScenario || 'custom',
         nChannels: this.data.nChannels,
         carrier: this.data.carrier,
         fLo,
@@ -950,7 +949,11 @@ Page({
         envCut: this.data.envCut,
         spread: this.data.spread / 100,
         noiseLevel: this.data.noiseLevel / 100
-      })
+      }
+      if (this.data.selectedScenario) {
+        taskPayload.scenarioCode = this.data.selectedScenario
+      }
+      const result = await createTask(taskPayload)
 
       if (requestSeq !== this._autoRefreshSeq) {
         return
