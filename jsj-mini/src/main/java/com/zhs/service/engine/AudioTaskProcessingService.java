@@ -96,6 +96,7 @@ public class AudioTaskProcessingService {
 
             Integer clarityScore = null;
             String clarityGrade;
+            Map<String, Object> visualizationData = null;
 
             if (engineProperties.isVocoderEnabled()) {
                 task.setAlgorithmVersion(ALGORITHM_VOCODER);
@@ -106,6 +107,7 @@ public class AudioTaskProcessingService {
                 clarityGrade = StringUtils.hasText(vocoderResult.getClarityGrade())
                         ? vocoderResult.getClarityGrade()
                         : "模拟完成";
+                visualizationData = vocoderResult.getVisualizationData();
             } else {
                 task.setAlgorithmVersion(ALGORITHM_FFMPEG_ONLY);
                 Files.copy(normalizeResult.getLocalPath(), outputPath, StandardCopyOption.REPLACE_EXISTING);
@@ -138,6 +140,7 @@ public class AudioTaskProcessingService {
             result.put("processedAudioUrl", localFileStorageService.buildPreviewUrl(outputAsset.getId()));
             result.put("clarityScore", clarityScore);
             result.put("clarityGrade", clarityGrade);
+            result.put("visualizationData", visualizationData);
             return result;
         } catch (Exception e) {
             log.error("音频任务处理失败 taskNo={}", taskNo, e);
