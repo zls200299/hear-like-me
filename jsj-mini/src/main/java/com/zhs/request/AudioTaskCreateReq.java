@@ -1,5 +1,6 @@
 package com.zhs.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 
@@ -19,12 +20,15 @@ public class AudioTaskCreateReq implements Serializable {
 
     private String scenarioCode;
 
+    @JsonProperty("nChannels")
     private Integer nChannels;
 
     private String carrier;
 
+    @JsonProperty("fLo")
     private BigDecimal fLo;
 
+    @JsonProperty("fHi")
     private BigDecimal fHi;
 
     private BigDecimal envCut;
