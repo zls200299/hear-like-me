@@ -248,24 +248,9 @@
   <!-- 视觉化反馈 -->
   <view class="card visual-card">
     <view class="card-title">视觉化反馈</view>
-    <view class="visual-card-desc">根据当前参数模拟频率覆盖、电极激活和神经活动，仅用于科普展示。</view>
+    <view class="visual-card-desc">根据当前参数模拟电极激活和神经活动，仅用于科普展示。</view>
 
     <view class="visual-block visual-block--first">
-      <view class="visual-block-title">频率覆盖</view>
-      <view class="freq-track">
-        <view
-          class="freq-fill"
-          style="left: {{freqCoverageLeft}}; width: {{freqCoverageWidth}};"
-        ></view>
-      </view>
-      <view class="freq-label-row">
-        <text class="freq-label">80Hz</text>
-        <text class="freq-current">当前：{{freqCoverageLabel}}</text>
-        <text class="freq-label">8000Hz</text>
-      </view>
-    </view>
-
-    <view class="visual-block">
       <view class="visual-block-title">电极活动</view>
       <view class="visual-section electrode-array-wrap">
         <view class="electrode-array">
@@ -288,17 +273,17 @@
 
     <view class="visual-block visual-block--last">
       <view class="visual-block-title">神经活动</view>
-      <view class="neural-bars">
-        <view
-          wx:for="{{neuralBars}}"
-          wx:key="index"
-          class="neural-bar {{item.animClass}} {{item.flicker ? 'neural-bar--flicker' : ''}}"
-          style="height: {{item.height}}; animation-delay: {{item.delay}}; animation-duration: {{item.duration}};"
-        ></view>
+      <view class="neuro-canvas-wrap">
+        <canvas
+          type="2d"
+          id="neuroCanvas"
+          class="neuro-canvas"
+          bindready="onNeuroCanvasReady"
+        ></canvas>
       </view>
       <view class="visual-block-hint">
-        {{carrier === 'sine' ? '正弦载体 · 规律起伏' : '噪声载体 · 随机扰动'}}
-        · 包络 {{envCut}} Hz
+        神经放电图 · 持续向左滚动，播放模拟声时放电更密集
+        · {{nChannels}} 通道
       </view>
     </view>
   </view>
