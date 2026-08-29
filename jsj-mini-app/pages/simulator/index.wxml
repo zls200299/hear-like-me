@@ -62,63 +62,6 @@
     </view>
   </view>
 
-  <!-- 试听 + 当前模拟反馈 -->
-  <view class="card console-card">
-    <view class="card-title">试听</view>
-    <view class="action-row">
-      <view
-        class="action-btn action-btn--secondary {{isAudioPlaying && playingKind === 'original' ? 'action-btn--playing' : ''}}"
-        bindtap="playOriginal"
-      >{{isAudioPlaying && playingKind === 'original' ? '停止原声' : '播放原声'}}</view>
-      <view
-        class="action-btn action-btn--primary {{isProcessing ? 'action-btn--disabled' : ''}} {{isAudioPlaying && playingKind === 'processed' ? 'action-btn--playing' : ''}}"
-        bindtap="playProcessedAuto"
-      >{{isProcessing ? (isAudioPlaying && playingKind === 'processed' ? '更新中...' : '正在生成...') : (isAudioPlaying && playingKind === 'processed' ? '停止模拟声' : '播放模拟声')}}</view>
-    </view>
-    <view class="listen-hint">{{listenHint}}</view>
-
-    <view class="feedback-card {{clarityLevelClass}} {{taskStatus === 'failed' ? 'feedback-card--failed' : ''}} {{taskStatus === 'success' ? 'feedback-card--success' : ''}} {{taskStatus === 'processing' ? 'feedback-card--processing' : ''}}">
-      <view class="feedback-card__title">当前模拟反馈</view>
-
-      <view class="clarity-meter clarity-meter--compact {{clarityLevelClass}}">
-        <view class="clarity-meter-main">
-          <view class="clarity-meter-score">
-            <text class="clarity-meter-num">{{clarityScore != null ? clarityScore : '--'}}</text>
-            <text class="clarity-meter-total">/100</text>
-          </view>
-          <view class="clarity-meter-info">
-            <view class="clarity-meter-grade">{{clarityGrade || '参数估算'}}</view>
-            <view class="clarity-meter-desc">{{clarityDesc}}</view>
-          </view>
-        </view>
-        <view class="clarity-meter-track">
-          <view
-            class="clarity-meter-fill"
-            style="width: {{clarityScore != null ? clarityScore : 0}}%;"
-          ></view>
-        </view>
-      </view>
-
-      <view class="param-chips param-chips--compact">
-        <view class="param-chip">通道 {{nChannels}}</view>
-        <view class="param-chip">{{carrier === 'noise' ? '噪声载体' : '正弦载体'}}</view>
-        <view class="param-chip">{{frequencyRange}} Hz</view>
-        <view class="param-chip">包络 {{envCut}} Hz</view>
-        <view class="param-chip">扩散 {{spread}}%</view>
-        <view class="param-chip">噪声 {{noiseLevel}}%</view>
-      </view>
-
-      <view wx:if="{{taskStatus === 'processing'}}" class="loading-bar">
-        <view class="loading-bar-inner"></view>
-      </view>
-
-      <view wx:if="{{taskStatus === 'failed'}}" class="error-message">
-        <view class="error-message__title">模拟声音生成失败</view>
-        <view wx:if="{{errorMessage}}" class="error-message__detail">失败原因：{{errorMessage}}</view>
-      </view>
-    </view>
-  </view>
-
   <!-- 有效通道数 -->
   <view class="card">
     <view class="card-title">有效通道数</view>
@@ -241,6 +184,63 @@
           block-size="20"
           bindchange="changeNoiseLevel"
         />
+      </view>
+    </view>
+  </view>
+
+  <!-- 试听 + 当前模拟反馈 -->
+  <view class="card console-card">
+    <view class="card-title">试听</view>
+    <view class="action-row">
+      <view
+        class="action-btn action-btn--secondary {{isAudioPlaying && playingKind === 'original' ? 'action-btn--playing' : ''}}"
+        bindtap="playOriginal"
+      >{{isAudioPlaying && playingKind === 'original' ? '停止原声' : '播放原声'}}</view>
+      <view
+        class="action-btn action-btn--primary {{isProcessing ? 'action-btn--disabled' : ''}} {{isAudioPlaying && playingKind === 'processed' ? 'action-btn--playing' : ''}}"
+        bindtap="playProcessedAuto"
+      >{{isProcessing ? (isAudioPlaying && playingKind === 'processed' ? '更新中...' : '正在生成...') : (isAudioPlaying && playingKind === 'processed' ? '停止模拟声' : '播放模拟声')}}</view>
+    </view>
+    <view class="listen-hint">{{listenHint}}</view>
+
+    <view class="feedback-card {{clarityLevelClass}} {{taskStatus === 'failed' ? 'feedback-card--failed' : ''}} {{taskStatus === 'success' ? 'feedback-card--success' : ''}} {{taskStatus === 'processing' ? 'feedback-card--processing' : ''}}">
+      <view class="feedback-card__title">当前模拟反馈</view>
+
+      <view class="clarity-meter clarity-meter--compact {{clarityLevelClass}}">
+        <view class="clarity-meter-main">
+          <view class="clarity-meter-score">
+            <text class="clarity-meter-num">{{clarityScore != null ? clarityScore : '--'}}</text>
+            <text class="clarity-meter-total">/100</text>
+          </view>
+          <view class="clarity-meter-info">
+            <view class="clarity-meter-grade">{{clarityGrade || '参数估算'}}</view>
+            <view class="clarity-meter-desc">{{clarityDesc}}</view>
+          </view>
+        </view>
+        <view class="clarity-meter-track">
+          <view
+            class="clarity-meter-fill"
+            style="width: {{clarityScore != null ? clarityScore : 0}}%;"
+          ></view>
+        </view>
+      </view>
+
+      <view class="param-chips param-chips--compact">
+        <view class="param-chip">通道 {{nChannels}}</view>
+        <view class="param-chip">{{carrier === 'noise' ? '噪声载体' : '正弦载体'}}</view>
+        <view class="param-chip">{{frequencyRange}} Hz</view>
+        <view class="param-chip">包络 {{envCut}} Hz</view>
+        <view class="param-chip">扩散 {{spread}}%</view>
+        <view class="param-chip">噪声 {{noiseLevel}}%</view>
+      </view>
+
+      <view wx:if="{{taskStatus === 'processing'}}" class="loading-bar">
+        <view class="loading-bar-inner"></view>
+      </view>
+
+      <view wx:if="{{taskStatus === 'failed'}}" class="error-message">
+        <view class="error-message__title">模拟声音生成失败</view>
+        <view wx:if="{{errorMessage}}" class="error-message__detail">失败原因：{{errorMessage}}</view>
       </view>
     </view>
   </view>

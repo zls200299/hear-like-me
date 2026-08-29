@@ -509,10 +509,6 @@
 }
 
 /* 视觉化反馈 */
-.visual-card {
-  margin-top: 0;
-}
-
 .visual-card-desc {
   margin-top: 8rpx;
   margin-bottom: 4rpx;
