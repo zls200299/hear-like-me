@@ -729,6 +729,24 @@ Page({
     })
   },
 
+  _switchPlayback(url, kind, onPlayText) {
+    if (!url || !this.audioCtx || !this.data.isAudioPlaying || this.data.playingKind !== kind) {
+      return false
+    }
+    try {
+      this.audioCtx.stop()
+    } catch (e) {}
+    this.audioCtx.src = url
+    this.audioCtx.loop = true
+    this.audioCtx.play()
+    if (!this._unloaded) {
+      this.setData({ statusText: onPlayText }, () => {
+        this._refreshVisualFeedback()
+      })
+    }
+    return true
+  },
+
   _playAudio(url, kind, onPlayText, onStopText, onErrorText, options = {}) {
     if (!url) {
       wx.showToast({
@@ -878,14 +896,49 @@ Page({
     })
   },
 
+  async _continueOriginalAfterSampleSwitch(cache, label) {
+    try {
+      const sampleSource = cache || await this._ensureSampleSource()
+      const playText = `正在循环播放${label}`
+      if (!this._switchPlayback(sampleSource.url, 'original', playText)) {
+        this._playAudio(
+          sampleSource.url,
+          'original',
+          playText,
+          '已停止原声示例播放',
+          '原声示例播放失败',
+          { forceRestart: true }
+        )
+      }
+    } catch (err) {
+      console.error(err)
+      const errorMessage = this._formatErrorMessage(err)
+      this.setData({
+        taskStatus: 'failed',
+        statusText: '示例声音准备失败',
+        errorMessage
+      })
+      wx.showToast({
+        title: '示例准备失败',
+        icon: 'none'
+      })
+    }
+  },
+
   selectSample(e) {
     this._ensurePageState()
     const code = e.currentTarget.dataset.code
+    if (code === this.data.selectedSample) return
+
     const cache = this._sampleSourceCache[code]
     const label = this._getSampleLabel(code)
+    const wasPlayingOriginal = this.data.isAudioPlaying && this.data.playingKind === 'original'
+    const wasPlayingProcessed = this.data.isAudioPlaying && this.data.playingKind === 'processed'
 
-    this._stopAudio('已停止播放')
-    this._cancelAutoRefresh()
+    if (!wasPlayingOriginal && !wasPlayingProcessed) {
+      this._cancelAutoRefresh()
+    }
+
     this._applyRuntimePatch({
       sourceType: 'sample',
       selectedSample: code,
@@ -901,11 +954,21 @@ Page({
       uploadedObjectKey: cache ? cache.objectKey : '',
       isProcessing: false,
       taskStatus: cache ? 'ready' : 'idle',
-      statusText: `已选择${label}`,
+      statusText: wasPlayingOriginal
+        ? `正在切换${label}...`
+        : wasPlayingProcessed
+          ? '正在切换示例并更新模拟声...'
+          : `已选择${label}`,
       selectedScenario: ''
     }, () => {
       this._syncRuntimeParamsFromData()
-      this._invalidateProcessedResult({ autoRefresh: false })
+      this._invalidateProcessedResult({
+        keepStatus: true,
+        autoRefresh: wasPlayingProcessed
+      })
+      if (wasPlayingOriginal) {
+        this._continueOriginalAfterSampleSwitch(cache, label)
+      }
     })
   },
 
