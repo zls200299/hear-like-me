@@ -333,6 +333,10 @@
   opacity: 0.45;
 }
 
+.action-btn--playing {
+  box-shadow: 0 0 0 1px rgba(53, 208, 186, 0.45), 0 0 18rpx rgba(53, 208, 186, 0.22);
+}
+
 /* 转换结果卡片 */
 .result-card {
   margin-top: 24rpx;

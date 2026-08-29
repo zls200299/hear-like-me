@@ -206,11 +206,14 @@
   <view class="card">
     <view class="card-title">试听</view>
     <view class="action-row">
-      <view class="action-btn action-btn--secondary" bindtap="playOriginal">播放原声</view>
       <view
-        class="action-btn action-btn--primary {{isProcessing ? 'action-btn--disabled' : ''}}"
+        class="action-btn action-btn--secondary {{isAudioPlaying && playingKind === 'original' ? 'action-btn--playing' : ''}}"
+        bindtap="playOriginal"
+      >{{isAudioPlaying && playingKind === 'original' ? '停止原声' : '播放原声'}}</view>
+      <view
+        class="action-btn action-btn--primary {{isProcessing ? 'action-btn--disabled' : ''}} {{isAudioPlaying && playingKind === 'processed' ? 'action-btn--playing' : ''}}"
         bindtap="playProcessedAuto"
-      >{{isProcessing ? '正在生成...' : '播放模拟声'}}</view>
+      >{{isProcessing ? '正在生成...' : (isAudioPlaying && playingKind === 'processed' ? '停止模拟声' : '播放模拟声')}}</view>
     </view>
   </view>
 

@@ -137,13 +137,16 @@ Page({
     clarityScore: null,
     clarityGrade: '',
     errorMessage: '',
-    clarityDesc: ''
+    clarityDesc: '',
+    isAudioPlaying: false,
+    playingKind: ''
   },
 
   _scenarioPresets: null,
   _sampleLabels: null,
   _sampleSourceCache: {},
   _preparingSampleCode: '',
+  _unloaded: false,
   audioCtx: null,
 
   onLoad() {
@@ -155,10 +158,8 @@ Page({
   },
 
   onUnload() {
-    if (this.audioCtx) {
-      this.audioCtx.destroy()
-      this.audioCtx = null
-    }
+    this._unloaded = true
+    this._stopAudio('已退出页面')
   },
 
   async _loadRemoteData() {
@@ -254,6 +255,10 @@ Page({
   },
 
   _invalidateProcessedResult(options = {}) {
+    if (this.data.isAudioPlaying && this.data.playingKind === 'processed') {
+      this._stopAudio('参数已变化，请重新播放模拟声')
+    }
+
     const patch = {
       processedAudioUrl: '',
       outputAssetId: null,
@@ -414,7 +419,27 @@ Page({
     }
   },
 
-  _playAudio(url, onPlayText, onEndedText, onErrorText) {
+  _stopAudio(statusText = '已停止播放') {
+    if (this.audioCtx) {
+      try {
+        this.audioCtx.stop()
+      } catch (e) {}
+      try {
+        this.audioCtx.destroy()
+      } catch (e) {}
+      this.audioCtx = null
+    }
+
+    if (this._unloaded) return
+
+    this.setData({
+      isAudioPlaying: false,
+      playingKind: '',
+      statusText
+    })
+  },
+
+  _playAudio(url, kind, onPlayText, onStopText, onErrorText) {
     if (!url) {
       wx.showToast({
         title: '暂无可播放音频',
@@ -423,31 +448,57 @@ Page({
       return
     }
 
-    if (this.audioCtx) {
-      this.audioCtx.stop()
-      this.audioCtx.destroy()
-      this.audioCtx = null
+    if (this.data.isAudioPlaying && this.data.playingKind === kind) {
+      this._stopAudio(onStopText || '已停止播放')
+      return
     }
+
+    this._stopAudio('')
 
     const audioCtx = wx.createInnerAudioContext()
     this.audioCtx = audioCtx
     audioCtx.src = url
+    audioCtx.loop = true
 
     audioCtx.onPlay(() => {
-      this.setData({ statusText: onPlayText })
+      if (this._unloaded) return
+      this.setData({
+        isAudioPlaying: true,
+        playingKind: kind,
+        statusText: onPlayText
+      })
+    })
+
+    audioCtx.onStop(() => {
+      if (this._unloaded) return
+      this.setData({
+        isAudioPlaying: false,
+        playingKind: '',
+        statusText: onStopText || '已停止播放'
+      })
     })
 
     audioCtx.onEnded(() => {
-      this.setData({ statusText: onEndedText })
+      if (this._unloaded) return
+      this.setData({
+        isAudioPlaying: false,
+        playingKind: '',
+        statusText: onStopText || '播放结束'
+      })
     })
 
     audioCtx.onError((err) => {
       console.error(err)
+      if (this._unloaded) return
+      this.setData({
+        isAudioPlaying: false,
+        playingKind: '',
+        statusText: onErrorText
+      })
       wx.showToast({
         title: '播放失败',
         icon: 'none'
       })
-      this.setData({ statusText: onErrorText })
     })
 
     audioCtx.play()
@@ -457,6 +508,7 @@ Page({
     const type = e.currentTarget.dataset.type
 
     if (type === 'upload') {
+      this._stopAudio('已停止播放')
       this.setData({
         sourceType: 'upload',
         sourceHint: ''
@@ -469,6 +521,7 @@ Page({
     let statusText = '未选择音频'
 
     if (type === 'sample') {
+      this._stopAudio('已停止播放')
       const cache = this._sampleSourceCache[this.data.selectedSample]
       const label = this._getSampleLabel(this.data.selectedSample)
       this.setData({
@@ -495,6 +548,7 @@ Page({
       statusText = '实时麦克风后续接入'
     }
 
+    this._stopAudio('已停止播放')
     this._resetConvertStatus()
     this.setData({
       sourceType: type,
@@ -509,6 +563,7 @@ Page({
     const cache = this._sampleSourceCache[code]
     const label = this._getSampleLabel(code)
 
+    this._stopAudio('已停止播放')
     this.setData({
       sourceType: 'sample',
       selectedSample: code,
@@ -645,6 +700,7 @@ Page({
   },
 
   async _doUpload(filePath, fileName) {
+    this._stopAudio('已停止播放')
     this.setData({
       sourceType: 'upload',
       taskStatus: 'uploading',
@@ -694,8 +750,9 @@ Page({
         const sampleSource = await this._ensureSampleSource()
         this._playAudio(
           sampleSource.url,
-          '正在播放原声示例',
-          '原声示例播放结束',
+          'original',
+          '正在循环播放原声示例',
+          '已停止原声示例播放',
           '原声示例播放失败'
         )
       } catch (err) {
@@ -725,8 +782,9 @@ Page({
 
       this._playAudio(
         this.data.originalAudioUrl,
-        '正在播放原声',
-        '原声播放结束',
+        'original',
+        '正在循环播放原声',
+        '已停止原声播放',
         '原声播放失败，请检查文件地址'
       )
       return
@@ -788,8 +846,9 @@ Page({
     if (this.data.processedAudioUrl && this.data.processedKey === key) {
       this._playAudio(
         this.data.processedAudioUrl,
-        '正在播放人工耳蜗模拟声音',
-        '模拟声音播放结束',
+        'processed',
+        '正在循环播放人工耳蜗模拟声音',
+        '已停止模拟声音播放',
         '模拟声音播放失败，请检查文件地址'
       )
       return
@@ -837,14 +896,14 @@ Page({
         clarityDesc,
         taskStatus: 'success',
         isProcessing: false,
-        statusText: '正在播放人工耳蜗模拟声音',
         errorMessage: ''
       })
 
       this._playAudio(
         result.processedAudioUrl,
-        '正在播放人工耳蜗模拟声音',
-        '模拟声音播放结束',
+        'processed',
+        '正在循环播放人工耳蜗模拟声音',
+        '已停止模拟声音播放',
         '模拟声音播放失败，请检查文件地址'
       )
     } catch (err) {
