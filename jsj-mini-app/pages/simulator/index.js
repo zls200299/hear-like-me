@@ -611,8 +611,15 @@ Page({
     if (type === 'upload') {
       this._stopAudio('已停止播放')
       this._cancelAutoRefresh()
+      this._applyRuntimePatch({
+        sourceType: 'upload',
+        sourceAssetId: '',
+        selectedScenario: ''
+      })
       this.setData({
         sourceType: 'upload',
+        sourceAssetId: '',
+        selectedScenario: '',
         sourceHint: ''
       })
       this._chooseAndUpload()
@@ -627,6 +634,12 @@ Page({
       this._cancelAutoRefresh()
       const cache = this._sampleSourceCache[this.data.selectedSample]
       const label = this._getSampleLabel(this.data.selectedSample)
+      this._applyRuntimePatch({
+        sourceType: 'sample',
+        sourceAssetId: cache ? cache.assetId : '',
+        selectedSample: this.data.selectedSample,
+        selectedScenario: ''
+      })
       this.setData({
         isProcessing: false,
         sourceType: 'sample',
@@ -636,7 +649,8 @@ Page({
         uploadedObjectKey: cache ? cache.objectKey : '',
         taskStatus: cache ? 'ready' : 'idle',
         statusText: `已选择${label}`,
-        sourceHint: ''
+        sourceHint: '',
+        selectedScenario: ''
       }, () => {
         this._invalidateProcessedResult({ autoRefresh: false })
       })
@@ -875,6 +889,7 @@ Page({
         statusText: '音频上传成功，可以播放原声或模拟声',
         sourceHint: ''
       }, () => {
+        this._syncRuntimeParamsFromData()
         this._invalidateProcessedResult({ keepStatus: true, autoRefresh: false })
       })
     } catch (err) {
@@ -1013,12 +1028,18 @@ Page({
     })
 
     try {
+      if (this._runtimeParams && this._runtimeParams.sourceType !== this.data.sourceType) {
+        this._syncRuntimeParamsFromData()
+      }
       const params = this._getRuntimeParams()
       const { fLo, fHi } = this._parseFrequencyRange(params.frequencyRange)
+      const effectiveSourceType = params.sourceType === this.data.sourceType
+        ? params.sourceType
+        : this.data.sourceType
       const taskPayload = {
-        sourceType: params.sourceType === 'sample' ? 'SAMPLE' : 'UPLOAD',
+        sourceType: effectiveSourceType === 'sample' ? 'SAMPLE' : 'UPLOAD',
         sourceAssetId,
-        sampleCode: params.sourceType === 'sample' ? params.selectedSample : '',
+        sampleCode: effectiveSourceType === 'sample' ? params.selectedSample : '',
         nChannels: Number(params.nChannels),
         carrier: params.carrier,
         fLo: Number(fLo),
