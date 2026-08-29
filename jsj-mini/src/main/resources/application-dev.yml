@@ -37,3 +37,5 @@ hear-like-me:
   storage:
     root-path: D:/hear-like-me/data
     preview-url-prefix: http://localhost:8081
+  engine:
+    script-path: ${HLM_ENGINE_SCRIPT:../../audio-engine/cochlear_vocoder.py}

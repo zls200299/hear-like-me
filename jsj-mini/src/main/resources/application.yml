@@ -24,3 +24,8 @@ wx:
 hear-like-me:
   storage:
     provider: LOCAL
+  engine:
+    python-path: ${HLM_PYTHON_PATH:python}
+    script-path: ${HLM_ENGINE_SCRIPT:../audio-engine/cochlear_vocoder.py}
+    timeout-seconds: 120
+    ffmpeg-path: ${HLM_FFMPEG_PATH:ffmpeg}
