@@ -13,20 +13,21 @@ import com.zhs.service.IAudioProcessingTaskService;
 import com.zhs.service.IFileAssetService;
 import com.zhs.service.ISampleAudioService;
 import com.zhs.service.IScenarioPresetService;
+import com.zhs.service.storage.LocalFileStorageService;
 import com.zhs.util.R;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
@@ -41,7 +42,8 @@ import java.util.*;
 @Slf4j
 public class MiniApiController {
 
-    private static final String AUDIO_BASE_DIR = "D:/hear-like-me/data/audio";
+    private static final String DEFAULT_OWNER = "guest";
+    private static final Set<String> ALLOWED_AUDIO_EXT = Set.of("mp3", "wav", "m4a", "aac");
 
     @Resource
     private IScenarioPresetService scenarioPresetService;
@@ -54,6 +56,9 @@ public class MiniApiController {
 
     @Resource
     private IAudioProcessingTaskService audioProcessingTaskService;
+
+    @Resource
+    private LocalFileStorageService localFileStorageService;
 
     // ==================== 1. 场景列表 ====================
 
@@ -81,81 +86,85 @@ public class MiniApiController {
 
     @PostMapping("/files/audio")
     public R<Map<String, Object>> uploadAudio(@RequestParam("file") MultipartFile file) {
-        if (file.isEmpty()) {
+        if (file == null || file.isEmpty()) {
             throw new ServiceException("文件不能为空");
         }
 
-        try {
-            // 生成日期路径
-            String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
-            String dirPath = AUDIO_BASE_DIR + "/input/" + datePath;
-            File dir = new File(dirPath);
-            if (!dir.exists()) {
-                dir.mkdirs();
-            }
+        String originalFilename = file.getOriginalFilename();
+        String ext = normalizeExtension(StringUtils.getFilenameExtension(originalFilename));
+        validateAudioExtension(ext);
 
-            // 原始文件名 & 扩展名
-            String originalFilename = file.getOriginalFilename();
-            String ext = StringUtils.getFilenameExtension(originalFilename);
-            if (ext == null) {
-                ext = "wav";
-            }
+        String objectKey = localFileStorageService.buildAudioInputObjectKey(DEFAULT_OWNER, ext);
+        localFileStorageService.saveMultipartFile(file, objectKey);
 
-            // UUID 文件名
-            String uuid = UUID.randomUUID().toString().replace("-", "");
-            String savedFilename = uuid + "." + ext;
-            String fullPath = dirPath + "/" + savedFilename;
+        FileAsset asset = new FileAsset();
+        asset.setOwnerUserId(null);
+        asset.setAssetType("AUDIO_SOURCE");
+        asset.setStorageProvider("LOCAL");
+        asset.setBucketName("");
+        asset.setObjectKey(objectKey);
+        asset.setOriginalFilename(originalFilename);
+        asset.setFileExt(ext);
+        asset.setMimeType(file.getContentType());
+        asset.setFileSize(file.getSize());
+        asset.setAccessMode("PRIVATE");
+        asset.setStatus("ACTIVE");
+        fileAssetService.save(asset);
 
-            // 写盘
-            file.transferTo(new File(fullPath));
-
-            // 写入 file_asset 表
-            FileAsset asset = new FileAsset();
-            asset.setOwnerUserId(null);
-            asset.setAssetType("AUDIO_SOURCE");
-            asset.setStorageProvider("LOCAL");
-            asset.setBucketName("");
-            asset.setObjectKey("input/" + datePath + "/" + savedFilename);
-            asset.setOriginalFilename(originalFilename);
-            asset.setFileExt(ext);
-            asset.setMimeType(file.getContentType());
-            asset.setFileSize(file.getSize());
-            asset.setAccessMode("PRIVATE");
-            asset.setStatus("ACTIVE");
-            fileAssetService.save(asset);
-
-            // 返回
-            Map<String, Object> result = new LinkedHashMap<>();
-            result.put("assetId", asset.getId());
-            result.put("accessUrl", "/files/audio/" + asset.getObjectKey());
-            return R.ok(result);
-
-        } catch (IOException e) {
-            log.error("文件保存失败", e);
-            throw new ServiceException("文件保存失败: " + e.getMessage());
-        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("assetId", asset.getId());
+        result.put("fileName", originalFilename);
+        result.put("url", localFileStorageService.buildPreviewUrl(asset.getId()));
+        result.put("objectKey", objectKey);
+        return R.ok(result);
     }
 
-    // ==================== 4. 创建音频处理任务 ====================
+    // ==================== 4. 文件预览 ====================
+
+    @GetMapping("/files/preview/{assetId}")
+    public ResponseEntity<Resource> previewFile(@PathVariable Long assetId) {
+        FileAsset asset = fileAssetService.getById(assetId);
+        if (asset == null || (asset.getIsDelete() != null && asset.getIsDelete() == 1)) {
+            throw new ServiceException("文件不存在");
+        }
+        if (!StringUtils.hasText(asset.getObjectKey())) {
+            throw new ServiceException("文件路径无效");
+        }
+        if (!localFileStorageService.exists(asset.getObjectKey())) {
+            throw new ServiceException("文件不存在");
+        }
+
+        Path filePath = localFileStorageService.resolvePath(asset.getObjectKey());
+        Resource resource = new FileSystemResource(filePath);
+        String contentType = resolveContentType(asset);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .body(resource);
+    }
+
+    // ==================== 5. 创建音频处理任务 ====================
 
     @PostMapping("/audio/tasks")
     @Transactional
     public R<Map<String, String>> createTask(@RequestBody AudioTaskCreateReq req) {
-        // 校验 sourceAssetId
         if (req.getSourceAssetId() == null) {
             throw new ServiceException("sourceAssetId 不能为空");
         }
 
-        // 查询源文件
         FileAsset sourceAsset = fileAssetService.getById(req.getSourceAssetId());
         if (sourceAsset == null) {
             throw new ServiceException("源文件不存在");
         }
+        if (!localFileStorageService.exists(sourceAsset.getObjectKey())) {
+            throw new ServiceException("源文件不存在");
+        }
 
-        // 生成 taskNo
         String taskNo = UUID.randomUUID().toString().replace("-", "");
+        String ext = sourceAsset.getFileExt() != null ? sourceAsset.getFileExt() : "wav";
+        String outputFilename = taskNo + "." + ext;
+        String outputObjectKey = localFileStorageService.buildAudioOutputObjectKey(DEFAULT_OWNER, outputFilename);
 
-        // 创建任务记录
         AudioProcessingTask task = new AudioProcessingTask();
         task.setTaskNo(taskNo);
         task.setUserId(null);
@@ -167,52 +176,36 @@ public class MiniApiController {
         task.setRetryCount(0);
         audioProcessingTaskService.save(task);
 
-        // 复制源文件到 output 目录
-        String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
-        String outputDirPath = AUDIO_BASE_DIR + "/output/" + datePath;
-        File outputDir = new File(outputDirPath);
-        if (!outputDir.exists()) {
-            outputDir.mkdirs();
-        }
+        localFileStorageService.copy(sourceAsset.getObjectKey(), outputObjectKey);
 
-        String sourceFullPath = AUDIO_BASE_DIR + "/" + sourceAsset.getObjectKey();
-        String outputFilename = taskNo + "." + (sourceAsset.getFileExt() != null ? sourceAsset.getFileExt() : "wav");
-        String outputFullPath = outputDirPath + "/" + outputFilename;
-
-        try {
-            Files.copy(Path.of(sourceFullPath), Path.of(outputFullPath));
-        } catch (IOException e) {
-            log.error("文件复制失败: {} -> {}", sourceFullPath, outputFullPath, e);
-            throw new ServiceException("文件复制失败: " + e.getMessage());
-        }
-
-        // 写入 output file_asset
         FileAsset outputAsset = new FileAsset();
         outputAsset.setOwnerUserId(null);
         outputAsset.setParentAssetId(sourceAsset.getId());
         outputAsset.setAssetType("AUDIO_OUTPUT");
         outputAsset.setStorageProvider("LOCAL");
         outputAsset.setBucketName("");
-        outputAsset.setObjectKey("output/" + datePath + "/" + outputFilename);
+        outputAsset.setObjectKey(outputObjectKey);
         outputAsset.setOriginalFilename(sourceAsset.getOriginalFilename());
-        outputAsset.setFileExt(sourceAsset.getFileExt());
+        outputAsset.setFileExt(ext);
         outputAsset.setMimeType(sourceAsset.getMimeType());
-        outputAsset.setFileSize(sourceAsset.getFileSize());
+        try {
+            outputAsset.setFileSize(Files.size(localFileStorageService.resolvePath(outputObjectKey)));
+        } catch (Exception e) {
+            outputAsset.setFileSize(sourceAsset.getFileSize());
+        }
         outputAsset.setAccessMode("PRIVATE");
         outputAsset.setStatus("ACTIVE");
         fileAssetService.save(outputAsset);
 
-        // 回填 outputAssetId
         task.setOutputAssetId(outputAsset.getId());
         audioProcessingTaskService.updateById(task);
 
-        // 返回 taskNo
         Map<String, String> result = new LinkedHashMap<>();
         result.put("taskNo", taskNo);
         return R.ok(result);
     }
 
-    // ==================== 5. 查询任务详情 ====================
+    // ==================== 6. 查询任务详情 ====================
 
     @GetMapping("/audio/tasks/{taskNo}")
     public R<Map<String, Object>> getTaskDetail(@PathVariable String taskNo) {
@@ -224,12 +217,11 @@ public class MiniApiController {
             throw new ServiceException("任务不存在");
         }
 
-        // 拼 outputUrl
         String outputUrl = null;
         if (task.getOutputAssetId() != null) {
             FileAsset outputAsset = fileAssetService.getById(task.getOutputAssetId());
             if (outputAsset != null) {
-                outputUrl = "/files/audio/" + outputAsset.getObjectKey();
+                outputUrl = localFileStorageService.buildPreviewUrl(outputAsset.getId());
             }
         }
 
@@ -240,5 +232,37 @@ public class MiniApiController {
         result.put("clarityGrade", task.getClarityGrade());
         result.put("errorMessage", task.getErrorMessage());
         return R.ok(result);
+    }
+
+    private String normalizeExtension(String ext) {
+        if (!StringUtils.hasText(ext)) {
+            return "";
+        }
+        return ext.toLowerCase(Locale.ROOT);
+    }
+
+    private void validateAudioExtension(String ext) {
+        if (!ALLOWED_AUDIO_EXT.contains(ext)) {
+            throw new ServiceException("仅支持 mp3、wav、m4a、aac 格式");
+        }
+    }
+
+    private String resolveContentType(FileAsset asset) {
+        if (StringUtils.hasText(asset.getMimeType())) {
+            return asset.getMimeType();
+        }
+        String ext = asset.getFileExt();
+        if (!StringUtils.hasText(ext)) {
+            return MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        }
+        return switch (ext.toLowerCase(Locale.ROOT)) {
+            case "mp3" -> "audio/mpeg";
+            case "wav" -> "audio/wav";
+            case "m4a" -> "audio/mp4";
+            case "aac" -> "audio/aac";
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "png" -> "image/png";
+            default -> MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        };
     }
 }

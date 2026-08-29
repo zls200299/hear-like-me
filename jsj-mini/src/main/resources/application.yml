@@ -4,45 +4,23 @@ server:
 spring:
   application:
     name: jsj-mini
-
-  datasource:
-    type: com.alibaba.druid.pool.DruidDataSource
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://127.0.0.1:3306/hear_like_me?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
-    username: root
-    password: root
-    druid:
-      initial-size: 5
-      min-idle: 5
-      max-active: 20
-      max-wait: 60000
-      test-while-idle: true
-      test-on-borrow: false
-      test-on-return: false
-
-  data:
-    redis:
-      host: 127.0.0.1
-      port: 6379
-      password:
-      database: 0
-      timeout: 10s
-      lettuce:
-        pool:
-          max-active: 8
-          max-wait: -1ms
-          max-idle: 8
-          min-idle: 0
+  # 本地开发用 dev，部署服务器时改为 prod
+  profiles:
+    active: dev
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
   type-aliases-package: com.zhs.model
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
-# 微信小程序配置
+# 微信小程序（各环境在 application-dev.yml / application-prod.yml 中覆盖）
 wx:
   mini:
     app-id: your-appid-here
     app-secret: your-appsecret-here
+
+# 文件存储公共项（路径、预览地址在各环境配置中覆盖）
+hear-like-me:
+  storage:
+    provider: LOCAL
