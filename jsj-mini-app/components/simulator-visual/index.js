@@ -9,6 +9,9 @@ const { drawNeuroColumn, clearNeuroCanvas } = require('../../utils/simulator/vis
 const { drawWave } = require('../../utils/simulator/visual/draw-wave.js')
 const { drawSpecColumn, clearSpecCanvas } = require('../../utils/simulator/visual/draw-spec.js')
 
+const IDLE_FPS = 20
+const IDLE_INTERVAL_MS = Math.round(1000 / IDLE_FPS)
+
 const VIZ_TABS = [
   { id: 'bars', label: '电极阵列' },
   { id: 'wave', label: '示波器' },
@@ -64,7 +67,6 @@ Component({
       this._vizCtx = null
       this._specCanvas = null
       this._specCtx = null
-      this._canvasesReady = false
       this._dpr = 2
       this._neuroChannelCount = 0
       this._playbackTimer = null
@@ -77,16 +79,13 @@ Component({
     },
 
     ready() {
-      wx.nextTick(() => {
-        this._initAllCanvases(0, () => {
-          this.syncPlaybackState()
-        })
-      })
+      this.syncPlaybackState()
     },
 
     detached() {
       this._stopPlaybackTimer()
       this._stopIdleTimer()
+      this._clearCanvasRefs()
     }
   },
 
@@ -112,24 +111,16 @@ Component({
       const view = e.currentTarget.dataset.view
       if (!view || view === this.data.activeView) return
       this._stopIdleTimer()
+      this._stopPlaybackTimer(false)
+      this._clearCanvasRefs()
+
       this.setData({ activeView: view }, () => {
-        if (view === 'neuro' || view === 'spec') {
-          this._neuroChannelCount = 0
-          this._ensureCanvasesReady(() => {
-            this._resetScrollViews()
-            this.syncPlaybackState()
-          })
+        if (view === 'bars' || view === 'cochlea') {
+          this._refreshStaticViews()
+          this.syncPlaybackState()
           return
         }
-        if (view === 'wave') {
-          this._ensureCanvasesReady(() => {
-            this._drawActiveCanvasFrame()
-            this.syncPlaybackState()
-          })
-          return
-        }
-        this._refreshStaticViews()
-        this.syncPlaybackState()
+        this._mountCanvasView(view)
       })
     },
 
@@ -143,10 +134,10 @@ Component({
         this._visualizationFps = 20
         this._visualizationDurationMs = 0
       }
-      this._ensureCanvasesReady(() => {
+      if (isCanvasView(this.data.activeView)) {
         this._resetScrollViews()
-        this._refreshStaticViews()
-      })
+      }
+      this._refreshStaticViews()
     },
 
     clearVisualizationData() {
@@ -159,15 +150,61 @@ Component({
         this._startPlaybackTimer()
         return
       }
-      this._stopPlaybackTimer(true)
+      this._stopPlaybackTimer(false)
       this._startIdleTimer()
     },
 
     refreshViews() {
       this._refreshStaticViews()
-      if (isCanvasView(this.data.activeView)) {
-        this._ensureCanvasesReady(() => this._drawActiveCanvasFrame())
+      if (isCanvasView(this.data.activeView) && this._hasCanvasForView(this.data.activeView)) {
+        this._drawActiveCanvasFrame()
       }
+    },
+
+    _clearCanvasRefs() {
+      this._vizCanvas = null
+      this._vizCtx = null
+      this._specCanvas = null
+      this._specCtx = null
+      this._neuroChannelCount = 0
+    },
+
+    _hasCanvasForView(view) {
+      if (view === 'wave' || view === 'neuro') return !!(this._vizCtx && this._vizCanvas)
+      if (view === 'spec') return !!(this._specCtx && this._specCanvas)
+      return false
+    },
+
+    _mountCanvasView(view) {
+      const selector = view === 'spec' ? '#specCanvas' : '#vizCanvas'
+      const init = (retry = 0) => {
+        this.createSelectorQuery()
+          .in(this)
+          .select(selector)
+          .fields({ node: true, size: true })
+          .exec((res) => {
+            const item = res && res[0]
+            if (!item || !item.node || !item.width || !item.height) {
+              if (retry < 16) {
+                setTimeout(() => init(retry + 1), 60 + retry * 40)
+              } else {
+                this.syncPlaybackState()
+              }
+              return
+            }
+            this._setupCanvas(view === 'spec' ? 'spec' : 'viz', item)
+            if (view === 'neuro' || view === 'spec') {
+              this._resetScrollViews()
+            } else {
+              this._drawActiveCanvasFrame()
+            }
+            this.syncPlaybackState()
+          })
+      }
+
+      wx.nextTick(() => {
+        setTimeout(() => init(0), 32)
+      })
     },
 
     _getRuntimeFlags() {
@@ -231,45 +268,11 @@ Component({
       const flags = this._getRuntimeFlags()
       this.setData({
         electrodeBarLevels: buildElectrodeBars(levels, { isProcessed: flags.isProcessed }),
-        cochleaElectrodes: buildCochleaElectrodes(levels, { isProcessed: flags.isProcessed })
-      })
-    },
-
-    _ensureCanvasesReady(done) {
-      if (this._canvasesReady && this._vizCtx && this._specCtx) {
-        if (typeof done === 'function') done()
-        return
-      }
-      this._initAllCanvases(0, done)
-    },
-
-    _initAllCanvases(retry = 0, done) {
-      this.createSelectorQuery()
-        .in(this)
-        .select('#vizCanvas')
-        .fields({ node: true, size: true })
-        .select('#specCanvas')
-        .fields({ node: true, size: true })
-        .exec((res) => {
-          const viz = res && res[0]
-          const spec = res && res[1]
-          const vizOk = viz && viz.node && viz.width > 0 && viz.height > 0
-          const specOk = spec && spec.node && spec.width > 0 && spec.height > 0
-          if (!vizOk || !specOk) {
-            if (retry < 15) {
-              setTimeout(() => this._initAllCanvases(retry + 1, done), 80 + retry * 50)
-              return
-            }
-            if (typeof done === 'function') done()
-            return
-          }
-          this._setupCanvas('viz', viz)
-          this._setupCanvas('spec', spec)
-          clearNeuroCanvas(this._vizCtx, this._vizCanvas)
-          clearSpecCanvas(this._specCtx, this._specCanvas)
-          this._canvasesReady = true
-          if (typeof done === 'function') done()
+        cochleaElectrodes: buildCochleaElectrodes(levels, {
+          isProcessed: flags.isProcessed,
+          isPlaying: flags.isPlaying
         })
+      })
     },
 
     _setupCanvas(kind, item) {
@@ -297,6 +300,8 @@ Component({
 
     _drawActiveCanvasFrame() {
       const view = this.data.activeView
+      if (!isCanvasView(view)) return
+
       const levels = this._getCurrentLevels()
       const opts = this._getDrawOpts()
       const flags = this._getRuntimeFlags()
@@ -323,13 +328,19 @@ Component({
 
     _tickPlayback() {
       this._refreshStaticViews()
-      this._drawActiveCanvasFrame()
+      if (isCanvasView(this.data.activeView)) {
+        this._drawActiveCanvasFrame()
+      }
     },
 
     _tickIdle() {
       const view = this.data.activeView
       if (view === 'bars' || view === 'cochlea') {
         this._refreshStaticViews()
+        return
+      }
+      if (!this._hasCanvasForView(view)) {
+        this._mountCanvasView(view)
         return
       }
       this._drawActiveCanvasFrame()
@@ -350,7 +361,7 @@ Component({
       }
       if (reset) {
         this._refreshStaticViews()
-        if (isCanvasView(this.data.activeView)) {
+        if (isCanvasView(this.data.activeView) && this._hasCanvasForView(this.data.activeView)) {
           this._resetScrollViews()
         }
       }
@@ -358,17 +369,8 @@ Component({
 
     _startIdleTimer() {
       if (this._idleTimer || this.properties.isAudioPlaying) return
-      const view = this.data.activeView
-      if (view === 'bars' || view === 'cochlea') {
-        this._tickIdle()
-        this._idleTimer = setInterval(() => this._tickIdle(), 500)
-        return
-      }
-      this._ensureCanvasesReady(() => {
-        if (this._idleTimer || this.properties.isAudioPlaying) return
-        this._tickIdle()
-        this._idleTimer = setInterval(() => this._tickIdle(), 62)
-      })
+      this._tickIdle()
+      this._idleTimer = setInterval(() => this._tickIdle(), IDLE_INTERVAL_MS)
     },
 
     _stopIdleTimer() {

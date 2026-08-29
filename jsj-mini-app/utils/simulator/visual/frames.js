@@ -46,30 +46,36 @@ function buildFallbackFrame(params) {
   const n = Number(nChannels) || 8
   const spreadRatio = (Number(spread) || 0) / 100
   const noiseRatio = (Number(noiseLevel) || 0) / 100
-  const t = Date.now() / 1000
+  const now = Date.now()
+  const t = now / 1000
   const speed = 0.75 + (Number(envCut) || 160) / 500 * 1.35
   const frame = []
 
   for (let i = 0; i < n; i++) {
-    const center = n > 1 ? 1 - Math.abs(i - (n - 1) / 2) / ((n - 1) / 2) : 1
-    let level = 0.14 + 0.22 * center * (1 - spreadRatio * 0.45)
+    let level
 
-    if (carrier === 'sine') {
-      level += 0.2 * Math.sin(t * speed + i * 0.72)
+    if (!isPlaying) {
+      // 未播放：对齐 HTML computeLevels 的 idle 正弦基线（连续、缓慢起伏）
+      level = 0.10 + 0.06 * Math.sin(now / 650 + i * 0.7)
     } else {
-      level += (pseudoRandom(i + Math.floor(t * 12)) - 0.5) * 0.14 * (1 + noiseRatio)
+      const center = n > 1 ? 1 - Math.abs(i - (n - 1) / 2) / ((n - 1) / 2) : 1
+      level = 0.14 + 0.22 * center * (1 - spreadRatio * 0.45)
+
+      if (carrier === 'sine') {
+        level += 0.2 * Math.sin(t * speed + i * 0.72)
+      } else {
+        level += (pseudoRandom(i + Math.floor(t * 12)) - 0.5) * 0.14 * (1 + noiseRatio)
+      }
+
+      if (isProcessed) {
+        level += 0.28 * Math.sin(t * speed * 1.5 + i * 0.95)
+        level += (pseudoRandom(i * 1.7 + Math.floor(t * 20)) - 0.5) * 0.16 * (1 + noiseRatio * 2)
+      } else if (isOriginal) {
+        level += 0.07 * Math.sin(t * 0.55 + i * 0.48)
+      }
     }
 
-    if (isProcessed) {
-      level += 0.28 * Math.sin(t * speed * 1.5 + i * 0.95)
-      level += (pseudoRandom(i * 1.7 + Math.floor(t * 20)) - 0.5) * 0.16 * (1 + noiseRatio * 2)
-    } else if (isOriginal) {
-      level += 0.07 * Math.sin(t * 0.55 + i * 0.48)
-    } else {
-      level = 0.1 + 0.06 * Math.sin(t * 0.65 + i * 0.7)
-    }
-
-    if (spreadRatio > 0 && n > 1) {
+    if (spreadRatio > 0 && n > 1 && isPlaying) {
       const prev = frame[i - 1]
       const nextBase = 0.14 + 0.22 * (1 - spreadRatio * 0.45)
       if (i > 0) {
@@ -79,7 +85,7 @@ function buildFallbackFrame(params) {
       }
     }
 
-    frame.push(clamp(level, 0.04, 1))
+    frame.push(clamp(level, 0.04, isPlaying && isProcessed ? 1 : 0.42))
   }
   return frame
 }
@@ -87,7 +93,7 @@ function buildFallbackFrame(params) {
 function buildElectrodeBars(levels, opts) {
   const { isProcessed = false } = opts || {}
   return levels.map((value, index) => {
-    const percent = Math.max(4, Math.round(value * 100))
+    const percent = Math.max(4, Math.round(value * 1000) / 10)
     const opacity = (0.32 + value * 0.68).toFixed(2)
     return {
       value,
@@ -100,15 +106,16 @@ function buildElectrodeBars(levels, opts) {
 }
 
 function buildCochleaElectrodes(levels, opts) {
-  const { isProcessed = false } = opts || {}
+  const { isProcessed = false, isPlaying = false } = opts || {}
   const n = levels.length
   const now = Date.now()
   return levels.map((level, i) => {
     const t = n > 1 ? i / (n - 1) : 0
     const x = 14 + t * 70 + Math.sin(t * 5.8) * 7
     const y = 78 - t * 58 + Math.cos(t * 4.6) * 5
-    const pulse = isProcessed && level > 0.42 && Math.sin(now / 240 + i) > 0.55
-    const haloR = 8 + level * 18 + (pulse ? 6 : 0)
+    const breathe = 1 + 0.12 * Math.sin(now / 520 + i * 0.65)
+    const pulse = isPlaying && isProcessed && level > 0.42 && Math.sin(now / 240 + i) > 0.55
+    const haloR = (8 + level * 18) * breathe + (pulse ? 6 : 0)
     return {
       x: x.toFixed(1),
       y: y.toFixed(1),
