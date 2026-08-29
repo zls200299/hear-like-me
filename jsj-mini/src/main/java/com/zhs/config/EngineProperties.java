@@ -38,6 +38,11 @@ public class EngineProperties {
      */
     private String ffmpegPath = "ffmpeg";
 
+    /**
+     * 是否调用 Python 声码器；false 时仅 FFmpeg 标准化后复制为 output（用于联调 FFmpeg）
+     */
+    private boolean vocoderEnabled = true;
+
     public Path resolveScriptPath() {
         if (!StringUtils.hasText(scriptPath)) {
             throw new ServiceException("hear-like-me.engine.script-path 未配置");

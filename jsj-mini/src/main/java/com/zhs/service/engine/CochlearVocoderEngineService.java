@@ -57,13 +57,16 @@ public class CochlearVocoderEngineService {
         ProcessCommandExecutor.ProcessResult processResult =
                 processCommandExecutor.execute("Cochlear Vocoder", command);
 
+        log.info("Cochlear Vocoder 完成, exitCode={}, 耗时={}ms",
+                processResult.exitCode(), processResult.durationMs());
+
         if (!Files.exists(outputWavPath) || fileSize(outputWavPath) <= 0) {
             throw new ServiceException("声码器输出文件无效");
         }
 
         VocoderResult result = new VocoderResult();
         result.setOutputPath(outputWavPath);
-        parseClarity(processResult.output(), result);
+        parseClarity(processResult.stdout(), result);
         return result;
     }
 

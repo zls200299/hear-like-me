@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.io.BufferedReader;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -19,15 +20,18 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class ProcessCommandExecutor {
 
+    private static final int ERROR_TAIL_MAX_LEN = 1000;
+
     @Resource
     private EngineProperties engineProperties;
 
     public ProcessResult execute(String label, List<String> command) {
         int timeoutSeconds = Math.max(engineProperties.getTimeoutSeconds(), 1);
-        log.info("{} 开始执行: {}", label, sanitizeCommandForLog(command));
+        String commandForLog = sanitizeCommandForLog(command);
+        log.info("{} 开始执行, command={}", label, commandForLog);
 
+        long startMs = System.currentTimeMillis();
         ProcessBuilder builder = new ProcessBuilder(command);
-        builder.redirectErrorStream(true);
 
         Process process;
         try {
@@ -36,20 +40,10 @@ public class ProcessCommandExecutor {
             throw new ServiceException(label + " 启动失败: " + e.getMessage());
         }
 
-        StringBuilder output = new StringBuilder();
-        Thread reader = new Thread(() -> {
-            try (BufferedReader br = new BufferedReader(
-                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = br.readLine()) != null) {
-                    output.append(line).append('\n');
-                }
-            } catch (Exception e) {
-                log.warn("{} 读取输出失败: {}", label, e.getMessage());
-            }
-        }, label + "-stdout-reader");
-        reader.setDaemon(true);
-        reader.start();
+        StringBuilder stdout = new StringBuilder();
+        StringBuilder stderr = new StringBuilder();
+        Thread outReader = startReader(label + "-stdout", process.getInputStream(), stdout);
+        Thread errReader = startReader(label + "-stderr", process.getErrorStream(), stderr);
 
         boolean finished;
         try {
@@ -60,26 +54,68 @@ public class ProcessCommandExecutor {
             throw new ServiceException(label + " 被中断");
         }
 
-        try {
-            reader.join(3000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        awaitReader(outReader);
+        awaitReader(errReader);
+
+        long durationMs = System.currentTimeMillis() - startMs;
 
         if (!finished) {
             process.destroyForcibly();
+            log.error("{} 超时, 耗时={}ms, command={}", label, durationMs, commandForLog);
             throw new ServiceException(label + " 超时（" + timeoutSeconds + "s）");
         }
 
         int exitCode = process.exitValue();
-        String text = output.toString().trim();
-        if (exitCode != 0) {
-            String detail = text.isEmpty() ? "exit code " + exitCode : text;
-            throw new ServiceException(label + " 失败: " + truncate(detail, 800));
+        String stdoutText = stdout.toString().trim();
+        String stderrText = stderr.toString().trim();
+
+        log.info("{} 结束, exitCode={}, 耗时={}ms", label, exitCode, durationMs);
+        if (!stdoutText.isEmpty()) {
+            log.debug("{} stdout 摘要: {}", label, tail(stdoutText, 500));
+        }
+        if (!stderrText.isEmpty()) {
+            log.debug("{} stderr 摘要: {}", label, tail(stderrText, 500));
         }
 
-        log.info("{} 执行成功", label);
-        return new ProcessResult(exitCode, text);
+        if (exitCode != 0) {
+            String errSummary = tail(stderrText, ERROR_TAIL_MAX_LEN);
+            if (errSummary.isEmpty()) {
+                errSummary = tail(stdoutText, ERROR_TAIL_MAX_LEN);
+            }
+            if (errSummary.isEmpty()) {
+                errSummary = "exit code " + exitCode;
+            }
+            log.error("{} 失败, exitCode={}, 耗时={}ms, stderrTail={}", label, exitCode, durationMs, errSummary);
+            throw new ServiceException(label + " 失败: " + errSummary);
+        }
+
+        return new ProcessResult(exitCode, stdoutText, stderrText, durationMs);
+    }
+
+    private static Thread startReader(String name, InputStream stream, StringBuilder target) {
+        Thread thread = new Thread(() -> readStream(stream, target), name);
+        thread.setDaemon(true);
+        thread.start();
+        return thread;
+    }
+
+    private static void readStream(InputStream stream, StringBuilder target) {
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                target.append(line).append('\n');
+            }
+        } catch (Exception ignored) {
+            // ignore
+        }
+    }
+
+    private static void awaitReader(Thread reader) {
+        try {
+            reader.join(5000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private static String sanitizeCommandForLog(List<String> command) {
@@ -108,16 +144,16 @@ public class ProcessCommandExecutor {
         return arg.contains(":\\") || arg.contains("/") || arg.contains("\\");
     }
 
-    private static String truncate(String text, int maxLen) {
-        if (text == null) {
+    private static String tail(String text, int maxLen) {
+        if (text == null || text.isEmpty()) {
             return "";
         }
         if (text.length() <= maxLen) {
             return text;
         }
-        return text.substring(0, maxLen) + "...";
+        return text.substring(text.length() - maxLen);
     }
 
-    public record ProcessResult(int exitCode, String output) {
+    public record ProcessResult(int exitCode, String stdout, String stderr, long durationMs) {
     }
 }

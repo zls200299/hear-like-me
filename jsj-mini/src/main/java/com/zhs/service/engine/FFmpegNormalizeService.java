@@ -43,20 +43,15 @@ public class FFmpegNormalizeService {
         localFileStorageService.createParentDirectories(objectKey);
         Path outputPath = localFileStorageService.resolvePath(objectKey);
 
-        List<String> command = new ArrayList<>();
-        command.add(engineProperties.getFfmpegPath());
-        command.add("-y");
-        command.add("-i");
-        command.add(sourceFilePath.toString());
-        command.add("-ac");
-        command.add("1");
-        command.add("-ar");
-        command.add("44100");
-        command.add("-sample_fmt");
-        command.add("s16");
-        command.add(outputPath.toString());
+        log.info("FFmpeg 输入文件: {}", sourceFilePath);
+        log.info("FFmpeg normalized objectKey: {}", objectKey);
 
-        processCommandExecutor.execute("FFmpeg 标准化", command);
+        List<String> command = buildCommand(sourceFilePath, outputPath);
+        ProcessCommandExecutor.ProcessResult processResult =
+                processCommandExecutor.execute("FFmpeg 标准化", command);
+
+        log.info("FFmpeg 完成, exitCode={}, 耗时={}ms, normalizedObjectKey={}",
+                processResult.exitCode(), processResult.durationMs(), objectKey);
 
         if (!Files.exists(outputPath) || fileSize(outputPath) <= 0) {
             throw new ServiceException("FFmpeg 输出文件无效");
@@ -77,10 +72,28 @@ public class FFmpegNormalizeService {
         asset.setStatus("ACTIVE");
         fileAssetService.save(asset);
 
+        log.info("FFmpeg normalized file_asset id={}, size={}", asset.getId(), asset.getFileSize());
+
         NormalizeResult result = new NormalizeResult();
         result.setAsset(asset);
         result.setLocalPath(outputPath);
         return result;
+    }
+
+    private List<String> buildCommand(Path sourceFilePath, Path outputPath) {
+        List<String> command = new ArrayList<>();
+        command.add(engineProperties.getFfmpegPath());
+        command.add("-y");
+        command.add("-i");
+        command.add(sourceFilePath.toString());
+        command.add("-ac");
+        command.add("1");
+        command.add("-ar");
+        command.add("44100");
+        command.add("-sample_fmt");
+        command.add("s16");
+        command.add(outputPath.toString());
+        return command;
     }
 
     private static long fileSize(Path path) {
