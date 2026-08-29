@@ -9,11 +9,13 @@ import com.zhs.model.FileAsset;
 import com.zhs.model.SampleAudio;
 import com.zhs.model.ScenarioPreset;
 import com.zhs.request.AudioTaskCreateReq;
+import com.zhs.request.SampleSourcePrepareReq;
 import com.zhs.service.IAudioProcessingTaskService;
 import com.zhs.service.IFileAssetService;
 import com.zhs.service.ISampleAudioService;
 import com.zhs.service.IScenarioPresetService;
 import com.zhs.service.engine.AudioTaskProcessingService;
+import com.zhs.service.engine.SampleSourceService;
 import com.zhs.service.storage.LocalFileStorageService;
 import com.zhs.util.R;
 import jakarta.annotation.Resource;
@@ -61,6 +63,9 @@ public class MiniApiController {
     @Resource
     private AudioTaskProcessingService audioTaskProcessingService;
 
+    @Resource
+    private SampleSourceService sampleSourceService;
+
     // ==================== 1. 场景列表 ====================
 
     @GetMapping("/scenarios")
@@ -81,6 +86,14 @@ public class MiniApiController {
                 .eq(SampleAudio::getIsDelete, 0)
                 .orderByAsc(SampleAudio::getSortOrder);
         return R.ok(sampleAudioService.list(wrapper));
+    }
+
+    @PostMapping("/samples/source")
+    public R<Map<String, Object>> prepareSampleSource(@RequestBody SampleSourcePrepareReq req) {
+        if (req == null || !StringUtils.hasText(req.getSampleCode())) {
+            throw new ServiceException("sampleCode 不能为空");
+        }
+        return R.ok(sampleSourceService.prepareSampleSource(req.getSampleCode()));
     }
 
     // ==================== 3. 上传音频文件 ====================

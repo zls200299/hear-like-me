@@ -451,11 +451,26 @@ def main(argv=None) -> int:
     p.add_argument("--no-normalize", action="store_true", help="不做峰值归一化（保持原始电平）")
     p.add_argument("--seed", type=int, help="噪声随机种子")
     p.add_argument("--list-scenarios", action="store_true", help="列出场景预设后退出")
+    p.add_argument("--original-only", action="store_true",
+                   help="只生成内置示例原声，不做声码器处理（仅 --sample 模式）")
     a = p.parse_args(argv)
 
     if a.list_scenarios:
         for k, v in SCENARIOS.items():
             print(f"{k:11s} {v}")
+        return 0
+
+    if a.original_only:
+        if a.input:
+            print("--original-only 仅支持 --sample 模式", file=sys.stderr)
+            return 1
+        if not a.sample:
+            print("--original-only 需要指定 --sample", file=sys.stderr)
+            return 1
+        sr = 44100
+        x = SAMPLES[a.sample](sr)
+        write_wav(a.output, x, sr)
+        print(f"原始示例音已保存: {a.output}")
         return 0
 
     cfg = VocoderConfig()

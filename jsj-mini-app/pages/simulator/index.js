@@ -1,5 +1,5 @@
 const { listScenarios } = require('../../services/scenario.js')
-const { listSamples } = require('../../services/sample.js')
+const { listSamples, prepareSampleSource } = require('../../services/sample.js')
 const { uploadAudio } = require('../../services/file.js')
 const { createTask } = require('../../services/audioTask.js')
 
@@ -137,6 +137,8 @@ Page({
 
   _scenarioPresets: null,
   _sampleLabels: null,
+  _sampleSourceCache: {},
+  _preparingSampleCode: '',
   audioCtx: null,
 
   onLoad() {
@@ -286,6 +288,49 @@ Page({
     return id != null && id !== '' ? String(id) : ''
   },
 
+  _applySampleSourceToData(sampleSource) {
+    this.setData({
+      sourceType: 'sample',
+      sourceAssetId: sampleSource.assetId,
+      originalAudioUrl: sampleSource.url,
+      uploadedFileName: sampleSource.fileName,
+      uploadedObjectKey: sampleSource.objectKey,
+      taskStatus: 'ready',
+      statusText: '示例声音已准备好'
+    })
+  },
+
+  async _ensureSampleSource() {
+    const sampleCode = this.data.selectedSample
+    const cached = this._sampleSourceCache[sampleCode]
+    if (cached) {
+      this._applySampleSourceToData(cached)
+      return cached
+    }
+
+    if (this._preparingSampleCode === sampleCode) {
+      throw new Error('示例声音正在准备中，请稍候')
+    }
+
+    this._preparingSampleCode = sampleCode
+    this.setData({
+      sourceType: 'sample',
+      taskStatus: 'uploading',
+      statusText: '正在准备示例声音...'
+    })
+
+    try {
+      const result = await prepareSampleSource(sampleCode)
+      this._sampleSourceCache[sampleCode] = result
+      this._applySampleSourceToData(result)
+      return result
+    } finally {
+      if (this._preparingSampleCode === sampleCode) {
+        this._preparingSampleCode = ''
+      }
+    }
+  },
+
   _playAudio(url, onPlayText, onEndedText, onErrorText) {
     if (!url) {
       wx.showToast({
@@ -341,8 +386,30 @@ Page({
     let statusText = '未选择音频'
 
     if (type === 'sample') {
-      statusText = `已选择${this._getSampleLabel(this.data.selectedSample)}`
-    } else if (type === 'record') {
+      const cache = this._sampleSourceCache[this.data.selectedSample]
+      const label = this._getSampleLabel(this.data.selectedSample)
+      this.setData({
+        processedAudioUrl: '',
+        clarityScore: null,
+        clarityGrade: '',
+        clarityDesc: '',
+        errorMessage: '',
+        taskNo: '',
+        outputAssetId: null,
+        isProcessing: false,
+        sourceType: 'sample',
+        sourceAssetId: cache ? cache.assetId : null,
+        originalAudioUrl: cache ? cache.url : '',
+        uploadedFileName: cache ? cache.fileName : '',
+        uploadedObjectKey: cache ? cache.objectKey : '',
+        taskStatus: cache ? 'ready' : 'idle',
+        statusText: `已选择${label}`,
+        sourceHint: ''
+      })
+      return
+    }
+
+    if (type === 'record') {
       sourceHint = '录制功能后续接入'
       statusText = '录制功能后续接入'
     } else if (type === 'realtime') {
@@ -361,11 +428,26 @@ Page({
 
   selectSample(e) {
     const code = e.currentTarget.dataset.code
-    this._resetConvertStatus()
+    const cache = this._sampleSourceCache[code]
+    const label = this._getSampleLabel(code)
+
     this.setData({
+      sourceType: 'sample',
       selectedSample: code,
-      taskStatus: 'idle',
-      statusText: `已选择${this._getSampleLabel(code)}`
+      sourceAssetId: cache ? cache.assetId : null,
+      originalAudioUrl: cache ? cache.url : '',
+      uploadedFileName: cache ? cache.fileName : '',
+      uploadedObjectKey: cache ? cache.objectKey : '',
+      processedAudioUrl: '',
+      clarityScore: null,
+      clarityGrade: '',
+      clarityDesc: '',
+      errorMessage: '',
+      taskNo: '',
+      outputAssetId: null,
+      isProcessing: false,
+      taskStatus: cache ? 'ready' : 'idle',
+      statusText: `已选择${label}`
     })
   },
 
@@ -526,7 +608,32 @@ Page({
     }
   },
 
-  playOriginal() {
+  async playOriginal() {
+    if (this.data.sourceType === 'sample') {
+      try {
+        const sampleSource = await this._ensureSampleSource()
+        this._playAudio(
+          sampleSource.url,
+          '正在播放原声示例',
+          '原声示例播放结束',
+          '原声示例播放失败'
+        )
+      } catch (err) {
+        console.error(err)
+        const errorMessage = this._formatErrorMessage(err)
+        this.setData({
+          taskStatus: 'failed',
+          statusText: '示例声音准备失败',
+          errorMessage
+        })
+        wx.showToast({
+          title: '示例准备失败',
+          icon: 'none'
+        })
+      }
+      return
+    }
+
     if (this.data.sourceType === 'upload') {
       if (!this.data.originalAudioUrl) {
         wx.showToast({
@@ -545,22 +652,63 @@ Page({
       return
     }
 
-    this.setData({
-      statusText: '正在播放原声示例'
-    })
-  },
-
-  async startProcess() {
-    const sourceAssetId = this._resolveSourceAssetId()
-    if (!sourceAssetId) {
-      wx.showToast({
-        title: '请先上传音频',
-        icon: 'none'
-      })
+    if (this.data.sourceType === 'record') {
+      wx.showToast({ title: '录制功能后续接入', icon: 'none' })
       return
     }
 
+    if (this.data.sourceType === 'realtime') {
+      wx.showToast({ title: '实时麦克风功能后续接入', icon: 'none' })
+      return
+    }
+  },
+
+  async startProcess() {
     if (this.data.isProcessing) return
+
+    if (this.data.sourceType === 'record') {
+      wx.showToast({ title: '录制功能后续接入', icon: 'none' })
+      return
+    }
+
+    if (this.data.sourceType === 'realtime') {
+      wx.showToast({ title: '实时麦克风功能后续接入', icon: 'none' })
+      return
+    }
+
+    let sourceAssetId = ''
+    let sourceType = 'UPLOAD'
+    let sampleCode = ''
+
+    if (this.data.sourceType === 'sample') {
+      try {
+        const sampleSource = await this._ensureSampleSource()
+        sourceAssetId = sampleSource.assetId
+        sourceType = 'SAMPLE'
+        sampleCode = this.data.selectedSample
+      } catch (err) {
+        console.error(err)
+        const errorMessage = this._formatErrorMessage(err)
+        this.setData({
+          taskStatus: 'failed',
+          statusText: '示例声音准备失败',
+          errorMessage
+        })
+        wx.showToast({ title: '示例准备失败', icon: 'none' })
+        return
+      }
+    } else if (this.data.sourceType === 'upload') {
+      sourceAssetId = this._resolveSourceAssetId()
+      if (!sourceAssetId) {
+        wx.showToast({
+          title: '请先上传音频',
+          icon: 'none'
+        })
+        return
+      }
+    } else {
+      return
+    }
 
     const { fLo, fHi } = this._parseFrequencyRange(this.data.frequencyRange)
 
@@ -579,8 +727,9 @@ Page({
 
     try {
       const result = await createTask({
-        sourceType: 'UPLOAD',
+        sourceType,
         sourceAssetId,
+        sampleCode: sampleCode || undefined,
         scenarioCode: this.data.selectedScenario,
         nChannels: this.data.nChannels,
         carrier: this.data.carrier,

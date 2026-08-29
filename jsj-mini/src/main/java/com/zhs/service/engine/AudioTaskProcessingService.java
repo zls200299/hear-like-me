@@ -164,6 +164,9 @@ public class AudioTaskProcessingService {
         task.setUserId(null);
         task.setSourceType(req.getSourceType() != null ? req.getSourceType() : "UPLOAD");
         task.setSourceAssetId(req.getSourceAssetId());
+        if (StringUtils.hasText(req.getSampleCode())) {
+            task.setSampleCode(req.getSampleCode());
+        }
         task.setScenarioCode(req.getScenarioCode());
         task.setNChannels(req.getNChannels() != null ? req.getNChannels() : 8);
         task.setCarrier(StringUtils.hasText(req.getCarrier()) ? req.getCarrier() : "noise");

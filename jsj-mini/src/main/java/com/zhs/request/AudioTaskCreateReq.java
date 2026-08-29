@@ -33,6 +33,8 @@ public class AudioTaskCreateReq implements Serializable {
 
     private BigDecimal noiseLevel;
 
+    private String sampleCode;
+
     public Long getSourceAssetId() {
         return sourceAssetId;
     }
@@ -111,5 +113,13 @@ public class AudioTaskCreateReq implements Serializable {
 
     public void setNoiseLevel(BigDecimal noiseLevel) {
         this.noiseLevel = noiseLevel;
+    }
+
+    public String getSampleCode() {
+        return sampleCode;
+    }
+
+    public void setSampleCode(String sampleCode) {
+        this.sampleCode = sampleCode;
     }
 }

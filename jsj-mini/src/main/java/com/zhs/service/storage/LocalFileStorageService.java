@@ -124,6 +124,14 @@ public class LocalFileStorageService {
         return buildObjectKey("audio/normalized", owner, ext);
     }
 
+    public String buildAudioSampleObjectKey(String owner, String sampleCode) {
+        String datePath = LocalDate.now().format(DATE_PATH_FORMATTER);
+        String safeOwner = sanitizeOwner(owner);
+        String safeCode = sanitizeOwner(sampleCode);
+        String filename = safeCode + "_" + UUID.randomUUID().toString().replace("-", "") + ".wav";
+        return "audio/sample/" + datePath + "/" + safeOwner + "/" + filename;
+    }
+
     private String buildObjectKey(String categoryPrefix, String owner, String ext) {
         String datePath = LocalDate.now().format(DATE_PATH_FORMATTER);
         String safeOwner = sanitizeOwner(owner);
