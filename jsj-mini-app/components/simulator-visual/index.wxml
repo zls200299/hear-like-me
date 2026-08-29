@@ -14,7 +14,18 @@
   <view class="sv-meta">{{vizMeta}}</view>
 
   <view class="sv-stage">
-    <view wx:if="{{activeView === 'bars'}}" class="sv-pane">
+    <canvas
+      type="2d"
+      id="vizCanvas"
+      class="sv-canvas {{activeView === 'wave' || activeView === 'neuro' ? '' : 'sv-canvas--hide'}}"
+    ></canvas>
+    <canvas
+      type="2d"
+      id="specCanvas"
+      class="sv-canvas {{activeView === 'spec' ? '' : 'sv-canvas--hide'}}"
+    ></canvas>
+
+    <view wx:if="{{activeView === 'bars'}}" class="sv-pane sv-pane--overlay">
       <view class="sv-bars">
         <view wx:for="{{electrodeBarLevels}}" wx:key="index" class="sv-bar-row">
           <view class="sv-bar-track">
@@ -27,7 +38,7 @@
       </view>
     </view>
 
-    <view wx:elif="{{activeView === 'cochlea'}}" class="sv-pane sv-pane--cochlea">
+    <view wx:elif="{{activeView === 'cochlea'}}" class="sv-pane sv-pane--overlay sv-pane--cochlea">
       <view class="sv-cochlea-spiral"></view>
       <view
         wx:for="{{cochleaElectrodes}}"
@@ -39,20 +50,6 @@
         <view class="sv-cochlea-core" style="width: {{item.dotR}}rpx; height: {{item.dotR}}rpx;"></view>
       </view>
     </view>
-
-    <canvas
-      wx:elif="{{activeView === 'wave' || activeView === 'neuro'}}"
-      type="2d"
-      id="vizCanvas"
-      class="sv-canvas"
-    ></canvas>
-
-    <canvas
-      wx:elif="{{activeView === 'spec'}}"
-      type="2d"
-      id="specCanvas"
-      class="sv-canvas"
-    ></canvas>
   </view>
 
   <view class="sv-axis">

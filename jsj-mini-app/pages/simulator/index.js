@@ -176,7 +176,11 @@ Page({
   },
 
   onReady() {
-    this._syncVisualPlaybackState()
+    wx.nextTick(() => {
+      this._syncVisualPlaybackState()
+      const panel = this._getVisualPanel()
+      if (panel) panel.refreshViews()
+    })
   },
 
   onUnload() {

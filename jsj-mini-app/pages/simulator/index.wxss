@@ -477,7 +477,7 @@
 /* 视觉化反馈 */
 .visual-card-desc {
   margin-top: 8rpx;
-  margin-bottom: 4rpx;
+  margin-bottom: 16rpx;
   font-size: 24rpx;
   line-height: 1.6;
   color: #6C7CA3;
