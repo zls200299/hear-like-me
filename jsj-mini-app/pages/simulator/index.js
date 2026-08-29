@@ -170,6 +170,7 @@ Page({
   audioCtx: null,
 
   onLoad() {
+    this._ensurePageState()
     this._scenarioPresets = { ...SCENARIO_PRESETS }
     this._sampleLabels = { ...SAMPLE_LABELS }
     this._syncRuntimeParamsFromData()
@@ -440,6 +441,7 @@ Page({
   },
 
   _resolveReadyStatus() {
+    this._ensurePageState()
     if (this.data.sourceType === 'upload' && this.data.sourceAssetId) {
       return 'ready'
     }
@@ -636,7 +638,23 @@ Page({
     })
   },
 
+  _ensurePageState() {
+    if (!this._sampleSourceCache || typeof this._sampleSourceCache !== 'object') {
+      this._sampleSourceCache = {}
+    }
+    if (!this._samplePreparePromises || typeof this._samplePreparePromises !== 'object') {
+      this._samplePreparePromises = {}
+    }
+    if (this._autoRefreshSeq == null) {
+      this._autoRefreshSeq = 0
+    }
+    if (this._unloaded == null) {
+      this._unloaded = false
+    }
+  },
+
   async _ensureSampleSource() {
+    this._ensurePageState()
     const sampleCode = this.data.selectedSample
     const cached = this._sampleSourceCache[sampleCode]
     if (cached) {
@@ -774,6 +792,7 @@ Page({
   },
 
   selectSource(e) {
+    this._ensurePageState()
     const type = e.currentTarget.dataset.type
 
     if (type === 'upload') {
@@ -845,6 +864,7 @@ Page({
   },
 
   selectSample(e) {
+    this._ensurePageState()
     const code = e.currentTarget.dataset.code
     const cache = this._sampleSourceCache[code]
     const label = this._getSampleLabel(code)
