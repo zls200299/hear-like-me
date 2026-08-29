@@ -155,7 +155,8 @@ Page({
     errorMessage: '',
     clarityDesc: '',
     isAudioPlaying: false,
-    playingKind: ''
+    playingKind: '',
+    listenHint: '播放模拟声时会按当前参数生成。'
   },
 
   _scenarioPresets: null,
@@ -373,6 +374,19 @@ Page({
     return bars
   },
 
+  _resolveListenHint() {
+    if (this.data.isProcessing && this.data.isAudioPlaying && this.data.playingKind === 'processed') {
+      return '正在按新参数更新模拟声，当前仍在播放上一版声音。'
+    }
+    if (this.data.isProcessing && this.data.taskStatus === 'processing') {
+      return '正在生成模拟声音，请稍候...'
+    }
+    if (this.data.processedAudioUrl) {
+      return '当前模拟声已生成，可循环试听。'
+    }
+    return '播放模拟声时会按当前参数生成。'
+  },
+
   _refreshVisualFeedback() {
     if (this._unloaded) return
 
@@ -389,7 +403,8 @@ Page({
       freqCoverageWidth: freqStyle.width,
       freqCoverageLabel: `${fLo} - ${fHi} Hz`,
       electrodeVisualList: this._buildElectrodeVisualState(),
-      neuralBars: this._buildNeuralBars()
+      neuralBars: this._buildNeuralBars(),
+      listenHint: this._resolveListenHint()
     })
   },
 
@@ -1219,6 +1234,8 @@ Page({
       taskStatus: 'processing',
       statusText: replacePlaying ? '正在按新参数更新模拟声...' : '正在生成模拟声音...',
       errorMessage: ''
+    }, () => {
+      this._refreshVisualFeedback()
     })
 
     try {

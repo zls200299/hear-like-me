@@ -46,7 +46,7 @@
     </view>
   </view>
 
-  <!-- 场景选择 -->
+  <!-- 模拟场景 -->
   <view class="card">
     <view class="card-title">模拟场景</view>
     <view class="scenario-grid">
@@ -62,7 +62,64 @@
     </view>
   </view>
 
-  <!-- 通道数调节 -->
+  <!-- 试听 + 当前模拟反馈 -->
+  <view class="card console-card">
+    <view class="card-title">试听</view>
+    <view class="action-row">
+      <view
+        class="action-btn action-btn--secondary {{isAudioPlaying && playingKind === 'original' ? 'action-btn--playing' : ''}}"
+        bindtap="playOriginal"
+      >{{isAudioPlaying && playingKind === 'original' ? '停止原声' : '播放原声'}}</view>
+      <view
+        class="action-btn action-btn--primary {{isProcessing ? 'action-btn--disabled' : ''}} {{isAudioPlaying && playingKind === 'processed' ? 'action-btn--playing' : ''}}"
+        bindtap="playProcessedAuto"
+      >{{isProcessing ? (isAudioPlaying && playingKind === 'processed' ? '更新中...' : '正在生成...') : (isAudioPlaying && playingKind === 'processed' ? '停止模拟声' : '播放模拟声')}}</view>
+    </view>
+    <view class="listen-hint">{{listenHint}}</view>
+
+    <view class="feedback-card {{clarityLevelClass}} {{taskStatus === 'failed' ? 'feedback-card--failed' : ''}} {{taskStatus === 'success' ? 'feedback-card--success' : ''}} {{taskStatus === 'processing' ? 'feedback-card--processing' : ''}}">
+      <view class="feedback-card__title">当前模拟反馈</view>
+
+      <view class="clarity-meter clarity-meter--compact {{clarityLevelClass}}">
+        <view class="clarity-meter-main">
+          <view class="clarity-meter-score">
+            <text class="clarity-meter-num">{{clarityScore != null ? clarityScore : '--'}}</text>
+            <text class="clarity-meter-total">/100</text>
+          </view>
+          <view class="clarity-meter-info">
+            <view class="clarity-meter-grade">{{clarityGrade || '参数估算'}}</view>
+            <view class="clarity-meter-desc">{{clarityDesc}}</view>
+          </view>
+        </view>
+        <view class="clarity-meter-track">
+          <view
+            class="clarity-meter-fill"
+            style="width: {{clarityScore != null ? clarityScore : 0}}%;"
+          ></view>
+        </view>
+      </view>
+
+      <view class="param-chips param-chips--compact">
+        <view class="param-chip">通道 {{nChannels}}</view>
+        <view class="param-chip">{{carrier === 'noise' ? '噪声载体' : '正弦载体'}}</view>
+        <view class="param-chip">{{frequencyRange}} Hz</view>
+        <view class="param-chip">包络 {{envCut}} Hz</view>
+        <view class="param-chip">扩散 {{spread}}%</view>
+        <view class="param-chip">噪声 {{noiseLevel}}%</view>
+      </view>
+
+      <view wx:if="{{taskStatus === 'processing'}}" class="loading-bar">
+        <view class="loading-bar-inner"></view>
+      </view>
+
+      <view wx:if="{{taskStatus === 'failed'}}" class="error-message">
+        <view class="error-message__title">模拟声音生成失败</view>
+        <view wx:if="{{errorMessage}}" class="error-message__detail">失败原因：{{errorMessage}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 有效通道数 -->
   <view class="card">
     <view class="card-title">有效通道数</view>
     <view class="channel-value">{{nChannels}} 通道</view>
@@ -94,7 +151,7 @@
     <view class="param-hint">通道数越少，声音细节越少，听起来越模糊。</view>
   </view>
 
-  <!-- 高级参数 -->
+  <!-- 参数设置 -->
   <view class="card">
     <view class="card-title">参数设置</view>
 
@@ -188,110 +245,12 @@
     </view>
   </view>
 
-  <!-- 电极阵列 -->
-  <view class="card">
-    <view class="card-title">电极阵列</view>
-    <view class="electrode-panel">
-      <view class="electrode-grid electrode-visual-grid">
-        <view
-          wx:for="{{electrodeVisualList}}"
-          wx:key="index"
-          class="electrode-dot {{item.active ? 'electrode-dot--active' : 'electrode-dot--inactive'}} {{item.pulse ? 'electrode-dot--pulse' : ''}} {{item.weakPulse ? 'electrode-dot--weak-pulse' : ''}} {{item.spreadLevel ? 'electrode-dot--' + item.spreadLevel : ''}} {{item.noiseFlicker ? 'electrode-dot--noise' : ''}}"
-          style="opacity: {{item.opacity}};"
-        ></view>
-      </view>
-    </view>
-    <view class="electrode-caption">当前模拟 {{nChannels}} 个有效通道。</view>
-  </view>
-
-  <!-- 试听 -->
-  <view class="card">
-    <view class="card-title">试听</view>
-    <view class="action-row">
-      <view
-        class="action-btn action-btn--secondary {{isAudioPlaying && playingKind === 'original' ? 'action-btn--playing' : ''}}"
-        bindtap="playOriginal"
-      >{{isAudioPlaying && playingKind === 'original' ? '停止原声' : '播放原声'}}</view>
-      <view
-        class="action-btn action-btn--primary {{isProcessing ? 'action-btn--disabled' : ''}} {{isAudioPlaying && playingKind === 'processed' ? 'action-btn--playing' : ''}}"
-        bindtap="playProcessedAuto"
-      >{{isProcessing ? (isAudioPlaying && playingKind === 'processed' ? '更新中...' : '正在生成...') : (isAudioPlaying && playingKind === 'processed' ? '停止模拟声' : '播放模拟声')}}</view>
-    </view>
-  </view>
-
-  <!-- 当前模拟效果 -->
-  <view class="result-card {{taskStatus === 'failed' ? 'result-failed' : ''}} {{taskStatus === 'success' ? 'result-success' : ''}} {{taskStatus === 'processing' ? 'result-processing' : ''}}">
-    <view class="result-head">
-      <view>
-        <view class="result-title">当前模拟效果</view>
-        <view class="result-desc">调整参数后，可懂度估分会实时变化；播放模拟声时会按当前参数生成声音。</view>
-      </view>
-    </view>
-
-    <view wx:if="{{isProcessing && isAudioPlaying && playingKind === 'processed'}}" class="result-status-hint">
-      正在按新参数更新模拟声，当前仍在播放上一版声音...
-    </view>
-    <view wx:elif="{{taskStatus === 'processing'}}" class="result-status-hint">正在生成模拟声音...</view>
-
-    <view class="clarity-box">
-      <view class="clarity-score">
-        <text class="clarity-num">{{clarityScore != null ? clarityScore : '--'}}</text>
-        <text class="clarity-total">/100</text>
-      </view>
-      <view class="clarity-info">
-        <view class="clarity-grade">{{clarityGrade || '参数估算'}}</view>
-        <view class="clarity-desc">{{clarityDesc}}</view>
-      </view>
-    </view>
-
-    <view class="param-chips">
-      <view class="param-chip">通道 {{nChannels}}</view>
-      <view class="param-chip">{{carrier === 'noise' ? '噪声载体' : '正弦载体'}}</view>
-      <view class="param-chip">{{frequencyRange}} Hz</view>
-      <view class="param-chip">包络 {{envCut}} Hz</view>
-      <view class="param-chip">扩散 {{spread}}%</view>
-      <view class="param-chip">噪声 {{noiseLevel}}%</view>
-    </view>
-
-    <view wx:if="{{taskStatus === 'processing'}}" class="loading-bar">
-      <view class="loading-bar-inner"></view>
-    </view>
-
-    <view wx:if="{{taskStatus === 'failed'}}" class="error-message">
-      <view class="error-message__title">模拟声音生成失败</view>
-      <view wx:if="{{errorMessage}}" class="error-message__detail">失败原因：{{errorMessage}}</view>
-    </view>
-  </view>
-
   <!-- 视觉化反馈 -->
   <view class="card visual-card">
     <view class="card-title">视觉化反馈</view>
+    <view class="visual-card-desc">根据当前参数模拟频率覆盖、电极激活和神经活动，仅用于科普展示。</view>
 
-    <!-- 可懂度仪表 -->
-    <view class="visual-block">
-      <view class="visual-block-title">可懂度估分</view>
-      <view class="clarity-meter {{clarityLevelClass}}">
-        <view class="clarity-meter-main">
-          <view class="clarity-meter-score">
-            <text class="clarity-meter-num">{{clarityScore != null ? clarityScore : '--'}}</text>
-            <text class="clarity-meter-total">/100</text>
-          </view>
-          <view class="clarity-meter-info">
-            <view class="clarity-meter-grade">{{clarityGrade || '参数估算'}}</view>
-            <view class="clarity-meter-desc">{{clarityDesc}}</view>
-          </view>
-        </view>
-        <view class="clarity-meter-track">
-          <view
-            class="clarity-meter-fill"
-            style="width: {{clarityScore != null ? clarityScore : 0}}%;"
-          ></view>
-        </view>
-      </view>
-    </view>
-
-    <!-- 频率覆盖 -->
-    <view class="visual-block">
+    <view class="visual-block visual-block--first">
       <view class="visual-block-title">频率覆盖</view>
       <view class="freq-track">
         <view
@@ -306,7 +265,6 @@
       </view>
     </view>
 
-    <!-- 电极活动 -->
     <view class="visual-block">
       <view class="visual-block-title">电极活动</view>
       <view class="electrode-panel electrode-panel--visual">
@@ -322,7 +280,6 @@
       <view class="visual-block-hint">激活 {{nChannels}} / 22 通道 · 扩散 {{spread}}%</view>
     </view>
 
-    <!-- 神经活动 -->
     <view class="visual-block visual-block--last">
       <view class="visual-block-title">神经活动</view>
       <view class="neural-bars">

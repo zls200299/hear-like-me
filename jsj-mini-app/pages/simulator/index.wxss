@@ -1,5 +1,5 @@
 .simulator-page {
-  padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
+  padding-bottom: calc(180rpx + env(safe-area-inset-bottom));
 }
 
 /* 品牌区 */
@@ -337,101 +337,55 @@
   box-shadow: 0 0 0 1px rgba(53, 208, 186, 0.45), 0 0 18rpx rgba(53, 208, 186, 0.22);
 }
 
-/* 转换结果卡片 */
-.result-card {
-  margin-top: 24rpx;
-  padding: 32rpx 28rpx;
-  border-radius: 20rpx;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1rpx solid rgba(255, 255, 255, 0.08);
+/* 试听控制台 */
+.console-card {
+  border-color: rgba(53, 208, 186, 0.18);
 }
 
-.result-processing {
-  border-color: rgba(53, 208, 186, 0.25);
-}
-
-.result-success {
-  border-color: rgba(53, 208, 186, 0.35);
-  box-shadow: 0 8rpx 32rpx rgba(53, 208, 186, 0.08);
-}
-
-.result-failed {
-  border-color: rgba(242, 137, 94, 0.35);
-  box-shadow: 0 8rpx 32rpx rgba(242, 137, 94, 0.08);
-}
-
-.result-head {
-  margin-bottom: 28rpx;
-}
-
-.result-title {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: #EAF2FF;
-  line-height: 1.4;
-}
-
-.result-desc {
-  margin-top: 8rpx;
+.listen-hint {
+  margin-top: 16rpx;
   font-size: 24rpx;
-  line-height: 1.6;
-  color: #8FA3C1;
+  line-height: 1.5;
+  color: #6C7CA3;
 }
 
-.clarity-box {
-  display: flex;
-  align-items: flex-start;
-  gap: 28rpx;
-  margin-bottom: 28rpx;
+.feedback-card {
+  margin-top: 24rpx;
   padding: 24rpx;
   border-radius: 16rpx;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1rpx solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.18);
+  border: 1rpx solid rgba(53, 208, 186, 0.28);
 }
 
-.clarity-score {
-  flex-shrink: 0;
-  display: flex;
-  align-items: baseline;
+.feedback-card--processing {
+  border-color: rgba(53, 208, 186, 0.35);
 }
 
-.clarity-num {
-  font-size: 64rpx;
-  font-weight: 700;
-  color: #35D0BA;
-  line-height: 1;
+.feedback-card--success {
+  border-color: rgba(53, 208, 186, 0.42);
+  box-shadow: 0 4rpx 20rpx rgba(53, 208, 186, 0.06);
 }
 
-.clarity-total {
+.feedback-card--failed {
+  border-color: rgba(242, 137, 94, 0.35);
+}
+
+.feedback-card__title {
   font-size: 28rpx;
-  color: #6C7CA3;
-  margin-left: 4rpx;
-}
-
-.clarity-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.clarity-grade {
-  font-size: 30rpx;
   font-weight: 600;
   color: #EAF2FF;
-  line-height: 1.4;
+  margin-bottom: 20rpx;
 }
 
-.clarity-desc {
-  margin-top: 8rpx;
-  font-size: 24rpx;
-  line-height: 1.6;
-  color: #8FA3C1;
+.param-chips--compact {
+  margin-top: 20rpx;
+  margin-bottom: 0;
 }
 
 .param-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 12rpx;
-  margin-bottom: 28rpx;
 }
 
 .param-chip {
@@ -494,13 +448,13 @@
 }
 
 .result-status-hint {
-  margin-bottom: 20rpx;
+  margin-bottom: 16rpx;
   font-size: 24rpx;
   color: #35D0BA;
 }
 
 .loading-bar {
-  margin-top: 24rpx;
+  margin-top: 20rpx;
   height: 8rpx;
   border-radius: 4rpx;
   background: rgba(255, 255, 255, 0.08);
@@ -522,7 +476,7 @@
 
 /* 状态卡片 */
 .status-card {
-  margin-bottom: 16rpx;
+  margin-bottom: 0;
 }
 
 .status-text {
@@ -556,28 +510,42 @@
 
 /* 视觉化反馈 */
 .visual-card {
-  margin-top: 24rpx;
+  margin-top: 0;
+}
+
+.visual-card-desc {
+  margin-top: 8rpx;
+  margin-bottom: 4rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: #6C7CA3;
 }
 
 .visual-block {
-  margin-top: 28rpx;
-  padding-top: 28rpx;
+  margin-top: 24rpx;
+  padding-top: 24rpx;
   border-top: 1rpx solid rgba(255, 255, 255, 0.06);
 }
 
+.visual-block--first {
+  margin-top: 20rpx;
+  padding-top: 20rpx;
+}
+
 .visual-block--last {
-  margin-bottom: 4rpx;
+  margin-bottom: 0;
+  padding-bottom: 4rpx;
 }
 
 .visual-block-title {
   font-size: 26rpx;
   font-weight: 600;
   color: #8FA3C1;
-  margin-bottom: 20rpx;
+  margin-bottom: 16rpx;
 }
 
 .visual-block-hint {
-  margin-top: 16rpx;
+  margin-top: 12rpx;
   font-size: 22rpx;
   line-height: 1.5;
   color: #6C7CA3;
@@ -586,17 +554,22 @@
 
 /* 可懂度仪表 */
 .clarity-meter {
-  padding: 24rpx;
-  border-radius: 16rpx;
-  background: rgba(0, 0, 0, 0.22);
-  border: 1rpx solid rgba(255, 255, 255, 0.06);
+  padding: 20rpx;
+  border-radius: 12rpx;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.clarity-meter--compact {
+  padding: 16rpx 0 0;
+  background: transparent;
+  border: none;
 }
 
 .clarity-meter-main {
   display: flex;
   align-items: flex-start;
-  gap: 24rpx;
-  margin-bottom: 20rpx;
+  gap: 20rpx;
+  margin-bottom: 16rpx;
 }
 
 .clarity-meter-score {
@@ -606,7 +579,7 @@
 }
 
 .clarity-meter-num {
-  font-size: 72rpx;
+  font-size: 60rpx;
   font-weight: 700;
   line-height: 1;
 }
@@ -735,6 +708,7 @@
 /* 电极视觉增强 */
 .electrode-panel--visual {
   margin-top: 0;
+  padding: 20rpx 16rpx;
 }
 
 .electrode-visual-grid {
@@ -800,11 +774,10 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 6rpx;
-  height: 120rpx;
-  padding: 16rpx 12rpx;
-  border-radius: 16rpx;
-  background: rgba(0, 0, 0, 0.22);
-  border: 1rpx solid rgba(255, 255, 255, 0.06);
+  height: 100rpx;
+  padding: 12rpx 10rpx;
+  border-radius: 12rpx;
+  background: rgba(0, 0, 0, 0.15);
 }
 
 .neural-bar {
