@@ -25,9 +25,13 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 小程序业务 API（不登录，一期直接调）
@@ -111,7 +115,7 @@ public class MiniApiController {
         fileAssetService.save(asset);
 
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("assetId", asset.getId());
+        result.put("assetId", toStringId(asset.getId()));
         result.put("fileName", originalFilename);
         result.put("url", localFileStorageService.buildPreviewUrl(asset.getId()));
         result.put("objectKey", objectKey);
@@ -146,7 +150,7 @@ public class MiniApiController {
 
     @PostMapping("/audio/tasks")
     @Transactional
-    public R<Map<String, String>> createTask(@RequestBody AudioTaskCreateReq req) {
+    public R<Map<String, Object>> createTask(@RequestBody AudioTaskCreateReq req) {
         if (req.getSourceAssetId() == null) {
             throw new ServiceException("sourceAssetId 不能为空");
         }
@@ -159,10 +163,12 @@ public class MiniApiController {
             throw new ServiceException("源文件不存在");
         }
 
-        String taskNo = UUID.randomUUID().toString().replace("-", "");
+        String taskNo = generateTaskNo();
         String ext = sourceAsset.getFileExt() != null ? sourceAsset.getFileExt() : "wav";
-        String outputFilename = taskNo + "." + ext;
+        String outputFilename = UUID.randomUUID().toString().replace("-", "") + "." + ext;
         String outputObjectKey = localFileStorageService.buildAudioOutputObjectKey(DEFAULT_OWNER, outputFilename);
+
+        Date now = new Date();
 
         AudioProcessingTask task = new AudioProcessingTask();
         task.setTaskNo(taskNo);
@@ -170,9 +176,18 @@ public class MiniApiController {
         task.setSourceType(req.getSourceType() != null ? req.getSourceType() : "UPLOAD");
         task.setSourceAssetId(req.getSourceAssetId());
         task.setScenarioCode(req.getScenarioCode());
-        task.setTaskStatus("SUCCESS");
-        task.setProgress(100);
+        task.setNChannels(req.getNChannels() != null ? req.getNChannels() : 8);
+        task.setCarrier(StringUtils.hasText(req.getCarrier()) ? req.getCarrier() : "noise");
+        task.setFLo(req.getFLo() != null ? req.getFLo() : BigDecimal.valueOf(150));
+        task.setFHi(req.getFHi() != null ? req.getFHi() : BigDecimal.valueOf(7000));
+        task.setEnvCut(req.getEnvCut() != null ? req.getEnvCut() : BigDecimal.valueOf(160));
+        task.setSpread(req.getSpread() != null ? req.getSpread() : BigDecimal.ZERO);
+        task.setNoiseLevel(req.getNoiseLevel() != null ? req.getNoiseLevel() : BigDecimal.ZERO);
+        task.setAlgorithmVersion("mock-copy-v1");
+        task.setTaskStatus("PROCESSING");
+        task.setProgress(0);
         task.setRetryCount(0);
+        task.setProcessingStartedTime(now);
         audioProcessingTaskService.save(task);
 
         localFileStorageService.copy(sourceAsset.getObjectKey(), outputObjectKey);
@@ -197,17 +212,30 @@ public class MiniApiController {
         fileAssetService.save(outputAsset);
 
         task.setOutputAssetId(outputAsset.getId());
+        task.setTaskStatus("SUCCESS");
+        task.setProgress(100);
+        task.setClarityScore(null);
+        task.setClarityGrade("模拟完成");
+        task.setProcessingFinishedTime(now);
         audioProcessingTaskService.updateById(task);
 
-        Map<String, String> result = new LinkedHashMap<>();
+        Map<String, Object> result = new LinkedHashMap<>();
         result.put("taskNo", taskNo);
+        result.put("status", "SUCCESS");
+        result.put("outputAssetId", toStringId(outputAsset.getId()));
+        result.put("processedAudioUrl", localFileStorageService.buildPreviewUrl(outputAsset.getId()));
+        result.put("clarityScore", null);
+        result.put("clarityGrade", "模拟完成");
         return R.ok(result);
     }
 
-    // ==================== 6. 查询任务详情 ====================
-
     @GetMapping("/audio/tasks/{taskNo}")
     public R<Map<String, Object>> getTaskDetail(@PathVariable("taskNo") String taskNo) {
+        AudioProcessingTask task = getTaskByNo(taskNo);
+        return R.ok(buildTaskResponse(task));
+    }
+
+    private AudioProcessingTask getTaskByNo(String taskNo) {
         LambdaQueryWrapper<AudioProcessingTask> wrapper = new QueryWrapper<AudioProcessingTask>().lambda()
                 .eq(AudioProcessingTask::getTaskNo, taskNo)
                 .eq(AudioProcessingTask::getIsDelete, 0);
@@ -215,22 +243,35 @@ public class MiniApiController {
         if (task == null) {
             throw new ServiceException("任务不存在");
         }
+        return task;
+    }
 
-        String outputUrl = null;
+    private Map<String, Object> buildTaskResponse(AudioProcessingTask task) {
+        String processedAudioUrl = null;
         if (task.getOutputAssetId() != null) {
-            FileAsset outputAsset = fileAssetService.getById(task.getOutputAssetId());
-            if (outputAsset != null) {
-                outputUrl = localFileStorageService.buildPreviewUrl(outputAsset.getId());
-            }
+            processedAudioUrl = localFileStorageService.buildPreviewUrl(task.getOutputAssetId());
         }
 
         Map<String, Object> result = new LinkedHashMap<>();
+        result.put("taskNo", task.getTaskNo());
         result.put("status", task.getTaskStatus());
-        result.put("outputUrl", outputUrl);
+        result.put("sourceAssetId", toStringId(task.getSourceAssetId()));
+        result.put("outputAssetId", toStringId(task.getOutputAssetId()));
+        result.put("processedAudioUrl", processedAudioUrl);
         result.put("clarityScore", task.getClarityScore());
         result.put("clarityGrade", task.getClarityGrade());
         result.put("errorMessage", task.getErrorMessage());
-        return R.ok(result);
+        return result;
+    }
+
+    private static String toStringId(Long id) {
+        return id == null ? null : String.valueOf(id);
+    }
+
+    private String generateTaskNo() {
+        String timePart = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+        int randomPart = ThreadLocalRandom.current().nextInt(1000);
+        return "HLK" + timePart + String.format("%03d", randomPart);
     }
 
     private String normalizeExtension(String ext) {

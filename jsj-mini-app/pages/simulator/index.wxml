@@ -216,6 +216,12 @@
       class="action-btn action-btn--full {{taskStatus !== 'success' ? 'action-btn--disabled' : 'action-btn--accent'}}"
       bindtap="playProcessed"
     >播放模拟后声音</view>
+
+    <view wx:if="{{taskNo && taskStatus === 'success'}}" class="task-result">
+      <view class="task-result__item">任务编号：{{taskNo}}</view>
+      <view class="task-result__item">处理结果：{{clarityGrade || '模拟完成'}}</view>
+      <view wx:if="{{clarityScore}}" class="task-result__item">清晰度参考：{{clarityScore}}</view>
+    </view>
   </view>
 
   <!-- 当前状态 -->

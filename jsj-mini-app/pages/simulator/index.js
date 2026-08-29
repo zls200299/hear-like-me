@@ -1,6 +1,7 @@
 const { listScenarios } = require('../../services/scenario.js')
 const { listSamples } = require('../../services/sample.js')
 const { uploadAudio } = require('../../services/file.js')
+const { createTask } = require('../../services/audioTask.js')
 
 const SCENARIO_PRESETS = {
   quiet: {
@@ -124,10 +125,14 @@ Page({
       { value: '300-3400', label: '300-3400 Hz' }
     ],
     channelQuickValues: [1, 2, 4, 8, 16, 22],
-    isProcessing: false
+    isProcessing: false,
+    taskNo: '',
+    outputAssetId: null,
+    processedAudioUrl: '',
+    clarityScore: null,
+    clarityGrade: ''
   },
 
-  _processTimer: null,
   _scenarioPresets: null,
   _sampleLabels: null,
   audioCtx: null,
@@ -139,10 +144,6 @@ Page({
   },
 
   onUnload() {
-    if (this._processTimer) {
-      clearTimeout(this._processTimer)
-      this._processTimer = null
-    }
     if (this.audioCtx) {
       this.audioCtx.destroy()
       this.audioCtx = null
@@ -213,13 +214,73 @@ Page({
 
   _resetConvertStatus() {
     this.setData({
-      isProcessing: false
+      isProcessing: false,
+      taskNo: '',
+      outputAssetId: null,
+      processedAudioUrl: '',
+      clarityScore: null,
+      clarityGrade: ''
     })
     if (this.data.taskStatus === 'processing' || this.data.taskStatus === 'success') {
       this.setData({
         taskStatus: this.data.sourceType === 'upload' && this.data.sourceAssetId ? 'ready' : 'idle'
       })
     }
+  },
+
+  _parseFrequencyRange(range) {
+    const parts = String(range || '150-7000').split('-')
+    return {
+      fLo: Number(parts[0]) || 150,
+      fHi: Number(parts[1]) || 7000
+    }
+  },
+
+  _resolveSourceAssetId() {
+    const url = this.data.originalAudioUrl || ''
+    const match = String(url).match(/\/preview\/(\d+)$/)
+    if (match) return match[1]
+    const id = this.data.sourceAssetId
+    return id != null && id !== '' ? String(id) : ''
+  },
+
+  _playAudio(url, onPlayText, onEndedText, onErrorText) {
+    if (!url) {
+      wx.showToast({
+        title: '暂无可播放音频',
+        icon: 'none'
+      })
+      return
+    }
+
+    if (this.audioCtx) {
+      this.audioCtx.stop()
+      this.audioCtx.destroy()
+      this.audioCtx = null
+    }
+
+    const audioCtx = wx.createInnerAudioContext()
+    this.audioCtx = audioCtx
+    audioCtx.src = url
+
+    audioCtx.onPlay(() => {
+      this.setData({ statusText: onPlayText })
+    })
+
+    audioCtx.onEnded(() => {
+      this.setData({ statusText: onEndedText })
+    })
+
+    audioCtx.onError((err) => {
+      console.error(err)
+      wx.showToast({
+        title: '播放失败',
+        icon: 'none'
+      })
+      this.setData({ statusText: onErrorText })
+    })
+
+    audioCtx.play()
   },
 
   selectSource(e) {
@@ -395,6 +456,11 @@ Page({
         originalAudioUrl: result.url,
         uploadedFileName: result.fileName || fileName,
         uploadedObjectKey: result.objectKey,
+        taskNo: '',
+        outputAssetId: null,
+        processedAudioUrl: '',
+        clarityScore: null,
+        clarityGrade: '',
         taskStatus: 'ready',
         statusText: '音频上传成功，可以播放原声或开始转换',
         sourceHint: ''
@@ -422,34 +488,12 @@ Page({
         return
       }
 
-      if (this.audioCtx) {
-        this.audioCtx.stop()
-        this.audioCtx.destroy()
-        this.audioCtx = null
-      }
-
-      const audioCtx = wx.createInnerAudioContext()
-      this.audioCtx = audioCtx
-      audioCtx.src = this.data.originalAudioUrl
-
-      audioCtx.onPlay(() => {
-        this.setData({ statusText: '正在播放原声' })
-      })
-
-      audioCtx.onEnded(() => {
-        this.setData({ statusText: '原声播放结束' })
-      })
-
-      audioCtx.onError((err) => {
-        console.error(err)
-        wx.showToast({
-          title: '播放失败',
-          icon: 'none'
-        })
-        this.setData({ statusText: '原声播放失败，请检查文件地址' })
-      })
-
-      audioCtx.play()
+      this._playAudio(
+        this.data.originalAudioUrl,
+        '正在播放原声',
+        '原声播放结束',
+        '原声播放失败，请检查文件地址'
+      )
       return
     }
 
@@ -458,32 +502,76 @@ Page({
     })
   },
 
-  startProcess() {
+  async startProcess() {
+    const sourceAssetId = this._resolveSourceAssetId()
+    if (!sourceAssetId) {
+      wx.showToast({
+        title: '请先上传音频',
+        icon: 'none'
+      })
+      return
+    }
+
     if (this.data.isProcessing) return
 
-    if (this._processTimer) {
-      clearTimeout(this._processTimer)
-      this._processTimer = null
-    }
+    const { fLo, fHi } = this._parseFrequencyRange(this.data.frequencyRange)
 
     this.setData({
       taskStatus: 'processing',
       isProcessing: true,
-      statusText: '正在模拟人工耳蜗声音...'
+      statusText: '正在模拟人工耳蜗声音...',
+      taskNo: '',
+      outputAssetId: null,
+      processedAudioUrl: '',
+      clarityScore: null,
+      clarityGrade: ''
     })
 
-    this._processTimer = setTimeout(() => {
-      this._processTimer = null
-      this.setData({
-        taskStatus: 'success',
-        isProcessing: false,
-        statusText: '转换完成，可以试听模拟后声音'
+    try {
+      const result = await createTask({
+        sourceType: 'UPLOAD',
+        sourceAssetId,
+        scenarioCode: this.data.selectedScenario,
+        nChannels: this.data.nChannels,
+        carrier: this.data.carrier,
+        fLo,
+        fHi,
+        envCut: this.data.envCut,
+        spread: this.data.spread / 100,
+        noiseLevel: this.data.noiseLevel / 100
       })
-    }, 1200)
+
+      if (result.status === 'SUCCESS' && result.processedAudioUrl) {
+        this.setData({
+          taskNo: result.taskNo,
+          outputAssetId: result.outputAssetId,
+          processedAudioUrl: result.processedAudioUrl,
+          clarityScore: result.clarityScore,
+          clarityGrade: result.clarityGrade || '模拟完成',
+          taskStatus: 'success',
+          isProcessing: false,
+          statusText: '转换完成，可以试听模拟后声音'
+        })
+        return
+      }
+
+      throw new Error(result.errorMessage || '转换未成功')
+    } catch (err) {
+      console.error(err)
+      this.setData({
+        taskStatus: 'failed',
+        isProcessing: false,
+        statusText: '转换失败，请重试'
+      })
+      wx.showToast({
+        title: '转换失败',
+        icon: 'none'
+      })
+    }
   },
 
   playProcessed() {
-    if (this.data.taskStatus !== 'success') {
+    if (this.data.taskStatus !== 'success' || !this.data.processedAudioUrl) {
       wx.showToast({
         title: '请先完成转换',
         icon: 'none',
@@ -492,8 +580,11 @@ Page({
       return
     }
 
-    this.setData({
-      statusText: '正在播放人工耳蜗模拟声音'
-    })
+    this._playAudio(
+      this.data.processedAudioUrl,
+      '正在播放人工耳蜗模拟声音',
+      '模拟声音播放结束',
+      '模拟声音播放失败，请检查文件地址'
+    )
   }
 })

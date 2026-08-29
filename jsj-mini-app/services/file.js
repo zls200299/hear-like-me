@@ -1,5 +1,18 @@
 const config = require('../config.js')
 
+function extractAssetIdFromPreviewUrl(url) {
+  if (!url) return ''
+  const match = String(url).match(/\/preview\/(\d+)$/)
+  return match ? match[1] : ''
+}
+
+function normalizeAssetId(data) {
+  const fromUrl = extractAssetIdFromPreviewUrl(data.url)
+  if (fromUrl) return fromUrl
+  if (data.assetId == null || data.assetId === '') return ''
+  return String(data.assetId)
+}
+
 /**
  * 解析上传接口响应，兼容直接 data 与 R 包装
  * @param {string|Object} resData
@@ -32,7 +45,7 @@ function parseUploadResponse(resData) {
   }
 
   return {
-    assetId: data.assetId,
+    assetId: normalizeAssetId(data),
     fileName: data.fileName || data.originalFilename || '',
     url: data.url || '',
     objectKey: data.objectKey || ''
