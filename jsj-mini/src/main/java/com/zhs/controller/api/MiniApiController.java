@@ -18,7 +18,6 @@ import com.zhs.util.R;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -122,7 +121,7 @@ public class MiniApiController {
     // ==================== 4. 文件预览 ====================
 
     @GetMapping("/files/preview/{assetId}")
-    public ResponseEntity<Resource> previewFile(@PathVariable Long assetId) {
+    public ResponseEntity<FileSystemResource> previewFile(@PathVariable Long assetId) {
         FileAsset asset = fileAssetService.getById(assetId);
         if (asset == null || (asset.getIsDelete() != null && asset.getIsDelete() == 1)) {
             throw new ServiceException("文件不存在");
@@ -135,7 +134,7 @@ public class MiniApiController {
         }
 
         Path filePath = localFileStorageService.resolvePath(asset.getObjectKey());
-        Resource resource = new FileSystemResource(filePath);
+        FileSystemResource resource = new FileSystemResource(filePath);
         String contentType = resolveContentType(asset);
 
         return ResponseEntity.ok()
