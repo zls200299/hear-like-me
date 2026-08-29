@@ -150,12 +150,15 @@ Page({
   _autoRefreshTimer: null,
   _autoRefreshSeq: 0,
   _shouldAutoPlayProcessed: false,
+  _runtimeParams: null,
   audioCtx: null,
 
   onLoad() {
     this._scenarioPresets = { ...SCENARIO_PRESETS }
     this._sampleLabels = { ...SAMPLE_LABELS }
+    this._syncRuntimeParamsFromData()
     this._loadRemoteData().then(() => {
+      this._syncRuntimeParamsFromData()
       this._updateLocalClarity()
     })
   },
@@ -286,18 +289,48 @@ Page({
     return 'idle'
   },
 
-  _buildProcessKey() {
+  _syncRuntimeParamsFromData() {
+    this._runtimeParams = {
+      sourceType: this.data.sourceType,
+      sourceAssetId: this.data.sourceAssetId || '',
+      selectedSample: this.data.selectedSample || '',
+      selectedScenario: this.data.selectedScenario || '',
+      nChannels: this.data.nChannels,
+      carrier: this.data.carrier,
+      frequencyRange: this.data.frequencyRange,
+      envCut: this.data.envCut,
+      spread: this.data.spread,
+      noiseLevel: this.data.noiseLevel
+    }
+  },
+
+  _applyRuntimePatch(patch) {
+    if (!this._runtimeParams) {
+      this._syncRuntimeParamsFromData()
+    }
+    Object.assign(this._runtimeParams, patch)
+  },
+
+  _getRuntimeParams() {
+    if (!this._runtimeParams) {
+      this._syncRuntimeParamsFromData()
+    }
+    return this._runtimeParams
+  },
+
+  _buildProcessKey(params) {
+    const p = params || this._getRuntimeParams()
     return [
-      this.data.sourceType,
-      this.data.sourceAssetId || '',
-      this.data.selectedSample || '',
-      this.data.selectedScenario || '',
-      this.data.nChannels,
-      this.data.carrier,
-      this.data.frequencyRange,
-      this.data.envCut,
-      this.data.spread,
-      this.data.noiseLevel
+      p.sourceType,
+      p.sourceAssetId || '',
+      p.selectedSample || '',
+      p.selectedScenario || '',
+      p.nChannels,
+      p.carrier,
+      p.frequencyRange,
+      p.envCut,
+      p.spread,
+      p.noiseLevel
     ].join('|')
   },
 
@@ -321,31 +354,29 @@ Page({
 
     if (wasPlayingProcessed && options.autoRefresh !== false) {
       patch.statusText = '参数已变化，正在更新模拟声...'
+      this._shouldAutoPlayProcessed = true
+      this._autoRefreshSeq += 1
+      this._scheduleAutoRefreshProcessed()
     }
 
     this.setData(patch, () => {
       this._updateLocalClarity()
-
-      if (wasPlayingProcessed && options.autoRefresh !== false) {
-        this._shouldAutoPlayProcessed = true
-        this._autoRefreshSeq += 1
-        this._scheduleAutoRefreshProcessed()
-      }
     })
   },
 
   _computeLocalClarity() {
-    const spreadRatio = this.data.spread / 100
-    const noiseRatio = this.data.noiseLevel / 100
-    const eff = this.data.nChannels * (1 - 0.5 * spreadRatio)
+    const params = this._getRuntimeParams()
+    const spreadRatio = params.spread / 100
+    const noiseRatio = params.noiseLevel / 100
+    const eff = params.nChannels * (1 - 0.5 * spreadRatio)
     const specShow = clamp(1 - Math.pow(0.72, eff), 0, 1)
     const spec = Math.pow(specShow, 1.6)
-    let pitch = clamp(Math.sqrt(Math.max(0, this.data.envCut - 20) / 480), 0, 1)
-    if (this.data.carrier === 'sine') {
+    let pitch = clamp(Math.sqrt(Math.max(0, params.envCut - 20) / 480), 0, 1)
+    if (params.carrier === 'sine') {
       pitch = clamp(pitch + 0.12, 0, 1)
     }
     const noiseMargin = clamp(1 - noiseRatio * 1.05, 0, 1)
-    const { fLo, fHi } = this._parseFrequencyRange(this.data.frequencyRange)
+    const { fLo, fHi } = this._parseFrequencyRange(params.frequencyRange)
     const cover = clamp(
       (Math.log(fHi) - Math.log(fLo)) / (Math.log(8000) - Math.log(80)),
       0.4,
@@ -432,6 +463,10 @@ Page({
   },
 
   _applySampleSourceToData(sampleSource) {
+    this._applyRuntimePatch({
+      sourceType: 'sample',
+      sourceAssetId: sampleSource.assetId
+    })
     this.setData({
       sourceType: 'sample',
       sourceAssetId: sampleSource.assetId,
@@ -634,6 +669,12 @@ Page({
 
     this._stopAudio('已停止播放')
     this._cancelAutoRefresh()
+    this._applyRuntimePatch({
+      sourceType: 'sample',
+      selectedSample: code,
+      sourceAssetId: cache ? cache.assetId : '',
+      selectedScenario: ''
+    })
     this.setData({
       sourceType: 'sample',
       selectedSample: code,
@@ -646,6 +687,7 @@ Page({
       statusText: `已选择${label}`,
       selectedScenario: ''
     }, () => {
+      this._syncRuntimeParamsFromData()
       this._invalidateProcessedResult({ autoRefresh: false })
     })
   },
@@ -658,6 +700,15 @@ Page({
     const scenarioItem = this.data.scenarioList.find((item) => item.code === code)
     const scenarioName = scenarioItem ? scenarioItem.name : code
 
+    this._applyRuntimePatch({
+      selectedScenario: code,
+      nChannels: preset.nChannels,
+      frequencyRange: preset.frequencyRange,
+      envCut: preset.envCut,
+      spread: preset.spread,
+      noiseLevel: preset.noiseLevel,
+      carrier: preset.carrier || this.data.carrier
+    })
     this._updateElectrodeDots(preset.nChannels)
     this.setData({
       selectedScenario: code,
@@ -673,8 +724,16 @@ Page({
     })
   },
 
+  onChannelsChanging(e) {
+    const value = Number(e.detail.value)
+    if (!Number.isFinite(value)) return
+    this._applyRuntimePatch({ nChannels: value, selectedScenario: '' })
+  },
+
   changeChannels(e) {
     const value = Number(e.detail.value)
+    if (!Number.isFinite(value)) return
+    this._applyRuntimePatch({ nChannels: value, selectedScenario: '' })
     this._updateElectrodeDots(value)
     this.setData({
       nChannels: value,
@@ -687,6 +746,8 @@ Page({
 
   quickSetChannels(e) {
     const value = Number(e.currentTarget.dataset.value)
+    if (!Number.isFinite(value)) return
+    this._applyRuntimePatch({ nChannels: value, selectedScenario: '' })
     this._updateElectrodeDots(value)
     this.setData({
       nChannels: value,
@@ -699,6 +760,7 @@ Page({
 
   selectCarrier(e) {
     const value = e.currentTarget.dataset.value
+    this._applyRuntimePatch({ carrier: value, selectedScenario: '' })
     this.setData({
       carrier: value,
       selectedScenario: '',
@@ -710,6 +772,7 @@ Page({
 
   selectFrequencyRange(e) {
     const value = e.currentTarget.dataset.value
+    this._applyRuntimePatch({ frequencyRange: value, selectedScenario: '' })
     this.setData({
       frequencyRange: value,
       selectedScenario: '',
@@ -721,6 +784,8 @@ Page({
 
   changeEnvCut(e) {
     const value = Number(e.detail.value)
+    if (!Number.isFinite(value)) return
+    this._applyRuntimePatch({ envCut: value, selectedScenario: '' })
     this.setData({
       envCut: value,
       selectedScenario: '',
@@ -732,6 +797,8 @@ Page({
 
   changeSpread(e) {
     const value = Number(e.detail.value)
+    if (!Number.isFinite(value)) return
+    this._applyRuntimePatch({ spread: value, selectedScenario: '' })
     this.setData({
       spread: value,
       selectedScenario: '',
@@ -743,6 +810,8 @@ Page({
 
   changeNoiseLevel(e) {
     const value = Number(e.detail.value)
+    if (!Number.isFinite(value)) return
+    this._applyRuntimePatch({ noiseLevel: value, selectedScenario: '' })
     this.setData({
       noiseLevel: value,
       selectedScenario: '',
@@ -921,7 +990,7 @@ Page({
       throw err
     }
 
-    const key = this._buildProcessKey()
+    const key = this._buildProcessKey(this._getRuntimeParams())
 
     if (this.data.processedAudioUrl && this.data.processedKey === key) {
       if (autoPlay) {
@@ -944,21 +1013,22 @@ Page({
     })
 
     try {
-      const { fLo, fHi } = this._parseFrequencyRange(this.data.frequencyRange)
+      const params = this._getRuntimeParams()
+      const { fLo, fHi } = this._parseFrequencyRange(params.frequencyRange)
       const taskPayload = {
-        sourceType: this.data.sourceType === 'sample' ? 'SAMPLE' : 'UPLOAD',
+        sourceType: params.sourceType === 'sample' ? 'SAMPLE' : 'UPLOAD',
         sourceAssetId,
-        sampleCode: this.data.sourceType === 'sample' ? this.data.selectedSample : '',
-        nChannels: this.data.nChannels,
-        carrier: this.data.carrier,
-        fLo,
-        fHi,
-        envCut: this.data.envCut,
-        spread: this.data.spread / 100,
-        noiseLevel: this.data.noiseLevel / 100
+        sampleCode: params.sourceType === 'sample' ? params.selectedSample : '',
+        nChannels: Number(params.nChannels),
+        carrier: params.carrier,
+        fLo: Number(fLo),
+        fHi: Number(fHi),
+        envCut: Number(params.envCut),
+        spread: Number(params.spread) / 100,
+        noiseLevel: Number(params.noiseLevel) / 100
       }
-      if (this.data.selectedScenario) {
-        taskPayload.scenarioCode = this.data.selectedScenario
+      if (params.selectedScenario) {
+        taskPayload.scenarioCode = params.selectedScenario
       }
       const result = await createTask(taskPayload)
 
@@ -995,7 +1065,7 @@ Page({
           '正在循环播放人工耳蜗模拟声音',
           '已停止模拟声音播放',
           '模拟声音播放失败，请检查文件地址',
-          { forceRestart: replacePlaying === true }
+          { forceRestart: true }
         )
       }
     } catch (err) {

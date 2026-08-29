@@ -77,6 +77,7 @@
         block-color="#35D0BA"
         block-size="20"
         bindchange="changeChannels"
+        bindchanging="onChannelsChanging"
       />
     </view>
     <view class="quick-row">
