@@ -93,7 +93,7 @@ Page({
     uploadedFileName: '',
     uploadedObjectKey: '',
     selectedSample: 'vowel',
-    selectedScenario: 'quiet',
+    selectedScenario: '',
     nChannels: 8,
     carrier: 'noise',
     frequencyRange: '150-7000',
@@ -147,6 +147,9 @@ Page({
   _sampleSourceCache: {},
   _preparingSampleCode: '',
   _unloaded: false,
+  _autoRefreshTimer: null,
+  _autoRefreshSeq: 0,
+  _shouldAutoPlayProcessed: false,
   audioCtx: null,
 
   onLoad() {
@@ -159,6 +162,7 @@ Page({
 
   onUnload() {
     this._unloaded = true
+    this._cancelAutoRefresh()
     this._stopAudio('已退出页面')
   },
 
@@ -225,7 +229,50 @@ Page({
   },
 
   _resetConvertStatus() {
-    this._invalidateProcessedResult()
+    this._invalidateProcessedResult({ autoRefresh: false })
+  },
+
+  _cancelAutoRefresh() {
+    if (this._autoRefreshTimer) {
+      clearTimeout(this._autoRefreshTimer)
+      this._autoRefreshTimer = null
+    }
+    this._shouldAutoPlayProcessed = false
+    this._autoRefreshSeq += 1
+
+    if (!this._unloaded && this.data.isProcessing) {
+      this.setData({
+        isProcessing: false,
+        taskStatus: this._resolveReadyStatus()
+      })
+    }
+  },
+
+  _scheduleAutoRefreshProcessed() {
+    if (this._autoRefreshTimer) {
+      clearTimeout(this._autoRefreshTimer)
+    }
+
+    this._autoRefreshTimer = setTimeout(() => {
+      this._autoRefreshTimer = null
+      this._refreshProcessedForCurrentParams()
+    }, 800)
+  },
+
+  async _refreshProcessedForCurrentParams() {
+    if (!this._shouldAutoPlayProcessed) return
+
+    const seq = this._autoRefreshSeq
+
+    try {
+      await this._generateProcessedAudio({
+        autoPlay: true,
+        replacePlaying: true,
+        seq
+      })
+    } catch (err) {
+      console.error(err)
+    }
   },
 
   _resolveReadyStatus() {
@@ -255,9 +302,7 @@ Page({
   },
 
   _invalidateProcessedResult(options = {}) {
-    if (this.data.isAudioPlaying && this.data.playingKind === 'processed') {
-      this._stopAudio('参数已变化，请重新播放模拟声')
-    }
+    const wasPlayingProcessed = this.data.isAudioPlaying && this.data.playingKind === 'processed'
 
     const patch = {
       processedAudioUrl: '',
@@ -274,8 +319,18 @@ Page({
       }
     }
 
+    if (wasPlayingProcessed && options.autoRefresh !== false) {
+      patch.statusText = '参数已变化，正在更新模拟声...'
+    }
+
     this.setData(patch, () => {
       this._updateLocalClarity()
+
+      if (wasPlayingProcessed && options.autoRefresh !== false) {
+        this._shouldAutoPlayProcessed = true
+        this._autoRefreshSeq += 1
+        this._scheduleAutoRefreshProcessed()
+      }
     })
   },
 
@@ -439,7 +494,7 @@ Page({
     })
   },
 
-  _playAudio(url, kind, onPlayText, onStopText, onErrorText) {
+  _playAudio(url, kind, onPlayText, onStopText, onErrorText, options = {}) {
     if (!url) {
       wx.showToast({
         title: '暂无可播放音频',
@@ -449,11 +504,15 @@ Page({
     }
 
     if (this.data.isAudioPlaying && this.data.playingKind === kind) {
-      this._stopAudio(onStopText || '已停止播放')
-      return
+      if (options.forceRestart) {
+        this._stopAudio('')
+      } else {
+        this._stopAudio(onStopText || '已停止播放')
+        return
+      }
+    } else {
+      this._stopAudio('')
     }
-
-    this._stopAudio('')
 
     const audioCtx = wx.createInnerAudioContext()
     this.audioCtx = audioCtx
@@ -509,6 +568,7 @@ Page({
 
     if (type === 'upload') {
       this._stopAudio('已停止播放')
+      this._cancelAutoRefresh()
       this.setData({
         sourceType: 'upload',
         sourceHint: ''
@@ -522,6 +582,7 @@ Page({
 
     if (type === 'sample') {
       this._stopAudio('已停止播放')
+      this._cancelAutoRefresh()
       const cache = this._sampleSourceCache[this.data.selectedSample]
       const label = this._getSampleLabel(this.data.selectedSample)
       this.setData({
@@ -535,7 +596,7 @@ Page({
         statusText: `已选择${label}`,
         sourceHint: ''
       }, () => {
-        this._invalidateProcessedResult()
+        this._invalidateProcessedResult({ autoRefresh: false })
       })
       return
     }
@@ -549,7 +610,8 @@ Page({
     }
 
     this._stopAudio('已停止播放')
-    this._resetConvertStatus()
+    this._cancelAutoRefresh()
+    this._invalidateProcessedResult({ autoRefresh: false })
     this.setData({
       sourceType: type,
       sourceHint,
@@ -564,6 +626,7 @@ Page({
     const label = this._getSampleLabel(code)
 
     this._stopAudio('已停止播放')
+    this._cancelAutoRefresh()
     this.setData({
       sourceType: 'sample',
       selectedSample: code,
@@ -573,9 +636,10 @@ Page({
       uploadedObjectKey: cache ? cache.objectKey : '',
       isProcessing: false,
       taskStatus: cache ? 'ready' : 'idle',
-      statusText: `已选择${label}`
+      statusText: `已选择${label}`,
+      selectedScenario: ''
     }, () => {
-      this._invalidateProcessedResult()
+      this._invalidateProcessedResult({ autoRefresh: false })
     })
   },
 
@@ -607,6 +671,7 @@ Page({
     this._updateElectrodeDots(value)
     this.setData({
       nChannels: value,
+      selectedScenario: '',
       statusText: `已设置 ${value} 通道`
     }, () => {
       this._invalidateProcessedResult()
@@ -618,6 +683,7 @@ Page({
     this._updateElectrodeDots(value)
     this.setData({
       nChannels: value,
+      selectedScenario: '',
       statusText: `已设置 ${value} 通道`
     }, () => {
       this._invalidateProcessedResult()
@@ -628,6 +694,7 @@ Page({
     const value = e.currentTarget.dataset.value
     this.setData({
       carrier: value,
+      selectedScenario: '',
       statusText: value === 'noise' ? '已选择噪声载体' : '已选择正弦载体'
     }, () => {
       this._invalidateProcessedResult()
@@ -638,6 +705,7 @@ Page({
     const value = e.currentTarget.dataset.value
     this.setData({
       frequencyRange: value,
+      selectedScenario: '',
       statusText: `频率范围已设为 ${value} Hz`
     }, () => {
       this._invalidateProcessedResult()
@@ -648,6 +716,7 @@ Page({
     const value = Number(e.detail.value)
     this.setData({
       envCut: value,
+      selectedScenario: '',
       statusText: `包络细节已设为 ${value} Hz`
     }, () => {
       this._invalidateProcessedResult()
@@ -658,6 +727,7 @@ Page({
     const value = Number(e.detail.value)
     this.setData({
       spread: value,
+      selectedScenario: '',
       statusText: `电流扩散已设为 ${value}%`
     }, () => {
       this._invalidateProcessedResult()
@@ -668,6 +738,7 @@ Page({
     const value = Number(e.detail.value)
     this.setData({
       noiseLevel: value,
+      selectedScenario: '',
       statusText: `环境噪声已设为 ${value}%`
     }, () => {
       this._invalidateProcessedResult()
@@ -701,6 +772,7 @@ Page({
 
   async _doUpload(filePath, fileName) {
     this._stopAudio('已停止播放')
+    this._cancelAutoRefresh()
     this.setData({
       sourceType: 'upload',
       taskStatus: 'uploading',
@@ -727,7 +799,7 @@ Page({
         statusText: '音频上传成功，可以播放原声或模拟声',
         sourceHint: ''
       }, () => {
-        this._invalidateProcessedResult({ keepStatus: true })
+        this._invalidateProcessedResult({ keepStatus: true, autoRefresh: false })
       })
     } catch (err) {
       console.error(err)
@@ -801,8 +873,9 @@ Page({
     }
   },
 
-  async playProcessedAuto() {
-    if (this.data.isProcessing) return
+  async _generateProcessedAudio(options = {}) {
+    const { autoPlay = false, replacePlaying = false } = options
+    const requestSeq = options.seq != null ? options.seq : (++this._autoRefreshSeq)
 
     if (this.data.sourceType === 'record') {
       wx.showToast({ title: '录制功能后续接入', icon: 'none' })
@@ -838,37 +911,38 @@ Page({
         errorMessage
       })
       wx.showToast({ title: '示例准备失败', icon: 'none' })
-      return
+      throw err
     }
 
     const key = this._buildProcessKey()
 
     if (this.data.processedAudioUrl && this.data.processedKey === key) {
-      this._playAudio(
-        this.data.processedAudioUrl,
-        'processed',
-        '正在循环播放人工耳蜗模拟声音',
-        '已停止模拟声音播放',
-        '模拟声音播放失败，请检查文件地址'
-      )
+      if (autoPlay) {
+        this._playAudio(
+          this.data.processedAudioUrl,
+          'processed',
+          '正在循环播放人工耳蜗模拟声音',
+          '已停止模拟声音播放',
+          '模拟声音播放失败，请检查文件地址'
+        )
+      }
       return
     }
-
-    const { fLo, fHi } = this._parseFrequencyRange(this.data.frequencyRange)
 
     this.setData({
       isProcessing: true,
       taskStatus: 'processing',
-      statusText: '正在生成模拟声音...',
+      statusText: replacePlaying ? '正在按新参数更新模拟声...' : '正在生成模拟声音...',
       errorMessage: ''
     })
 
     try {
+      const { fLo, fHi } = this._parseFrequencyRange(this.data.frequencyRange)
       const result = await createTask({
         sourceType: this.data.sourceType === 'sample' ? 'SAMPLE' : 'UPLOAD',
         sourceAssetId,
         sampleCode: this.data.sourceType === 'sample' ? this.data.selectedSample : '',
-        scenarioCode: this.data.selectedScenario,
+        scenarioCode: this.data.selectedScenario || 'custom',
         nChannels: this.data.nChannels,
         carrier: this.data.carrier,
         fLo,
@@ -877,6 +951,10 @@ Page({
         spread: this.data.spread / 100,
         noiseLevel: this.data.noiseLevel / 100
       })
+
+      if (requestSeq !== this._autoRefreshSeq) {
+        return
+      }
 
       if (!result || result.status !== 'SUCCESS' || !result.processedAudioUrl) {
         throw new Error((result && result.errorMessage) ? result.errorMessage : '生成失败')
@@ -896,17 +974,24 @@ Page({
         clarityDesc,
         taskStatus: 'success',
         isProcessing: false,
-        errorMessage: ''
+        errorMessage: '',
+        statusText: replacePlaying ? '模拟声已按新参数更新' : '正在循环播放人工耳蜗模拟声音'
       })
 
-      this._playAudio(
-        result.processedAudioUrl,
-        'processed',
-        '正在循环播放人工耳蜗模拟声音',
-        '已停止模拟声音播放',
-        '模拟声音播放失败，请检查文件地址'
-      )
+      if (autoPlay) {
+        this._playAudio(
+          result.processedAudioUrl,
+          'processed',
+          '正在循环播放人工耳蜗模拟声音',
+          '已停止模拟声音播放',
+          '模拟声音播放失败，请检查文件地址',
+          { forceRestart: replacePlaying === true }
+        )
+      }
     } catch (err) {
+      if (requestSeq !== this._autoRefreshSeq) {
+        return
+      }
       console.error(err)
       const errorMessage = this._formatErrorMessage(err)
       this.setData({
@@ -915,8 +1000,39 @@ Page({
         statusText: '生成失败，请重试',
         errorMessage
       })
-      wx.showToast({ title: '生成失败', icon: 'none' })
+      if (!replacePlaying) {
+        wx.showToast({ title: '生成失败', icon: 'none' })
+      }
+      throw err
     }
+  },
+
+  async playProcessedAuto() {
+    const key = this._buildProcessKey()
+
+    if (
+      this.data.isAudioPlaying &&
+      this.data.playingKind === 'processed' &&
+      this.data.processedAudioUrl &&
+      this.data.processedKey === key
+    ) {
+      this._cancelAutoRefresh()
+      this._stopAudio('已停止模拟声音播放')
+      return
+    }
+
+    if (this.data.isAudioPlaying && this.data.playingKind === 'processed') {
+      this._cancelAutoRefresh()
+      this._stopAudio('已停止模拟声音播放')
+      return
+    }
+
+    if (this.data.isProcessing) return
+
+    await this._generateProcessedAudio({
+      autoPlay: true,
+      replacePlaying: false
+    })
   },
 
   playProcessed() {

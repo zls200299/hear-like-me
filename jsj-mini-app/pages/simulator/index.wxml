@@ -213,7 +213,7 @@
       <view
         class="action-btn action-btn--primary {{isProcessing ? 'action-btn--disabled' : ''}} {{isAudioPlaying && playingKind === 'processed' ? 'action-btn--playing' : ''}}"
         bindtap="playProcessedAuto"
-      >{{isProcessing ? '正在生成...' : (isAudioPlaying && playingKind === 'processed' ? '停止模拟声' : '播放模拟声')}}</view>
+      >{{isProcessing ? (isAudioPlaying && playingKind === 'processed' ? '更新中...' : '正在生成...') : (isAudioPlaying && playingKind === 'processed' ? '停止模拟声' : '播放模拟声')}}</view>
     </view>
   </view>
 
@@ -226,7 +226,10 @@
       </view>
     </view>
 
-    <view wx:if="{{taskStatus === 'processing'}}" class="result-status-hint">正在生成模拟声音...</view>
+    <view wx:if="{{isProcessing && isAudioPlaying && playingKind === 'processed'}}" class="result-status-hint">
+      正在按新参数更新模拟声，当前仍在播放上一版声音...
+    </view>
+    <view wx:elif="{{taskStatus === 'processing'}}" class="result-status-hint">正在生成模拟声音...</view>
 
     <view class="clarity-box">
       <view class="clarity-score">
