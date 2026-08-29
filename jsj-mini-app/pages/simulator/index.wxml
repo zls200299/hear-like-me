@@ -216,12 +216,55 @@
       class="action-btn action-btn--full {{taskStatus !== 'success' ? 'action-btn--disabled' : 'action-btn--accent'}}"
       bindtap="playProcessed"
     >播放模拟后声音</view>
+  </view>
 
-    <view wx:if="{{taskNo && taskStatus === 'success'}}" class="task-result">
-      <view class="task-result__item">任务编号：{{taskNo}}</view>
-      <view class="task-result__item">处理结果：{{clarityGrade || '模拟完成'}}</view>
-      <view wx:if="{{clarityScore}}" class="task-result__item">清晰度参考：{{clarityScore}}</view>
+  <!-- 转换结果 -->
+  <view wx:if="{{taskStatus === 'processing'}}" class="result-card result-processing">
+    <view class="result-title">正在生成模拟声音</view>
+    <view class="result-desc">正在将音频转换为人工耳蜗声码器效果，请稍候。</view>
+    <view class="loading-bar">
+      <view class="loading-bar-inner"></view>
     </view>
+  </view>
+
+  <view wx:if="{{taskStatus === 'success'}}" class="result-card result-success">
+    <view class="result-head">
+      <view>
+        <view class="result-title">模拟结果</view>
+        <view class="result-desc">可以对比试听原声和人工耳蜗模拟声。</view>
+      </view>
+    </view>
+
+    <view class="clarity-box">
+      <view class="clarity-score">
+        <text class="clarity-num">{{clarityScore != null ? clarityScore : '--'}}</text>
+        <text class="clarity-total">/100</text>
+      </view>
+      <view class="clarity-info">
+        <view class="clarity-grade">{{clarityGrade || '模拟完成'}}</view>
+        <view class="clarity-desc">{{clarityDesc}}</view>
+      </view>
+    </view>
+
+    <view class="param-chips">
+      <view class="param-chip">通道 {{nChannels}}</view>
+      <view class="param-chip">{{carrier === 'noise' ? '噪声载体' : '正弦载体'}}</view>
+      <view class="param-chip">{{frequencyRange}} Hz</view>
+      <view class="param-chip">包络 {{envCut}} Hz</view>
+      <view class="param-chip">扩散 {{spread}}%</view>
+      <view class="param-chip">噪声 {{noiseLevel}}%</view>
+    </view>
+
+    <view class="result-actions">
+      <view class="result-btn result-btn--secondary" bindtap="playOriginal">播放原声</view>
+      <view class="result-btn result-btn--primary" bindtap="playProcessed">播放模拟声</view>
+    </view>
+  </view>
+
+  <view wx:if="{{taskStatus === 'failed'}}" class="result-card result-failed">
+    <view class="result-title">转换失败</view>
+    <view class="result-desc">音频暂时无法完成转换，请检查文件或稍后重试。</view>
+    <view wx:if="{{errorMessage}}" class="error-message">失败原因：{{errorMessage}}</view>
   </view>
 
   <!-- 当前状态 -->

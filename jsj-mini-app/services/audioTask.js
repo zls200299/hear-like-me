@@ -4,11 +4,11 @@ function extractData(response) {
   if (!response) return {}
   if (typeof response.code === 'number') {
     if (response.code !== 200) {
-      throw {
-        message: response.msg || '请求失败',
-        code: response.code,
-        response
-      }
+      const msg = response.msg || response.message || '请求失败'
+      const error = new Error(msg)
+      error.code = response.code
+      error.response = response
+      throw error
     }
     return response.data || {}
   }
@@ -40,12 +40,24 @@ function normalizeTask(data) {
  * @returns {Promise<Object>}
  */
 async function createTask(data) {
-  const response = await request({
-    url: '/api/audio/tasks',
-    method: 'POST',
-    data
-  })
-  return normalizeTask(extractData(response))
+  try {
+    const response = await request({
+      url: '/api/audio/tasks',
+      method: 'POST',
+      data
+    })
+    return normalizeTask(extractData(response))
+  } catch (err) {
+    const message = err.message
+      || (err.response && (err.response.msg || err.response.message))
+      || (err.data && (err.data.msg || err.data.message))
+      || err.errorMessage
+      || '转换失败'
+    const error = new Error(message)
+    error.code = err.code
+    error.response = err.response || err.data
+    throw error
+  }
 }
 
 /**
@@ -54,11 +66,21 @@ async function createTask(data) {
  * @returns {Promise<Object>}
  */
 async function getTask(taskNo) {
-  const response = await request({
-    url: `/api/audio/tasks/${taskNo}`,
-    method: 'GET'
-  })
-  return normalizeTask(extractData(response))
+  try {
+    const response = await request({
+      url: `/api/audio/tasks/${taskNo}`,
+      method: 'GET'
+    })
+    return normalizeTask(extractData(response))
+  } catch (err) {
+    const message = err.message
+      || (err.response && (err.response.msg || err.response.message))
+      || '查询失败'
+    const error = new Error(message)
+    error.code = err.code
+    error.response = err.response
+    throw error
+  }
 }
 
 module.exports = {

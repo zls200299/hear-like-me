@@ -130,7 +130,9 @@ Page({
     outputAssetId: null,
     processedAudioUrl: '',
     clarityScore: null,
-    clarityGrade: ''
+    clarityGrade: '',
+    errorMessage: '',
+    clarityDesc: ''
   },
 
   _scenarioPresets: null,
@@ -219,13 +221,53 @@ Page({
       outputAssetId: null,
       processedAudioUrl: '',
       clarityScore: null,
-      clarityGrade: ''
+      clarityGrade: '',
+      errorMessage: '',
+      clarityDesc: ''
     })
-    if (this.data.taskStatus === 'processing' || this.data.taskStatus === 'success') {
+    const status = this.data.taskStatus
+    if (status === 'processing' || status === 'success' || status === 'failed') {
       this.setData({
         taskStatus: this.data.sourceType === 'upload' && this.data.sourceAssetId ? 'ready' : 'idle'
       })
     }
+  },
+
+  _getClarityDesc(score, grade) {
+    const num = score != null && score !== '' ? Number(score) : NaN
+    if (!Number.isNaN(num)) {
+      if (num >= 86) return '声音信息保留较多，接近清晰听感。'
+      if (num >= 66) return '大部分语音轮廓可以听到，但细节仍有损失。'
+      if (num >= 44) return '可以听到部分节奏和轮廓，理解会比较吃力。'
+      if (num >= 24) return '声音被明显压缩，识别难度较高。'
+      return '只保留了很少的信息，几乎难以听懂。'
+    }
+    return '当前音频已完成声码器处理，可以对比试听原声和模拟声。'
+  },
+
+  _formatErrorMessage(err) {
+    if (!err) return '未知错误'
+
+    let text = ''
+    if (typeof err === 'string') {
+      text = err
+    } else {
+      text = err.message
+        || (err.response && (err.response.msg || err.response.message))
+        || (err.data && (err.data.msg || err.data.message))
+        || err.errorMessage
+        || '未知错误'
+    }
+
+    text = String(text)
+      .replace(/[A-Za-z]:[\\/][^\s,;，；。]*/g, '本地文件路径')
+      .replace(/[\\/][^\s,;，；。]*[\\/][^\s,;，；。]*/g, '本地文件路径')
+
+    const maxLen = 80
+    if (text.length > maxLen) {
+      return text.substring(0, maxLen) + '…'
+    }
+    return text
   },
 
   _parseFrequencyRange(range) {
@@ -446,7 +488,9 @@ Page({
       statusText: '正在上传音频...',
       uploadedFileName: fileName || '',
       sourceHint: '',
-      isProcessing: false
+      isProcessing: false,
+      errorMessage: '',
+      clarityDesc: ''
     })
 
     try {
@@ -461,15 +505,19 @@ Page({
         processedAudioUrl: '',
         clarityScore: null,
         clarityGrade: '',
+        errorMessage: '',
+        clarityDesc: '',
         taskStatus: 'ready',
         statusText: '音频上传成功，可以播放原声或开始转换',
         sourceHint: ''
       })
     } catch (err) {
+      console.error(err)
       this.setData({
-        taskStatus: 'failed',
+        taskStatus: 'idle',
         statusText: '音频上传失败，请重试',
-        sourceHint: ''
+        sourceHint: '',
+        errorMessage: ''
       })
       wx.showToast({
         title: '上传失败',
@@ -524,7 +572,9 @@ Page({
       outputAssetId: null,
       processedAudioUrl: '',
       clarityScore: null,
-      clarityGrade: ''
+      clarityGrade: '',
+      errorMessage: '',
+      clarityDesc: ''
     })
 
     try {
@@ -542,15 +592,19 @@ Page({
       })
 
       if (result.status === 'SUCCESS' && result.processedAudioUrl) {
+        const clarityGrade = result.clarityGrade || '模拟完成'
+        const clarityDesc = this._getClarityDesc(result.clarityScore, clarityGrade)
         this.setData({
           taskNo: result.taskNo,
           outputAssetId: result.outputAssetId,
           processedAudioUrl: result.processedAudioUrl,
           clarityScore: result.clarityScore,
-          clarityGrade: result.clarityGrade || '模拟完成',
+          clarityGrade,
+          clarityDesc,
           taskStatus: 'success',
           isProcessing: false,
-          statusText: '转换完成，可以试听模拟后声音'
+          statusText: '转换完成，可以对比试听原声和模拟声',
+          errorMessage: ''
         })
         return
       }
@@ -558,10 +612,13 @@ Page({
       throw new Error(result.errorMessage || '转换未成功')
     } catch (err) {
       console.error(err)
+      const errorMessage = this._formatErrorMessage(err)
       this.setData({
         taskStatus: 'failed',
         isProcessing: false,
-        statusText: '转换失败，请重试'
+        statusText: '转换失败，请重试',
+        errorMessage,
+        clarityDesc: ''
       })
       wx.showToast({
         title: '转换失败',
