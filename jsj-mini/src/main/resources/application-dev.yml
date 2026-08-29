@@ -39,5 +39,6 @@ hear-like-me:
     preview-url-prefix: http://localhost:8081
   engine:
     ffmpeg-path: ${HLM_FFMPEG_PATH:E:/hear-like-me/ffmpeg-9.0.1-essentials_build/bin/ffmpeg.exe}
-    script-path: ${HLM_ENGINE_SCRIPT:../../audio-engine/cochlear_vocoder.py}
+    python-path: ${HLM_PYTHON_PATH:E:/dev-env/miniconda3/python.exe}
+    script-path: ${HLM_ENGINE_SCRIPT:scaffolding-v2/audio-engine/cochlear_vocoder.py}
     vocoder-enabled: ${HLM_VOCODER_ENABLED:true}
