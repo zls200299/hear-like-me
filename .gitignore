@@ -37,3 +37,8 @@ jsj-uni-app/unpackage/
 logs/
 tmp/
 temp/
+
+# audio-engine local test outputs (do not commit)
+audio-engine/*.wav
+audio-engine/*.visual.json
+audio-engine/*_original.wav

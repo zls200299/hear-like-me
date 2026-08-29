@@ -34,10 +34,12 @@ cochlear_vocoder.py
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import sys
 import wave
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 from scipy.signal import lfilter
@@ -166,6 +168,46 @@ def compressor(x: np.ndarray, sr: int, threshold_db=-16.0, ratio=4.0,
 
 
 # =====================================================================
+# 3b. 视觉化电平（对齐 HTML Electrode array: RMS * 3.2）
+# =====================================================================
+
+
+def compute_visual_levels(
+    signal: np.ndarray,
+    sr: int,
+    fps: int,
+    analyser_size: int = 256,
+) -> np.ndarray:
+    """把单通道 modulated 信号转成随时间变化的 0~1 level 数组。"""
+    x = np.asarray(signal, dtype=np.float64).ravel()
+    n = x.size
+    if n == 0 or fps <= 0 or sr <= 0:
+        return np.zeros(0, dtype=np.float32)
+
+    frame_count = int(math.ceil(n / sr * fps))
+    if frame_count == 0:
+        return np.zeros(0, dtype=np.float32)
+
+    times = np.arange(frame_count, dtype=np.float64) / fps
+    end_idx = np.clip(np.round(times * sr).astype(np.int64), 0, n - 1)
+    start_idx = np.maximum(0, end_idx - analyser_size + 1)
+    counts = (end_idx - start_idx + 1).astype(np.float64)
+
+    sq = x * x
+    cs = np.concatenate(([0.0], np.cumsum(sq)))
+    mean_sq = (cs[end_idx + 1] - cs[start_idx]) / counts
+    levels = np.clip(np.sqrt(mean_sq) * 3.2, 0.0, 1.0)
+    return levels.astype(np.float32)
+
+
+def write_visualization_json(path: str, visualization: dict) -> None:
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8") as f:
+        json.dump(visualization, f, ensure_ascii=False, separators=(",", ":"))
+
+
+# =====================================================================
 # 4. 声码器主体
 # =====================================================================
 
@@ -184,17 +226,28 @@ def make_babble_noise(n: int, sr: int, level: float, rng: np.random.Generator,
     return v * (level * 0.5)
 
 
-def vocode(x: np.ndarray, sr: int, cfg: VocoderConfig) -> np.ndarray:
+def vocode(
+    x: np.ndarray,
+    sr: int,
+    cfg: VocoderConfig,
+    visualization_fps: int | None = None,
+) -> np.ndarray | tuple[np.ndarray, dict]:
     """把单声道信号 x 处理成人工耳蜗模拟音。"""
     rng = np.random.default_rng(cfg.seed)
     x = np.asarray(x, dtype=np.float64).ravel()
     n = x.size
+    visualize = visualization_fps is not None
+    viz_fps = int(visualization_fps) if visualize else 0
 
     # --- 输入 = 干声 + 背景噪声（在分频之前混入，才符合真实场景） ---
     sig = x + make_babble_noise(n, sr, cfg.noise_level, rng)
 
     N = cfg.n_channels
     e = log_edges(N, cfg.f_lo, cfg.f_hi)
+    frame_count = int(math.ceil(n / sr * viz_fps)) if visualize else 0
+    visual_levels = (
+        np.zeros((frame_count, N), dtype=np.float32) if visualize else None
+    )
 
     # 所有通道共用同一份白噪声（对应网页里共享的 noiseBuf）
     noise = rng.uniform(-1.0, 1.0, n) if cfg.carrier == "noise" else None
@@ -238,6 +291,8 @@ def vocode(x: np.ndarray, sr: int, cfg: VocoderConfig) -> np.ndarray:
     wet = np.zeros(n)
     for i in range(N):
         modulated = carriers[i] * gains[i]
+        if visualize:
+            visual_levels[:, i] = compute_visual_levels(modulated, sr, viz_fps)
         wet += biquad(modulated, "bandpass", fcs[i], min(qs[i], 10.0), sr)
 
     y = wet * cfg.wet
@@ -249,7 +304,34 @@ def vocode(x: np.ndarray, sr: int, cfg: VocoderConfig) -> np.ndarray:
         peak = float(np.abs(y).max())
         if peak > 1e-9:
             y = y * (cfg.normalize / peak)
-    return y
+
+    if not visualize:
+        return y
+
+    bands = []
+    for i in range(N):
+        lo = float(e[i])
+        hi = float(e[i + 1])
+        bands.append({
+            "index": i,
+            "lo": lo,
+            "hi": hi,
+            "fc": float(math.sqrt(lo * hi)),
+        })
+
+    frames_q = np.round(visual_levels * 255.0).astype(np.int32)
+    visualization = {
+        "version": 1,
+        "fps": viz_fps,
+        "durationMs": int(round(n / sr * 1000)),
+        "sampleRate": int(sr),
+        "nChannels": N,
+        "levelScale": 255,
+        "order": "low-to-high",
+        "bands": bands,
+        "frames": frames_q.tolist(),
+    }
+    return y, visualization
 
 
 # =====================================================================
@@ -450,6 +532,9 @@ def main(argv=None) -> int:
     p.add_argument("--no-compress", action="store_true", help="跳过输出端压缩器")
     p.add_argument("--no-normalize", action="store_true", help="不做峰值归一化（保持原始电平）")
     p.add_argument("--seed", type=int, help="噪声随机种子")
+    p.add_argument("--visualization-json", help="输出 visualization JSON 路径")
+    p.add_argument("--visualization-fps", type=int, default=30,
+                   help="visualization 帧率 (10–60，默认 30)")
     p.add_argument("--list-scenarios", action="store_true", help="列出场景预设后退出")
     p.add_argument("--original-only", action="store_true",
                    help="只生成内置示例原声，不做声码器处理（仅 --sample 模式）")
@@ -511,7 +596,14 @@ def main(argv=None) -> int:
         write_wav(a.output.replace(".wav", "_original.wav"), x, sr)
         print(f"原始参考音已保存: {a.output.replace('.wav', '_original.wav')}")
 
-    y = vocode(x, sr, cfg)
+    viz_path = a.visualization_json
+    viz_fps = int(clamp(a.visualization_fps, 10, 60)) if viz_path else None
+    if viz_fps is not None:
+        y, visualization = vocode(x, sr, cfg, visualization_fps=viz_fps)
+        write_visualization_json(viz_path, visualization)
+    else:
+        y = vocode(x, sr, cfg)
+
     write_wav(a.output, y, sr)
 
     ii = intelligibility(cfg)
@@ -522,8 +614,10 @@ def main(argv=None) -> int:
     print(f"  包络截止: {cfg.env_cut:.0f} Hz · 扩散: {cfg.spread*100:.0f}% · "
           f"噪声: {cfg.noise_level*100:.0f}%")
     print(f"  可懂度估分: {ii['score']}/100 ({ii['grade']})")
-    # 供 Java 后端解析（避免 Windows 控制台 GBK 编码导致中文匹配失败）
     print(f"CLARITY_SCORE={ii['score']}")
+    if viz_fps is not None:
+        print(f"VISUALIZATION_FPS={visualization['fps']}")
+        print(f"VISUALIZATION_FRAMES={len(visualization['frames'])}")
     return 0
 
 
