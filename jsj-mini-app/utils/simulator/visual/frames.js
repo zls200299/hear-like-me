@@ -1,12 +1,14 @@
 const { clamp, pseudoRandom } = require('./common.js')
 
-function normalizeChannelFrame(frame, channelCount) {
+function normalizeChannelFrame(frame, channelCount, levelScale = 1) {
   const n = channelCount || 8
+  const scale = Number(levelScale) > 0 ? Number(levelScale) : 1
   const src = Array.isArray(frame) ? frame : []
   const out = []
   for (let i = 0; i < n; i++) {
-    const value = src[i] != null ? Number(src[i]) : 0.05
-    out.push(clamp(Number.isFinite(value) ? value : 0.05, 0, 1))
+    const raw = Number(src[i]) || 0
+    const value = clamp(Number.isFinite(raw) ? raw / scale : 0, 0, 1)
+    out.push(value)
   }
   return out
 }
@@ -16,11 +18,12 @@ function getFrameAtCurrentTime(frames, opts) {
     channelCount = 8,
     fps = 20,
     durationMs = 0,
-    audioSeekSec = 0
+    audioSeekSec = 0,
+    levelScale = 255
   } = opts || {}
   const n = channelCount || 8
   if (!frames || !frames.length) {
-    return normalizeChannelFrame([], n)
+    return normalizeChannelFrame([], n, 1)
   }
 
   const durationSec = durationMs > 0 ? durationMs / 1000 : frames.length / fps
@@ -28,7 +31,7 @@ function getFrameAtCurrentTime(frames, opts) {
   let idx = Math.floor(loopT * fps)
   if (idx < 0) idx = 0
   if (idx >= frames.length) idx = frames.length - 1
-  return normalizeChannelFrame(frames[idx], n)
+  return normalizeChannelFrame(frames[idx], n, levelScale)
 }
 
 function buildFallbackFrame(params) {
@@ -92,17 +95,23 @@ function buildFallbackFrame(params) {
 
 function buildElectrodeBars(levels, opts) {
   const { isProcessed = false } = opts || {}
-  return levels.map((value, index) => {
-    const percent = Math.max(4, Math.round(value * 1000) / 10)
-    const opacity = (0.32 + value * 0.68).toFixed(2)
+  const count = levels.length
+  const bars = levels.map((value, index) => {
+    const percent = Math.max(2, Math.round(value * 1000) / 10)
+    const opacity = (0.35 + value * 0.65).toFixed(2)
+    const colorIndex = count > 1
+      ? Math.round(index / (count - 1) * 7)
+      : 0
     return {
+      channelIndex: index,
       value,
       percent,
       opacity,
-      colorIndex: index % 8,
-      glow: isProcessed && value > 0.38
+      colorIndex,
+      glow: isProcessed && value > 0.35
     }
   })
+  return bars.reverse()
 }
 
 function buildCochleaElectrodes(levels, opts) {

@@ -248,7 +248,7 @@
   <!-- 视觉化反馈 -->
   <view class="card visual-card">
     <view class="card-title">视觉化反馈</view>
-    <view class="visual-card-desc">根据当前参数模拟电极激活和神经活动，仅用于科普展示。</view>
+    <view class="visual-card-desc">模拟声播放时，电极阵列会根据各频率通道的活动强度实时变化，仅用于科普展示。</view>
 
     <simulator-visual
       id="visualPanel"

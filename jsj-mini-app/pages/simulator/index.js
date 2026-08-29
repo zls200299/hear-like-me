@@ -429,6 +429,7 @@ Page({
 
   _invalidateProcessedResult(options = {}) {
     const wasPlayingProcessed = this.data.isAudioPlaying && this.data.playingKind === 'processed'
+    const shouldKeepVisualization = wasPlayingProcessed && options.autoRefresh !== false
 
     const patch = {
       processedAudioUrl: '',
@@ -453,7 +454,9 @@ Page({
     }
 
     this.setData(patch, () => {
-      this._clearVisualizationData()
+      if (!shouldKeepVisualization) {
+        this._clearVisualizationData()
+      }
       this._refreshVisualFeedback()
     })
   },

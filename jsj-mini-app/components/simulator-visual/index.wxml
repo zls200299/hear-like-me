@@ -16,7 +16,7 @@
   <view class="sv-stage">
     <view wx:if="{{activeView === 'bars'}}" class="sv-pane">
       <view class="sv-bars">
-        <view wx:for="{{electrodeBarLevels}}" wx:key="index" class="sv-bar-row">
+        <view wx:for="{{electrodeBarLevels}}" wx:key="channelIndex" class="sv-bar-row">
           <view class="sv-bar-track">
             <view
               class="sv-bar-fill sv-bar-fill-{{item.colorIndex}} {{item.glow ? 'sv-bar-fill--glow' : ''}}"

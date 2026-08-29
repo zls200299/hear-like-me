@@ -72,8 +72,13 @@ Component({
       this._playbackTimer = null
       this._idleTimer = null
       this._visualizationFrames = []
-      this._visualizationFps = 20
+      this._visualizationFps = 30
       this._visualizationDurationMs = 0
+      this._visualizationLevelScale = 255
+      this._visualizationNChannels = 0
+      this._visualizationBands = []
+      this._audioAnchorSec = 0
+      this._audioAnchorWallMs = Date.now()
       this._updateMeta()
       this._refreshStaticViews()
     },
@@ -100,7 +105,9 @@ Component({
     'isAudioPlaying, playingKind': function () {
       this.syncPlaybackState()
     },
-    audioSeekSec() {
+    audioSeekSec(value) {
+      this._audioAnchorSec = Number(value) || 0
+      this._audioAnchorWallMs = Date.now()
       if (this._playbackTimer) return
       this._refreshStaticViews()
     }
@@ -127,12 +134,29 @@ Component({
     applyVisualizationData(viz) {
       if (viz && Array.isArray(viz.frames) && viz.frames.length) {
         this._visualizationFrames = viz.frames
-        this._visualizationFps = viz.fps || 20
-        this._visualizationDurationMs = viz.durationMs || 0
+        this._visualizationFps = Number(viz.fps) || 30
+        this._visualizationDurationMs = Number(viz.durationMs) || 0
+        this._visualizationLevelScale = Number(viz.levelScale) || 255
+        this._visualizationNChannels = Number(viz.nChannels)
+          || (Array.isArray(viz.frames[0]) ? viz.frames[0].length : 0)
+        this._visualizationBands = Array.isArray(viz.bands) ? viz.bands : []
+
+        if (viz.frames[20]) {
+          const scale = this._visualizationLevelScale
+          const raw = viz.frames[20]
+          const normalized = raw.map((v) => {
+            const n = Number(v) || 0
+            return Math.max(0, Math.min(1, n / scale))
+          })
+          console.log('[viz] frames[20] raw:', raw, 'normalized:', normalized)
+        }
       } else {
         this._visualizationFrames = []
-        this._visualizationFps = 20
+        this._visualizationFps = 30
         this._visualizationDurationMs = 0
+        this._visualizationLevelScale = 255
+        this._visualizationNChannels = 0
+        this._visualizationBands = []
       }
       if (isCanvasView(this.data.activeView)) {
         this._resetScrollViews()
@@ -217,15 +241,26 @@ Component({
       }
     },
 
+    _getEstimatedAudioTime() {
+      const flags = this._getRuntimeFlags()
+      if (flags.isProcessed) {
+        return this._audioAnchorSec
+          + (Date.now() - this._audioAnchorWallMs) / 1000
+      }
+      return Number(this.properties.audioSeekSec) || 0
+    },
+
     _getCurrentLevels() {
       const flags = this._getRuntimeFlags()
       const nChannels = Number(this.properties.nChannels) || 8
       if (this._visualizationFrames && this._visualizationFrames.length && flags.isProcessed) {
+        const channelCount = this._visualizationNChannels || nChannels
         return getFrameAtCurrentTime(this._visualizationFrames, {
-          channelCount: nChannels,
+          channelCount,
           fps: this._visualizationFps,
           durationMs: this._visualizationDurationMs,
-          audioSeekSec: Number(this.properties.audioSeekSec) || 0
+          audioSeekSec: this._getEstimatedAudioTime(),
+          levelScale: this._visualizationLevelScale
         })
       }
       return buildFallbackFrame({
@@ -348,7 +383,7 @@ Component({
 
     _startPlaybackTimer() {
       this._stopPlaybackTimer(false)
-      const fps = this._visualizationFps || 20
+      const fps = this._visualizationFps || 30
       const interval = Math.max(33, Math.round(1000 / fps))
       this._playbackTimer = setInterval(() => this._tickPlayback(), interval)
       this._tickPlayback()
