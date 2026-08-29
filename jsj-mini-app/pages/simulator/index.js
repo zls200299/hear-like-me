@@ -1,3 +1,6 @@
+const { listScenarios } = require('../../services/scenario.js')
+const { listSamples } = require('../../services/sample.js')
+
 const SCENARIO_PRESETS = {
   quiet: {
     nChannels: 8,
@@ -53,6 +56,29 @@ function buildElectrodeDots(count) {
   return Array.from({ length: count }, (_, index) => index)
 }
 
+function buildScenarioPresets(scenarios) {
+  const presets = {}
+  scenarios.forEach((item) => {
+    presets[item.code] = {
+      nChannels: item.nChannels,
+      frequencyRange: item.frequencyRange,
+      envCut: item.envCut,
+      spread: item.spread,
+      noiseLevel: item.noiseLevel,
+      carrier: item.carrier
+    }
+  })
+  return presets
+}
+
+function buildSampleLabels(samples) {
+  const labels = {}
+  samples.forEach((item) => {
+    labels[item.code] = item.nameCn
+  })
+  return labels
+}
+
 Page({
   data: {
     sourceType: 'sample',
@@ -97,14 +123,76 @@ Page({
   },
 
   _processTimer: null,
+  _scenarioPresets: null,
+  _sampleLabels: null,
 
-  onLoad() {},
+  onLoad() {
+    this._scenarioPresets = { ...SCENARIO_PRESETS }
+    this._sampleLabels = { ...SAMPLE_LABELS }
+    this._loadRemoteData()
+  },
 
   onUnload() {
     if (this._processTimer) {
       clearTimeout(this._processTimer)
       this._processTimer = null
     }
+  },
+
+  async _loadRemoteData() {
+    await Promise.all([
+      this._loadScenarios(),
+      this._loadSamples()
+    ])
+  },
+
+  async _loadScenarios() {
+    const scenarios = await listScenarios()
+    if (!scenarios || !scenarios.length) return
+
+    this._scenarioPresets = buildScenarioPresets(scenarios)
+    this.setData({
+      scenarioList: scenarios.map((item) => ({
+        code: item.code,
+        name: item.nameCn
+      }))
+    })
+  },
+
+  async _loadSamples() {
+    const samples = await listSamples()
+    if (!samples || !samples.length) return
+
+    this._sampleLabels = buildSampleLabels(samples)
+
+    const sampleOptions = samples.map((item) => ({
+      code: item.code,
+      label: item.nameCn
+    }))
+
+    const selectedSample = samples.some((item) => item.code === this.data.selectedSample)
+      ? this.data.selectedSample
+      : samples[0].code
+
+    this.setData({
+      sampleOptions,
+      selectedSample,
+      statusText: `已选择${this._sampleLabels[selectedSample] || selectedSample}`
+    })
+  },
+
+  _getSampleLabel(code) {
+    if (this._sampleLabels && this._sampleLabels[code]) {
+      return this._sampleLabels[code]
+    }
+    return SAMPLE_LABELS[code] || code
+  },
+
+  _getScenarioPreset(code) {
+    if (this._scenarioPresets && this._scenarioPresets[code]) {
+      return this._scenarioPresets[code]
+    }
+    return SCENARIO_PRESETS[code]
   },
 
   _updateElectrodeDots(count) {
@@ -126,7 +214,7 @@ Page({
     let statusText = '未选择音频'
 
     if (type === 'sample') {
-      statusText = `已选择${SAMPLE_LABELS[this.data.selectedSample]}`
+      statusText = `已选择${this._getSampleLabel(this.data.selectedSample)}`
     } else if (type === 'upload') {
       sourceHint = '已选择：待上传音频示例'
       statusText = '已选择待上传音频'
@@ -151,13 +239,13 @@ Page({
     this._resetTaskStatus()
     this.setData({
       selectedSample: code,
-      statusText: `已选择${SAMPLE_LABELS[code]}`
+      statusText: `已选择${this._getSampleLabel(code)}`
     })
   },
 
   selectScenario(e) {
     const code = e.currentTarget.dataset.code
-    const preset = SCENARIO_PRESETS[code]
+    const preset = this._getScenarioPreset(code)
     if (!preset) return
 
     const scenarioItem = this.data.scenarioList.find((item) => item.code === code)
@@ -172,6 +260,7 @@ Page({
       envCut: preset.envCut,
       spread: preset.spread,
       noiseLevel: preset.noiseLevel,
+      carrier: preset.carrier || this.data.carrier,
       statusText: `已切换至${scenarioName}场景`
     })
   },
