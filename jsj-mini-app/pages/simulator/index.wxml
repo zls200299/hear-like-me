@@ -192,11 +192,12 @@
   <view class="card">
     <view class="card-title">电极阵列</view>
     <view class="electrode-panel">
-      <view class="electrode-grid">
+      <view class="electrode-grid electrode-visual-grid">
         <view
-          wx:for="{{electrodeDots}}"
-          wx:key="*this"
-          class="electrode-dot electrode-dot--active"
+          wx:for="{{electrodeVisualList}}"
+          wx:key="index"
+          class="electrode-dot {{item.active ? 'electrode-dot--active' : 'electrode-dot--inactive'}} {{item.pulse ? 'electrode-dot--pulse' : ''}} {{item.weakPulse ? 'electrode-dot--weak-pulse' : ''}} {{item.spreadLevel ? 'electrode-dot--' + item.spreadLevel : ''}} {{item.noiseFlicker ? 'electrode-dot--noise' : ''}}"
+          style="opacity: {{item.opacity}};"
         ></view>
       </view>
     </view>
@@ -259,6 +260,83 @@
     <view wx:if="{{taskStatus === 'failed'}}" class="error-message">
       <view class="error-message__title">模拟声音生成失败</view>
       <view wx:if="{{errorMessage}}" class="error-message__detail">失败原因：{{errorMessage}}</view>
+    </view>
+  </view>
+
+  <!-- 视觉化反馈 -->
+  <view class="card visual-card">
+    <view class="card-title">视觉化反馈</view>
+
+    <!-- 可懂度仪表 -->
+    <view class="visual-block">
+      <view class="visual-block-title">可懂度估分</view>
+      <view class="clarity-meter {{clarityLevelClass}}">
+        <view class="clarity-meter-main">
+          <view class="clarity-meter-score">
+            <text class="clarity-meter-num">{{clarityScore != null ? clarityScore : '--'}}</text>
+            <text class="clarity-meter-total">/100</text>
+          </view>
+          <view class="clarity-meter-info">
+            <view class="clarity-meter-grade">{{clarityGrade || '参数估算'}}</view>
+            <view class="clarity-meter-desc">{{clarityDesc}}</view>
+          </view>
+        </view>
+        <view class="clarity-meter-track">
+          <view
+            class="clarity-meter-fill"
+            style="width: {{clarityScore != null ? clarityScore : 0}}%;"
+          ></view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 频率覆盖 -->
+    <view class="visual-block">
+      <view class="visual-block-title">频率覆盖</view>
+      <view class="freq-track">
+        <view
+          class="freq-fill"
+          style="left: {{freqCoverageLeft}}; width: {{freqCoverageWidth}};"
+        ></view>
+      </view>
+      <view class="freq-label-row">
+        <text class="freq-label">80Hz</text>
+        <text class="freq-current">当前：{{freqCoverageLabel}}</text>
+        <text class="freq-label">8000Hz</text>
+      </view>
+    </view>
+
+    <!-- 电极活动 -->
+    <view class="visual-block">
+      <view class="visual-block-title">电极活动</view>
+      <view class="electrode-panel electrode-panel--visual">
+        <view class="electrode-visual-grid">
+          <view
+            wx:for="{{electrodeVisualList}}"
+            wx:key="index"
+            class="electrode-dot {{item.active ? 'electrode-dot--active' : 'electrode-dot--inactive'}} {{item.pulse ? 'electrode-dot--pulse' : ''}} {{item.weakPulse ? 'electrode-dot--weak-pulse' : ''}} {{item.spreadLevel ? 'electrode-dot--' + item.spreadLevel : ''}} {{item.noiseFlicker ? 'electrode-dot--noise' : ''}}"
+            style="opacity: {{item.opacity}};"
+          ></view>
+        </view>
+      </view>
+      <view class="visual-block-hint">激活 {{nChannels}} / 22 通道 · 扩散 {{spread}}%</view>
+    </view>
+
+    <!-- 神经活动 -->
+    <view class="visual-block visual-block--last">
+      <view class="visual-block-title">神经活动</view>
+      <view class="neural-bars">
+        <view
+          wx:for="{{neuralBars}}"
+          wx:key="index"
+          class="neural-bar {{item.animClass}} {{item.flicker ? 'neural-bar--flicker' : ''}}"
+          style="height: {{item.height}}; animation-delay: {{item.delay}}; animation-duration: {{item.duration}};"
+        ></view>
+      </view>
+      <view class="visual-block-hint">
+        {{carrier === 'sine' ? '正弦载体 · 规律起伏' : '噪声载体 · 随机扰动'}}
+        · 包络 {{envCut}} Hz
+      </view>
     </view>
   </view>
 

@@ -58,6 +58,16 @@ function buildElectrodeDots(count) {
   return Array.from({ length: count }, (_, index) => index)
 }
 
+function pseudoRandom(seed) {
+  const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453
+  return x - Math.floor(x)
+}
+
+const FREQ_AXIS_MIN = 80
+const FREQ_AXIS_MAX = 8000
+const ELECTRODE_TOTAL = 22
+const NEURAL_BAR_COUNT = 18
+
 function buildScenarioPresets(scenarios) {
   const presets = {}
   scenarios.forEach((item) => {
@@ -104,6 +114,12 @@ Page({
     statusText: '请选择音频来源',
     sourceHint: '',
     electrodeDots: buildElectrodeDots(8),
+    electrodeVisualList: [],
+    clarityLevelClass: 'level-mid',
+    freqCoverageLeft: '0%',
+    freqCoverageWidth: '100%',
+    freqCoverageLabel: '150 - 7000 Hz',
+    neuralBars: [],
     sourceOptions: [
       { type: 'sample', label: '示例声音' },
       { type: 'upload', label: '上传音频' },
@@ -159,8 +175,9 @@ Page({
     this._syncRuntimeParamsFromData()
     this._loadRemoteData().then(() => {
       this._syncRuntimeParamsFromData()
-      this._updateLocalClarity()
+      this._refreshVisualFeedback()
     })
+    this._refreshVisualFeedback()
   },
 
   onUnload() {
@@ -228,6 +245,150 @@ Page({
   _updateElectrodeDots(count) {
     this.setData({
       electrodeDots: buildElectrodeDots(count)
+    })
+    this._refreshVisualFeedback()
+  },
+
+  _getClarityLevelClass(score) {
+    const s = score != null && score !== '' ? Number(score) : 0
+    if (Number.isNaN(s) || s < 24) return 'level-lowest'
+    if (s < 44) return 'level-low'
+    if (s < 66) return 'level-mid'
+    if (s < 86) return 'level-good'
+    return 'level-best'
+  },
+
+  _freqToAxisPercent(freq) {
+    const lnMin = Math.log(FREQ_AXIS_MIN)
+    const lnMax = Math.log(FREQ_AXIS_MAX)
+    const lnSpan = lnMax - lnMin
+    return clamp((Math.log(freq) - lnMin) / lnSpan, 0, 1) * 100
+  },
+
+  _getFrequencyCoverageStyle() {
+    const { fLo, fHi } = this._parseFrequencyRange(this.data.frequencyRange)
+    const left = this._freqToAxisPercent(fLo)
+    const right = this._freqToAxisPercent(fHi)
+    return {
+      left: `${left.toFixed(2)}%`,
+      width: `${Math.max(right - left, 1).toFixed(2)}%`
+    }
+  },
+
+  _buildElectrodeVisualState() {
+    const nChannels = Number(this.data.nChannels) || 8
+    const spread = Number(this.data.spread) || 0
+    const noiseLevel = Number(this.data.noiseLevel) || 0
+    const isPlaying = this.data.isAudioPlaying
+    const playingKind = this.data.playingKind
+    const isProcessedPlaying = isPlaying && playingKind === 'processed'
+    const isOriginalPlaying = isPlaying && playingKind === 'original'
+
+    let spreadLevel = 'spread-low'
+    if (spread >= 66) spreadLevel = 'spread-high'
+    else if (spread >= 33) spreadLevel = 'spread-mid'
+
+    const list = []
+    for (let i = 0; i < ELECTRODE_TOTAL; i++) {
+      const active = i < nChannels
+      const centerDist = nChannels > 1 ? Math.abs(i - (nChannels - 1) / 2) / ((nChannels - 1) / 2) : 0
+      const intensity = active ? clamp(1 - centerDist * 0.35, 0.55, 1) : 0.15
+      const noiseFlicker = active && noiseLevel >= 25 && (isProcessedPlaying || noiseLevel >= 50)
+
+      list.push({
+        index: i,
+        active,
+        intensity,
+        pulse: active && isProcessedPlaying,
+        weakPulse: active && isOriginalPlaying && !isProcessedPlaying,
+        spreadLevel: active ? spreadLevel : '',
+        noiseFlicker,
+        opacity: active ? (0.65 + intensity * 0.35).toFixed(2) : '0.2'
+      })
+    }
+    return list
+  },
+
+  _buildNeuralBars() {
+    const nChannels = Number(this.data.nChannels) || 8
+    const spreadRatio = (Number(this.data.spread) || 0) / 100
+    const noiseRatio = (Number(this.data.noiseLevel) || 0) / 100
+    const envCut = Number(this.data.envCut) || 160
+    const carrier = this.data.carrier || 'noise'
+    const isProcessed = this.data.isAudioPlaying && this.data.playingKind === 'processed'
+    const isOriginal = this.data.isAudioPlaying && this.data.playingKind === 'original'
+    const isPlaying = this.data.isAudioPlaying
+
+    const baseDuration = clamp(1.8 - ((envCut - 20) / 480) * 1.3, 0.45, 1.8)
+    const channelFactor = clamp(nChannels / 22, 0.15, 1)
+    const spreadUniform = clamp(1 - spreadRatio * 0.75, 0.2, 1)
+
+    const bars = []
+    for (let i = 0; i < NEURAL_BAR_COUNT; i++) {
+      const seed = i + 1
+      const sineWave = Math.sin((i / NEURAL_BAR_COUNT) * Math.PI * 2) * 0.5 + 0.5
+      const rand = isPlaying && carrier === 'noise'
+        ? pseudoRandom(seed + Date.now() % 97)
+        : pseudoRandom(seed)
+
+      const pattern = carrier === 'sine' ? sineWave : rand
+      const blended = spreadUniform * pattern + (1 - spreadUniform) * 0.5
+      let height = 18 + blended * 62 * channelFactor
+
+      if (noiseRatio > 0) {
+        const noiseJitter = (pseudoRandom(seed * 3.7) - 0.5) * noiseRatio * 36
+        height += noiseJitter
+      }
+
+      if (!isPlaying) {
+        height *= 0.55
+      } else if (isOriginal) {
+        height *= 0.72
+      }
+
+      height = clamp(height, 10, 96)
+
+      const delay = carrier === 'sine'
+        ? `${(i * 0.07).toFixed(2)}s`
+        : `${(pseudoRandom(seed * 1.9) * 0.55).toFixed(2)}s`
+
+      let duration = baseDuration
+      if (carrier === 'noise') {
+        duration *= 0.82 + pseudoRandom(seed * 2.3) * 0.36
+      }
+
+      let animClass = 'neural-bar--idle'
+      if (isProcessed) animClass = 'neural-bar--active'
+      else if (isOriginal) animClass = 'neural-bar--weak'
+
+      bars.push({
+        height: `${Math.round(height)}%`,
+        delay,
+        duration: `${duration.toFixed(2)}s`,
+        animClass,
+        flicker: noiseRatio >= 0.2 && isProcessed
+      })
+    }
+    return bars
+  },
+
+  _refreshVisualFeedback() {
+    if (this._unloaded) return
+
+    const { score, grade, desc } = this._computeLocalClarity()
+    const freqStyle = this._getFrequencyCoverageStyle()
+    const { fLo, fHi } = this._parseFrequencyRange(this.data.frequencyRange)
+
+    this.setData({
+      clarityScore: score,
+      clarityGrade: grade,
+      clarityDesc: desc,
+      clarityLevelClass: this._getClarityLevelClass(score),
+      freqCoverageLeft: freqStyle.left,
+      freqCoverageWidth: freqStyle.width,
+      freqCoverageLabel: `${fLo} - ${fHi} Hz`,
+      electrodeVisualList: this._buildElectrodeVisualState(),
+      neuralBars: this._buildNeuralBars()
     })
   },
 
@@ -360,7 +521,7 @@ Page({
     }
 
     this.setData(patch, () => {
-      this._updateLocalClarity()
+      this._refreshVisualFeedback()
     })
   },
 
@@ -401,12 +562,7 @@ Page({
   },
 
   _updateLocalClarity() {
-    const { score, grade, desc } = this._computeLocalClarity()
-    this.setData({
-      clarityScore: score,
-      clarityGrade: grade,
-      clarityDesc: desc
-    })
+    this._refreshVisualFeedback()
   },
 
   _getClarityDesc(score, grade) {
@@ -475,6 +631,8 @@ Page({
       uploadedObjectKey: sampleSource.objectKey,
       taskStatus: 'ready',
       statusText: '示例声音已准备好'
+    }, () => {
+      this._refreshVisualFeedback()
     })
   },
 
@@ -533,6 +691,8 @@ Page({
       isAudioPlaying: false,
       playingKind: '',
       statusText
+    }, () => {
+      this._refreshVisualFeedback()
     })
   },
 
@@ -567,6 +727,8 @@ Page({
         isAudioPlaying: true,
         playingKind: kind,
         statusText: onPlayText
+      }, () => {
+        this._refreshVisualFeedback()
       })
     })
 
@@ -576,6 +738,8 @@ Page({
         isAudioPlaying: false,
         playingKind: '',
         statusText: onStopText || '已停止播放'
+      }, () => {
+        this._refreshVisualFeedback()
       })
     })
 
@@ -585,6 +749,8 @@ Page({
         isAudioPlaying: false,
         playingKind: '',
         statusText: onStopText || '播放结束'
+      }, () => {
+        this._refreshVisualFeedback()
       })
     })
 
@@ -595,6 +761,8 @@ Page({
         isAudioPlaying: false,
         playingKind: '',
         statusText: onErrorText
+      }, () => {
+        this._refreshVisualFeedback()
       })
       wx.showToast({
         title: '播放失败',
@@ -742,6 +910,12 @@ Page({
     const value = Number(e.detail.value)
     if (!Number.isFinite(value)) return
     this._applyRuntimePatch({ nChannels: value, selectedScenario: '' })
+    this.setData({
+      nChannels: value,
+      selectedScenario: ''
+    }, () => {
+      this._refreshVisualFeedback()
+    })
   },
 
   changeChannels(e) {
@@ -1077,6 +1251,8 @@ Page({
         isProcessing: false,
         errorMessage: '',
         statusText: replacePlaying ? '模拟声已按新参数更新' : '正在循环播放人工耳蜗模拟声音'
+      }, () => {
+        this._refreshVisualFeedback()
       })
 
       if (autoPlay) {
