@@ -22,7 +22,7 @@
       </view>
     </view>
 
-    <view wx:if="{{sourceHint}}" class="source-hint">{{sourceHint}}</view>
+    <view wx:if="{{sourceHint && sourceType !== 'upload'}}" class="source-hint">{{sourceHint}}</view>
 
     <view wx:if="{{sourceType === 'sample'}}" class="sub-options">
       <view class="sub-options__label">选择示例</view>
@@ -37,6 +37,12 @@
           {{item.label}}
         </view>
       </view>
+    </view>
+
+    <view wx:if="{{sourceType === 'upload'}}" class="sub-options">
+      <view wx:if="{{taskStatus === 'uploading'}}" class="source-hint">正在上传...</view>
+      <view wx:elif="{{taskStatus === 'ready' && uploadedFileName}}" class="source-hint">已上传：{{uploadedFileName}}</view>
+      <view wx:else class="source-hint">请选择一个 MP3/WAV/M4A/AAC 音频文件</view>
     </view>
   </view>
 
@@ -216,7 +222,7 @@
   <view class="card status-card">
     <view class="card-title">当前状态</view>
     <view class="status-text">{{statusText}}</view>
-    <view wx:if="{{taskStatus === 'processing'}}" class="status-processing">
+    <view wx:if="{{taskStatus === 'processing' || taskStatus === 'uploading'}}" class="status-processing">
       <view class="status-dot"></view>
       <text>处理中，请稍候...</text>
     </view>

@@ -121,7 +121,7 @@ public class MiniApiController {
     // ==================== 4. 文件预览 ====================
 
     @GetMapping("/files/preview/{assetId}")
-    public ResponseEntity<FileSystemResource> previewFile(@PathVariable Long assetId) {
+    public ResponseEntity<FileSystemResource> previewFile(@PathVariable("assetId") Long assetId) {
         FileAsset asset = fileAssetService.getById(assetId);
         if (asset == null || (asset.getIsDelete() != null && asset.getIsDelete() == 1)) {
             throw new ServiceException("文件不存在");
@@ -207,7 +207,7 @@ public class MiniApiController {
     // ==================== 6. 查询任务详情 ====================
 
     @GetMapping("/audio/tasks/{taskNo}")
-    public R<Map<String, Object>> getTaskDetail(@PathVariable String taskNo) {
+    public R<Map<String, Object>> getTaskDetail(@PathVariable("taskNo") String taskNo) {
         LambdaQueryWrapper<AudioProcessingTask> wrapper = new QueryWrapper<AudioProcessingTask>().lambda()
                 .eq(AudioProcessingTask::getTaskNo, taskNo)
                 .eq(AudioProcessingTask::getIsDelete, 0);

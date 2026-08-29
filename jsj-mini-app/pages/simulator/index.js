@@ -1,5 +1,6 @@
 const { listScenarios } = require('../../services/scenario.js')
 const { listSamples } = require('../../services/sample.js')
+const { uploadAudio } = require('../../services/file.js')
 
 const SCENARIO_PRESETS = {
   quiet: {
@@ -82,6 +83,10 @@ function buildSampleLabels(samples) {
 Page({
   data: {
     sourceType: 'sample',
+    sourceAssetId: null,
+    originalAudioUrl: '',
+    uploadedFileName: '',
+    uploadedObjectKey: '',
     selectedSample: 'vowel',
     selectedScenario: 'quiet',
     nChannels: 8,
@@ -91,7 +96,7 @@ Page({
     spread: 15,
     noiseLevel: 0,
     taskStatus: 'idle',
-    statusText: '已选择示例声音',
+    statusText: '请选择音频来源',
     sourceHint: '',
     electrodeDots: buildElectrodeDots(8),
     sourceOptions: [
@@ -125,6 +130,7 @@ Page({
   _processTimer: null,
   _scenarioPresets: null,
   _sampleLabels: null,
+  audioCtx: null,
 
   onLoad() {
     this._scenarioPresets = { ...SCENARIO_PRESETS }
@@ -136,6 +142,10 @@ Page({
     if (this._processTimer) {
       clearTimeout(this._processTimer)
       this._processTimer = null
+    }
+    if (this.audioCtx) {
+      this.audioCtx.destroy()
+      this.audioCtx = null
     }
   },
 
@@ -201,23 +211,34 @@ Page({
     })
   },
 
-  _resetTaskStatus() {
+  _resetConvertStatus() {
     this.setData({
-      taskStatus: 'idle',
       isProcessing: false
     })
+    if (this.data.taskStatus === 'processing' || this.data.taskStatus === 'success') {
+      this.setData({
+        taskStatus: this.data.sourceType === 'upload' && this.data.sourceAssetId ? 'ready' : 'idle'
+      })
+    }
   },
 
   selectSource(e) {
     const type = e.currentTarget.dataset.type
+
+    if (type === 'upload') {
+      this.setData({
+        sourceType: 'upload',
+        sourceHint: ''
+      })
+      this._chooseAndUpload()
+      return
+    }
+
     let sourceHint = ''
     let statusText = '未选择音频'
 
     if (type === 'sample') {
       statusText = `已选择${this._getSampleLabel(this.data.selectedSample)}`
-    } else if (type === 'upload') {
-      sourceHint = '已选择：待上传音频示例'
-      statusText = '已选择待上传音频'
     } else if (type === 'record') {
       sourceHint = '录制功能后续接入'
       statusText = '录制功能后续接入'
@@ -226,19 +247,21 @@ Page({
       statusText = '实时麦克风后续接入'
     }
 
-    this._resetTaskStatus()
+    this._resetConvertStatus()
     this.setData({
       sourceType: type,
       sourceHint,
-      statusText
+      statusText,
+      taskStatus: 'idle'
     })
   },
 
   selectSample(e) {
     const code = e.currentTarget.dataset.code
-    this._resetTaskStatus()
+    this._resetConvertStatus()
     this.setData({
       selectedSample: code,
+      taskStatus: 'idle',
       statusText: `已选择${this._getSampleLabel(code)}`
     })
   },
@@ -251,7 +274,7 @@ Page({
     const scenarioItem = this.data.scenarioList.find((item) => item.code === code)
     const scenarioName = scenarioItem ? scenarioItem.name : code
 
-    this._resetTaskStatus()
+    this._resetConvertStatus()
     this._updateElectrodeDots(preset.nChannels)
     this.setData({
       selectedScenario: code,
@@ -267,7 +290,7 @@ Page({
 
   changeChannels(e) {
     const value = Number(e.detail.value)
-    this._resetTaskStatus()
+    this._resetConvertStatus()
     this._updateElectrodeDots(value)
     this.setData({
       nChannels: value,
@@ -277,7 +300,7 @@ Page({
 
   quickSetChannels(e) {
     const value = Number(e.currentTarget.dataset.value)
-    this._resetTaskStatus()
+    this._resetConvertStatus()
     this._updateElectrodeDots(value)
     this.setData({
       nChannels: value,
@@ -287,7 +310,7 @@ Page({
 
   selectCarrier(e) {
     const value = e.currentTarget.dataset.value
-    this._resetTaskStatus()
+    this._resetConvertStatus()
     this.setData({
       carrier: value,
       statusText: value === 'noise' ? '已选择噪声载体' : '已选择正弦载体'
@@ -296,7 +319,7 @@ Page({
 
   selectFrequencyRange(e) {
     const value = e.currentTarget.dataset.value
-    this._resetTaskStatus()
+    this._resetConvertStatus()
     this.setData({
       frequencyRange: value,
       statusText: `频率范围已设为 ${value} Hz`
@@ -305,7 +328,7 @@ Page({
 
   changeEnvCut(e) {
     const value = Number(e.detail.value)
-    this._resetTaskStatus()
+    this._resetConvertStatus()
     this.setData({
       envCut: value,
       statusText: `包络细节已设为 ${value} Hz`
@@ -314,7 +337,7 @@ Page({
 
   changeSpread(e) {
     const value = Number(e.detail.value)
-    this._resetTaskStatus()
+    this._resetConvertStatus()
     this.setData({
       spread: value,
       statusText: `电流扩散已设为 ${value}%`
@@ -323,14 +346,113 @@ Page({
 
   changeNoiseLevel(e) {
     const value = Number(e.detail.value)
-    this._resetTaskStatus()
+    this._resetConvertStatus()
     this.setData({
       noiseLevel: value,
       statusText: `环境噪声已设为 ${value}%`
     })
   },
 
+  _chooseAndUpload() {
+    if (this.data.taskStatus === 'uploading') return
+
+    wx.chooseMessageFile({
+      count: 1,
+      type: 'file',
+      extension: ['mp3', 'wav', 'm4a', 'aac'],
+      success: (res) => {
+        const file = res.tempFiles[0]
+        if (!file || !file.path) return
+        this._doUpload(file.path, file.name)
+      },
+      fail: (err) => {
+        const errMsg = (err && err.errMsg) ? err.errMsg : ''
+        if (errMsg.indexOf('cancel') !== -1 || errMsg.indexOf('取消') !== -1) {
+          this.setData({
+            sourceType: 'upload',
+            statusText: '已选择上传音频，请选择文件',
+            sourceHint: ''
+          })
+        }
+      }
+    })
+  },
+
+  async _doUpload(filePath, fileName) {
+    this.setData({
+      sourceType: 'upload',
+      taskStatus: 'uploading',
+      statusText: '正在上传音频...',
+      uploadedFileName: fileName || '',
+      sourceHint: '',
+      isProcessing: false
+    })
+
+    try {
+      const result = await uploadAudio(filePath)
+      this.setData({
+        sourceAssetId: result.assetId,
+        originalAudioUrl: result.url,
+        uploadedFileName: result.fileName || fileName,
+        uploadedObjectKey: result.objectKey,
+        taskStatus: 'ready',
+        statusText: '音频上传成功，可以播放原声或开始转换',
+        sourceHint: ''
+      })
+    } catch (err) {
+      this.setData({
+        taskStatus: 'failed',
+        statusText: '音频上传失败，请重试',
+        sourceHint: ''
+      })
+      wx.showToast({
+        title: '上传失败',
+        icon: 'none'
+      })
+    }
+  },
+
   playOriginal() {
+    if (this.data.sourceType === 'upload') {
+      if (!this.data.originalAudioUrl) {
+        wx.showToast({
+          title: '请先上传音频',
+          icon: 'none'
+        })
+        return
+      }
+
+      if (this.audioCtx) {
+        this.audioCtx.stop()
+        this.audioCtx.destroy()
+        this.audioCtx = null
+      }
+
+      const audioCtx = wx.createInnerAudioContext()
+      this.audioCtx = audioCtx
+      audioCtx.src = this.data.originalAudioUrl
+
+      audioCtx.onPlay(() => {
+        this.setData({ statusText: '正在播放原声' })
+      })
+
+      audioCtx.onEnded(() => {
+        this.setData({ statusText: '原声播放结束' })
+      })
+
+      audioCtx.onError((err) => {
+        console.error(err)
+        wx.showToast({
+          title: '播放失败',
+          icon: 'none'
+        })
+        this.setData({ statusText: '原声播放失败，请检查文件地址' })
+      })
+
+      audioCtx.play()
+      return
+    }
+
     this.setData({
       statusText: '正在播放原声示例'
     })
