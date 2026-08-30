@@ -63,7 +63,8 @@ Component({
     axisLeft: '150 Hz',
     axisCenter: '频率通道（低频 → 高频）',
     axisRight: '7 kHz',
-    electrodeBarLevels: []
+    electrodeBarLevels: [],
+    badgeModeText: '当前模式：等待播放'
   },
 
   lifetimes: {
@@ -94,10 +95,12 @@ Component({
       this._audioAnchorWallMs = Date.now()
       this._updateMeta()
       this._refreshStaticViews()
+      this._syncBadgeModeText()
     },
 
     ready() {
       this.syncPlaybackState()
+      this._syncBadgeModeText()
     },
 
     detached() {
@@ -121,6 +124,7 @@ Component({
     },
     'isAudioPlaying, playingKind': function () {
       this.syncPlaybackState()
+      this._syncBadgeModeText()
     },
     audioSeekSec(value) {
       this._audioAnchorSec = Number(value) || 0
@@ -131,10 +135,12 @@ Component({
     realtimeActive(value) {
       if (!value) {
         this.clearRealtimeLevels()
+        this._syncBadgeModeText()
         return
       }
       this._stopIdleTimer()
       this._refreshStaticViews()
+      this._syncBadgeModeText()
     }
   },
 
@@ -148,6 +154,7 @@ Component({
 
       this.setData({ activeView: view }, () => {
         this._updateAxisLabels()
+        this._syncBadgeModeText()
         if (view === 'bars') {
           this._refreshStaticViews()
           this.syncPlaybackState()
@@ -410,11 +417,21 @@ Component({
       const { lo, hi } = parseFreqRange(this.properties.frequencyRange)
       const carrierLabel = this.properties.carrier === 'sine' ? '正弦载波' : '噪声载波'
       this.setData({
-        vizMeta: `${this.properties.nChannels} 个通道 · ${carrierLabel}`,
+        vizMeta: this._resolveVizMeta(carrierLabel),
         freqLo: String(lo),
         freqHiLabel: formatFreqHi(hi)
       })
       this._updateAxisLabels()
+    },
+
+    _resolveVizMeta(carrierLabel) {
+      const view = this.data.activeView
+      const carrier = carrierLabel || (this.properties.carrier === 'sine' ? '正弦载波' : '噪声载波')
+      if (view === 'wave') return '模拟声波形 · 时间域'
+      if (view === 'spec') return '频谱能量 · 频率分布'
+      if (view === 'cochlea') return '耳蜗映射 · 基底膜位置'
+      if (view === 'neuro') return '神经元放电 · 活动强度'
+      return `${this.properties.nChannels} 个通道 · ${carrier}`
     },
 
     _updateAxisLabels() {
@@ -426,22 +443,39 @@ Component({
       let axisRight = fHiLabel
 
       if (view === 'cochlea') {
-        axisCenter = '耳顶（低频） → 耳底（高频）'
+        axisCenter = '频率通道（耳顶 → 耳底）'
       } else if (view === 'spec') {
-        axisLeft = '0 Hz'
-        axisCenter = '频率'
-        axisRight = fHiLabel
+        axisLeft = '0'
+        axisCenter = '能量谱（低频 → 高频）'
+        axisRight = '8 kHz'
       } else if (view === 'wave') {
-        axisLeft = '-1'
-        axisCenter = '振幅 / 当前约 60 ms PCM'
-        axisRight = '+1'
+        axisLeft = '0 ms'
+        axisCenter = '时间轴'
+        axisRight = '120 ms'
       } else if (view === 'neuro') {
-        axisCenter = '通道位置（低频 → 高频）'
+        axisLeft = '弱'
+        axisCenter = '通道神经活动'
+        axisRight = '强'
       } else if (view === 'bars') {
         axisCenter = '频率通道（低频 → 高频）'
       }
 
-      this.setData({ axisLeft, axisCenter, axisRight })
+      this.setData({ axisLeft, axisCenter, axisRight, vizMeta: this._resolveVizMeta() })
+    },
+
+    _syncBadgeModeText() {
+      const { isAudioPlaying, playingKind, realtimeActive } = this.properties
+      let badgeModeText = '当前模式：等待播放'
+      if (realtimeActive) {
+        badgeModeText = '当前模式：实时麦克风'
+      } else if (isAudioPlaying && playingKind === 'processed') {
+        badgeModeText = '当前模式：播放模拟声'
+      } else if (isAudioPlaying && playingKind === 'original') {
+        badgeModeText = '当前模式：播放原声'
+      }
+      if (this.data.badgeModeText !== badgeModeText) {
+        this.setData({ badgeModeText })
+      }
     },
 
     _getDisplayHiHz() {

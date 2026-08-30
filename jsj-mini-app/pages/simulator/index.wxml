@@ -293,54 +293,51 @@
   </view>
 
   <!-- 当前模拟反馈 -->
-  <view class="card console-card">
-    <view class="card-title">当前模拟反馈</view>
+  <view class="mid-card mid-card--feedback {{taskStatus === 'failed' ? 'mid-card--feedback-failed' : ''}}">
+    <view class="mid-card__title">当前模拟反馈</view>
+    <view class="bot-card-desc">根据当前参数，对听感清晰度进行科普性估计，帮助理解不同设置带来的变化。</view>
 
-    <view class="feedback-card {{clarityLevelClass}} {{taskStatus === 'failed' ? 'feedback-card--failed' : ''}} {{taskStatus === 'success' ? 'feedback-card--success' : ''}} {{taskStatus === 'processing' ? 'feedback-card--processing' : ''}}">
-
-      <view class="clarity-meter clarity-meter--compact {{clarityLevelClass}}">
-        <view class="clarity-meter-main">
-          <view class="clarity-meter-score">
-            <text class="clarity-meter-num">{{clarityScore != null ? clarityScore : '--'}}</text>
-            <text class="clarity-meter-total">/100</text>
-          </view>
-          <view class="clarity-meter-info">
-            <view class="clarity-meter-grade">{{clarityGrade || '参数估算'}}</view>
-            <view class="clarity-meter-desc">{{clarityDesc}}</view>
-          </view>
-        </view>
-        <view class="clarity-meter-track">
-          <view
-            class="clarity-meter-fill"
-            style="width: {{clarityScore != null ? clarityScore : 0}}%;"
-          ></view>
-        </view>
+    <view class="feedback-main">
+      <view class="feedback-score-wrap">
+        <text class="feedback-score">{{clarityScore != null ? clarityScore : '--'}}</text>
+        <text class="feedback-outof">/100</text>
       </view>
-
-      <view class="param-chips param-chips--compact">
-        <view class="param-chip">通道 {{nChannels}}</view>
-        <view class="param-chip">{{carrier === 'noise' ? '噪声载体' : '正弦载体'}}</view>
-        <view class="param-chip">{{frequencyRange}} Hz</view>
-        <view class="param-chip">包络 {{envCut}} Hz</view>
-        <view class="param-chip">扩散 {{spread}}%</view>
-        <view class="param-chip">噪声 {{noiseLevel}}%</view>
+      <view class="feedback-info">
+        <view class="feedback-grade">{{clarityGrade || '参数估算'}}</view>
+        <view class="feedback-text">{{clarityDesc}}</view>
       </view>
+    </view>
 
-      <view wx:if="{{taskStatus === 'processing'}}" class="loading-bar">
-        <view class="loading-bar-inner"></view>
-      </view>
+    <view class="feedback-progress">
+      <view
+        class="feedback-progress-fill {{clarityLevelClass}}"
+        style="width: {{clarityScore != null ? clarityScore : 0}}%;"
+      ></view>
+    </view>
 
-      <view wx:if="{{taskStatus === 'failed'}}" class="error-message">
-        <view class="error-message__title">模拟声音生成失败</view>
-        <view wx:if="{{errorMessage}}" class="error-message__detail">失败原因：{{errorMessage}}</view>
-      </view>
+    <view class="feedback-chips">
+      <view class="feedback-chip">通道 {{nChannels}}</view>
+      <view class="feedback-chip">{{carrier === 'noise' ? '噪声载体' : '正弦载体'}}</view>
+      <view class="feedback-chip">{{frequencyRange}} Hz</view>
+      <view class="feedback-chip">包络 {{envCut}} Hz</view>
+      <view class="feedback-chip">扩散 {{spread}}%</view>
+      <view class="feedback-chip">噪声 {{noiseLevel}}%</view>
+    </view>
+
+    <view wx:if="{{taskStatus === 'processing'}}" class="feedback-loading">
+      <view class="feedback-loading-inner"></view>
+    </view>
+
+    <view wx:if="{{taskStatus === 'failed'}}" class="feedback-error">
+      <view class="feedback-error__title">模拟声音生成失败</view>
+      <view wx:if="{{errorMessage}}" class="feedback-error__detail">失败原因：{{errorMessage}}</view>
     </view>
   </view>
 
   <!-- 视觉化反馈 -->
-  <view class="card visual-card">
-    <view class="card-title">视觉化反馈</view>
-    <view class="visual-card-desc">模拟声播放时，电极阵列会根据各频率通道的活动强度实时变化，仅用于科普展示。</view>
+  <view class="mid-card">
+    <view class="mid-card__title">视觉化反馈</view>
+    <view class="bot-card-desc">模拟声播放时，电极阵列、示波器、频谱图、耳蜗和神经元放电会随活动强度变化，仅用于科普展示。</view>
 
     <simulator-visual
       id="visualPanel"

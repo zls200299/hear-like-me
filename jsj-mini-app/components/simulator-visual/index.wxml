@@ -14,6 +14,8 @@
   <view class="sv-meta">{{vizMeta}}</view>
 
   <view class="sv-stage">
+    <view wx:if="{{activeView === 'bars'}}" class="sv-axis-label">低频 → 高频</view>
+
     <view wx:if="{{activeView === 'bars'}}" class="sv-pane">
       <view class="sv-bars">
         <view wx:for="{{electrodeBarLevels}}" wx:key="channelIndex" class="sv-bar-row">
@@ -49,9 +51,19 @@
     ></canvas>
   </view>
 
-  <view class="sv-axis">
+  <view class="sv-footer-scale">
     <text>{{axisLeft}}</text>
-    <text>{{axisCenter}}</text>
+    <text class="sv-footer-scale__center">{{axisCenter}}</text>
     <text>{{axisRight}}</text>
+  </view>
+
+  <view class="sv-badges">
+    <view class="sv-badge">
+      <view class="sv-badge__dot {{realtimeActive || isAudioPlaying ? 'sv-badge__dot--live' : ''}}"></view>
+      <text>实时联动展示</text>
+    </view>
+    <view class="sv-badge">
+      <text>{{badgeModeText}}</text>
+    </view>
   </view>
 </view>
