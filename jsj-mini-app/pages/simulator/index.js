@@ -550,6 +550,7 @@ Page({
         && this.data.sourceType !== 'realtime'
         && this.data.sourceType !== 'record'
       ) {
+        this._invalidateInFlightPrefetch()
         this._schedulePrefetchProcessed()
       }
     })
@@ -2071,12 +2072,16 @@ Page({
     })
   },
 
-  _cancelPrefetch() {
+  _invalidateInFlightPrefetch() {
     if (this._prefetchTimer) {
       clearTimeout(this._prefetchTimer)
       this._prefetchTimer = null
     }
     this._prefetchSeq += 1
+  },
+
+  _cancelPrefetch() {
+    this._invalidateInFlightPrefetch()
   },
 
   _schedulePrefetchProcessed(delayMs = 800) {

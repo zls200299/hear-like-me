@@ -13,6 +13,7 @@ function createSeamlessAudioPlayer() {
     pollTimer: null,
     playing: false,
     silentStop: false,
+    destroyed: false,
     callbacks: {}
   }
 
@@ -158,18 +159,20 @@ function createSeamlessAudioPlayer() {
   }
 
   async function preload(url) {
-    if (!url || destroyed) return
+    if (!url || state.destroyed) return
     if (!state.useWebAudio) return
     await loadBuffer(url)
   }
 
   async function play(url, callbacks = {}) {
+    if (state.destroyed) return
     stop({ silent: true })
     state.callbacks = callbacks || {}
 
     if (state.useWebAudio) {
       try {
         const buffer = await loadBuffer(url)
+        if (state.destroyed) return
         startWebSource(buffer)
         state.playing = true
         startTimePoll()
@@ -184,11 +187,12 @@ function createSeamlessAudioPlayer() {
   }
 
   async function switchSrc(url) {
-    if (!state.playing) return false
+    if (state.destroyed || !state.playing) return false
 
     if (state.useWebAudio && state.webCtx) {
       try {
         const buffer = await loadBuffer(url)
+        if (state.destroyed) return false
         startWebSource(buffer)
         return true
       } catch (err) {
@@ -223,6 +227,9 @@ function createSeamlessAudioPlayer() {
   }
 
   function destroy() {
+    if (state.destroyed) return
+
+    state.destroyed = true
     stop({ silent: true })
     state.bufferCache.clear()
     state.webCtx = null
