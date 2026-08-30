@@ -1318,8 +1318,11 @@ Page({
       this._startFileStreamPump()
     } catch (err) {
       console.error('[sample-stream] start failed', err)
+      if (generation !== this._sampleStreamGeneration || this._streamingMode !== 'sample') {
+        return
+      }
       this._stopSampleStreamingProcessed({ silent: true })
-      if (!this._unloaded && this._sampleStreamGeneration === generation + 1) {
+      if (!this._unloaded) {
         this.setData({
           realtimeError: (err && err.message) ? err.message : '示例流式模拟启动失败',
           statusText: '示例流式模拟启动失败'
@@ -1697,9 +1700,18 @@ Page({
     this._stopRealtimePendingSweep()
     this._clearRealtimeReadyTimeout()
     this._realtimeSocketReady = false
-    this._realtimeConnectSettled = false
+
+    const connectReject = this._realtimeConnectReject
+    const wasConnecting = !this._realtimeConnectSettled
+      && typeof connectReject === 'function'
+    this._realtimeConnectSettled = true
     this._realtimeConnectResolve = null
     this._realtimeConnectReject = null
+
+    if (wasConnecting) {
+      connectReject(new Error('WebSocket connection cancelled'))
+    }
+
     this._clearRealtimeParamPromise(new Error('实时连接已关闭'))
     this._clearRealtimeVisualLevels()
 
