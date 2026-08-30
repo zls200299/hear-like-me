@@ -4,35 +4,31 @@
   gap: 0;
 }
 
-.sv-tab-scroll {
+.sv-tab-row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 8rpx;
   width: 100%;
-  height: auto;
-  white-space: nowrap;
   margin: 32rpx 0 28rpx;
 }
 
-.sv-tab-row {
-  display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 16rpx;
-  padding: 0 0 4rpx;
-}
-
 .sv-tab {
-  display: inline-flex;
+  flex: 1;
+  min-width: 0;
+  display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 76rpx;
-  padding: 0 28rpx;
-  border-radius: 24rpx;
+  min-height: 64rpx;
+  padding: 8rpx 6rpx;
+  border-radius: 20rpx;
   border: 1rpx solid #4b5b72;
   background: rgba(16, 28, 44, 0.75);
-  font-size: 30rpx;
+  font-size: 22rpx;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.15;
   color: #aab7ca;
-  flex-shrink: 0;
+  text-align: center;
   white-space: nowrap;
 }
 
@@ -58,16 +54,6 @@
   overflow: hidden;
   border: 1rpx solid rgba(70, 88, 114, 0.68);
   background: linear-gradient(180deg, #07142a, #0a1425);
-}
-
-.sv-axis-label {
-  position: absolute;
-  top: 24rpx;
-  right: 28rpx;
-  z-index: 2;
-  font-size: 28rpx;
-  color: #8ea0bb;
-  pointer-events: none;
 }
 
 .sv-pane {

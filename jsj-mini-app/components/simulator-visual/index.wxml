@@ -1,21 +1,17 @@
 <view class="sv-root">
-  <scroll-view class="sv-tab-scroll" scroll-x enable-flex show-scrollbar="{{false}}">
-    <view class="sv-tab-row">
-      <view
-        wx:for="{{vizTabs}}"
-        wx:key="id"
-        class="sv-tab {{activeView === item.id ? 'sv-tab--active' : ''}}"
-        data-view="{{item.id}}"
-        bindtap="onTabTap"
-      >{{item.label}}</view>
-    </view>
-  </scroll-view>
+  <view class="sv-tab-row">
+    <view
+      wx:for="{{vizTabs}}"
+      wx:key="id"
+      class="sv-tab {{activeView === item.id ? 'sv-tab--active' : ''}}"
+      data-view="{{item.id}}"
+      bindtap="onTabTap"
+    >{{item.label}}</view>
+  </view>
 
   <view class="sv-meta">{{vizMeta}}</view>
 
   <view class="sv-stage">
-    <view wx:if="{{activeView === 'bars'}}" class="sv-axis-label">低频 → 高频</view>
-
     <view wx:if="{{activeView === 'bars'}}" class="sv-pane">
       <view class="sv-bars">
         <view wx:for="{{electrodeBarLevels}}" wx:key="channelIndex" class="sv-bar-row">
