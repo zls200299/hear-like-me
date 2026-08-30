@@ -165,7 +165,10 @@ Page({
     realtimeLostFrames: 0,
     realtimePlaybackStarted: false,
     realtimePlaybackUnderruns: 0,
-    realtimeBufferedMs: 0
+    realtimeBufferedMs: 0,
+    realtimePlaybackPendingFrames: 0,
+    realtimePlaybackDroppedFrames: 0,
+    realtimePlaybackRecoveryCount: 0
   },
 
   _scenarioPresets: null,
@@ -987,7 +990,10 @@ Page({
       realtimeStatusText: '声码器已就绪，正在采集麦克风音频',
       realtimePlaybackStarted: false,
       realtimePlaybackUnderruns: 0,
-      realtimeBufferedMs: 0
+      realtimeBufferedMs: 0,
+      realtimePlaybackPendingFrames: 0,
+      realtimePlaybackDroppedFrames: 0,
+      realtimePlaybackRecoveryCount: 0
     })
   },
 
@@ -1000,7 +1006,10 @@ Page({
         this.setData({
           realtimePlaybackStarted: !!state.started,
           realtimePlaybackUnderruns: state.underruns || 0,
-          realtimeBufferedMs: state.bufferedMs || 0
+          realtimeBufferedMs: state.bufferedMs || 0,
+          realtimePlaybackPendingFrames: state.pendingFrames || 0,
+          realtimePlaybackDroppedFrames: state.droppedFrames || 0,
+          realtimePlaybackRecoveryCount: state.recoveryCount || 0
         })
       }
     })
@@ -1019,7 +1028,10 @@ Page({
       this.setData({
         realtimePlaybackStarted: false,
         realtimePlaybackUnderruns: 0,
-        realtimeBufferedMs: 0
+        realtimeBufferedMs: 0,
+        realtimePlaybackPendingFrames: 0,
+        realtimePlaybackDroppedFrames: 0,
+        realtimePlaybackRecoveryCount: 0
       })
     }
   },
@@ -1474,7 +1486,10 @@ Page({
         realtimeLostFrames: 0,
         realtimePlaybackStarted: false,
         realtimePlaybackUnderruns: 0,
-        realtimeBufferedMs: 0
+        realtimeBufferedMs: 0,
+        realtimePlaybackPendingFrames: 0,
+        realtimePlaybackDroppedFrames: 0,
+        realtimePlaybackRecoveryCount: 0
       })
       return
     }

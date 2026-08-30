@@ -1,23 +1,33 @@
 const SAMPLE_RATE = 44100
 const CHANNELS = 1
 const INITIAL_BUFFER_FRAMES = 3
-const MAX_PRESTART_QUEUE = 6
-const INITIAL_SCHEDULE_OFFSET_SEC = 0.05
+const MAX_PENDING_FRAMES = 5
+const TARGET_BUFFER_MS = 180
+const MAX_BUFFER_MS = 350
+const HARD_RESET_BUFFER_MS = 500
+const SCHEDULER_INTERVAL_MS = 20
+const INITIAL_SCHEDULE_OFFSET_SEC = 0.04
 const MIN_SCHEDULE_AHEAD_SEC = 0.01
 const UNDERRUN_RECOVERY_OFFSET_SEC = 0.04
-const EXCESSIVE_BUFFER_AHEAD_MS = 600
-const EXCESSIVE_WARN_INTERVAL_MS = 2000
+const HARD_RESET_KEEP_FRAMES = 3
+const HARD_RESET_NEXT_PLAY_OFFSET_SEC = 0.06
+const HARD_RESET_STOP_THRESHOLD_SEC = 0.05
+
+const TARGET_BUFFER_SEC = TARGET_BUFFER_MS / 1000
 
 function createRealtimePcmPlayer(options = {}) {
   const onState = typeof options.onState === 'function' ? options.onState : () => {}
 
   let audioCtx = null
-  let queue = []
+  let pendingQueue = []
+  let scheduledSources = []
   let started = false
   let nextPlayTime = 0
   let destroyed = false
   let underrunCount = 0
-  let lastExcessiveWarnAt = 0
+  let droppedFrames = 0
+  let recoveryCount = 0
+  let schedulerTimer = null
 
   function pcm16ToFloat32(pcmBuffer) {
     const view = new DataView(pcmBuffer)
@@ -32,36 +42,76 @@ function createRealtimePcmPlayer(options = {}) {
     return samples
   }
 
+  function getBufferAheadMs() {
+    if (!audioCtx || !started) return 0
+    return Math.max(0, (nextPlayTime - audioCtx.currentTime) * 1000)
+  }
+
   function getBufferedMs() {
     if (!audioCtx) return 0
 
     if (!started) {
       let totalSamples = 0
-      for (let i = 0; i < queue.length; i++) {
-        totalSamples += queue[i].sampleCount
+      for (let i = 0; i < pendingQueue.length; i++) {
+        totalSamples += pendingQueue[i].sampleCount
       }
       return (totalSamples / SAMPLE_RATE) * 1000
     }
 
-    return Math.max(0, (nextPlayTime - audioCtx.currentTime) * 1000)
+    return getBufferAheadMs()
   }
 
   function emitState() {
     onState({
       started,
       underruns: underrunCount,
-      bufferedMs: Math.round(getBufferedMs())
+      bufferedMs: Math.round(getBufferedMs()),
+      pendingFrames: pendingQueue.length,
+      droppedFrames,
+      recoveryCount
     })
   }
 
-  function trimPrestartQueue() {
-    while (!started && queue.length > MAX_PRESTART_QUEUE) {
-      queue.shift()
+  function trimPendingQueue() {
+    let dropped = 0
+    while (pendingQueue.length > MAX_PENDING_FRAMES) {
+      pendingQueue.shift()
+      dropped += 1
+    }
+
+    if (dropped > 0) {
+      droppedFrames += dropped
+      console.log(`[realtime-player] drop stale frames count=${dropped}`)
     }
   }
 
-  function scheduleChunk(samples) {
-    if (destroyed || !audioCtx || !samples || !samples.length) return
+  function stopScheduler() {
+    if (!schedulerTimer) return
+    clearInterval(schedulerTimer)
+    schedulerTimer = null
+  }
+
+  function startScheduler() {
+    stopScheduler()
+    schedulerTimer = setInterval(() => {
+      tickScheduler()
+    }, SCHEDULER_INTERVAL_MS)
+  }
+
+  function scheduleOneChunk(samples) {
+    if (destroyed || !audioCtx || !samples || !samples.length) return false
+
+    const now = audioCtx.currentTime
+    const bufferAheadSec = nextPlayTime - now
+    if (bufferAheadSec >= TARGET_BUFFER_SEC) {
+      return false
+    }
+
+    if (nextPlayTime <= now) {
+      underrunCount += 1
+      console.log(`[realtime-player] underrun count=${underrunCount}`)
+      nextPlayTime = now + UNDERRUN_RECOVERY_OFFSET_SEC
+    }
 
     const audioBuffer = audioCtx.createBuffer(CHANNELS, samples.length, SAMPLE_RATE)
     const channelData = audioBuffer.getChannelData(0)
@@ -75,42 +125,99 @@ function createRealtimePcmPlayer(options = {}) {
     source.buffer = audioBuffer
     source.connect(audioCtx.destination)
 
-    const now = audioCtx.currentTime
-
-    if (!started) {
-      started = true
-      nextPlayTime = now + INITIAL_SCHEDULE_OFFSET_SEC
-    }
-
-    if (nextPlayTime < now) {
-      underrunCount += 1
-      console.log(`[realtime-player] underrun count=${underrunCount}`)
-      nextPlayTime = now + UNDERRUN_RECOVERY_OFFSET_SEC
-    }
-
     const startAt = Math.max(nextPlayTime, now + MIN_SCHEDULE_AHEAD_SEC)
+    const endAt = startAt + audioBuffer.duration
     source.start(startAt)
-    nextPlayTime = startAt + audioBuffer.duration
+    nextPlayTime = endAt
 
-    const bufferAheadMs = (nextPlayTime - now) * 1000
-    if (bufferAheadMs > EXCESSIVE_BUFFER_AHEAD_MS) {
-      const nowMs = Date.now()
-      if (nowMs - lastExcessiveWarnAt >= EXCESSIVE_WARN_INTERVAL_MS) {
-        lastExcessiveWarnAt = nowMs
-        console.warn('[realtime-player] excessive buffer ahead', Math.round(bufferAheadMs))
+    const entry = {
+      source,
+      startAt,
+      endAt
+    }
+    scheduledSources.push(entry)
+    source.onended = () => {
+      const index = scheduledSources.indexOf(entry)
+      if (index >= 0) {
+        scheduledSources.splice(index, 1)
+      }
+    }
+
+    return true
+  }
+
+  function resetToRealtime(oldBufferedMs) {
+    if (!audioCtx) return
+
+    const now = audioCtx.currentTime
+    const stopThreshold = now + HARD_RESET_STOP_THRESHOLD_SEC
+
+    scheduledSources = scheduledSources.filter((entry) => {
+      if (entry.startAt > stopThreshold) {
+        try {
+          entry.source.stop()
+        } catch (err) {
+          // ignore stop errors for already-started sources
+        }
+        return false
+      }
+      return true
+    })
+
+    if (pendingQueue.length > HARD_RESET_KEEP_FRAMES) {
+      const dropCount = pendingQueue.length - HARD_RESET_KEEP_FRAMES
+      pendingQueue.splice(0, dropCount)
+      droppedFrames += dropCount
+      console.log(`[realtime-player] drop stale frames count=${dropCount}`)
+    }
+
+    nextPlayTime = now + HARD_RESET_NEXT_PLAY_OFFSET_SEC
+    recoveryCount += 1
+    console.warn('[realtime-player] latency reset', Math.round(oldBufferedMs))
+    emitState()
+  }
+
+  function tickScheduler() {
+    if (destroyed || !audioCtx || !started) return
+
+    const bufferAheadMs = getBufferAheadMs()
+
+    if (bufferAheadMs > HARD_RESET_BUFFER_MS) {
+      resetToRealtime(bufferAheadMs)
+      return
+    }
+
+    if (bufferAheadMs > MAX_BUFFER_MS && pendingQueue.length > 1) {
+      const dropCount = pendingQueue.length - 1
+      pendingQueue.splice(0, dropCount)
+      droppedFrames += dropCount
+      console.log(`[realtime-player] drop stale frames count=${dropCount}`)
+    }
+
+    while (pendingQueue.length > 0) {
+      if (getBufferAheadMs() >= TARGET_BUFFER_MS) {
+        break
+      }
+
+      const item = pendingQueue.shift()
+      const scheduled = scheduleOneChunk(item.samples)
+      if (!scheduled) {
+        pendingQueue.unshift(item)
+        break
       }
     }
 
     emitState()
   }
 
-  function flushPrestartQueue() {
-    if (started || queue.length < INITIAL_BUFFER_FRAMES) return
+  function startPlayback() {
+    if (started || !audioCtx || pendingQueue.length < INITIAL_BUFFER_FRAMES) return
 
-    while (queue.length > 0) {
-      const item = queue.shift()
-      scheduleChunk(item.samples)
-    }
+    started = true
+    nextPlayTime = audioCtx.currentTime + INITIAL_SCHEDULE_OFFSET_SEC
+    startScheduler()
+    tickScheduler()
+    emitState()
   }
 
   function enqueue(pcmBuffer) {
@@ -118,20 +225,21 @@ function createRealtimePcmPlayer(options = {}) {
     if (!pcmBuffer || pcmBuffer.byteLength < 2) return
 
     const samples = pcm16ToFloat32(pcmBuffer)
-    const item = {
+    pendingQueue.push({
       samples,
       sampleCount: samples.length
-    }
+    })
+    trimPendingQueue()
 
     if (!started) {
-      queue.push(item)
-      trimPrestartQueue()
-      flushPrestartQueue()
+      if (pendingQueue.length >= INITIAL_BUFFER_FRAMES) {
+        startPlayback()
+      }
       emitState()
       return
     }
 
-    scheduleChunk(samples)
+    emitState()
   }
 
   async function init() {
@@ -154,7 +262,17 @@ function createRealtimePcmPlayer(options = {}) {
     if (destroyed) return
 
     destroyed = true
-    queue = []
+    stopScheduler()
+
+    scheduledSources.forEach((entry) => {
+      try {
+        entry.source.stop()
+      } catch (err) {
+        // ignore
+      }
+    })
+    scheduledSources = []
+    pendingQueue = []
     started = false
     nextPlayTime = 0
 
@@ -175,7 +293,9 @@ function createRealtimePcmPlayer(options = {}) {
     enqueue,
     destroy,
     isStarted: () => started,
-    getUnderrunCount: () => underrunCount
+    getUnderrunCount: () => underrunCount,
+    getDroppedFrames: () => droppedFrames,
+    getRecoveryCount: () => recoveryCount
   }
 }
 
