@@ -104,18 +104,26 @@
         <text>{{isAudioPlaying && playingKind === 'original' ? '停止原声' : '播放原声'}}</text>
       </view>
       <view
-        class="play-btn play-btn--primary {{isProcessing ? 'play-btn--disabled' : ''}} {{isAudioPlaying && playingKind === 'processed' ? 'play-btn--active' : ''}}"
+        class="play-btn play-btn--primary {{(processedUiBusy || isProcessing) ? 'play-btn--disabled' : ''}} {{processedUiState === 'playing' || (isAudioPlaying && playingKind === 'processed' && processedUiState !== 'starting' && processedUiState !== 'switching') ? 'play-btn--active' : ''}}"
         bindtap="playProcessedAuto"
       >
+        <view wx:if="{{processedUiSpinning}}" class="play-btn__spinner"></view>
         <hlm-icon
+          wx:else
           name="waveform"
           size="48"
-          color="{{isAudioPlaying && playingKind === 'processed' ? '#28e0c2' : '#06141c'}}"
+          color="{{processedUiState === 'playing' || (isAudioPlaying && playingKind === 'processed') ? '#28e0c2' : '#06141c'}}"
         />
-        <text>{{isProcessing ? (isAudioPlaying && playingKind === 'processed' ? '更新中...' : '正在生成...') : (isAudioPlaying && playingKind === 'processed' ? '停止模拟声' : '播放模拟声')}}</text>
+        <text>{{processedBtnLabel}}</text>
       </view>
     </view>
-    <view wx:if="{{listenHint}}" class="listen-hint listen-hint--top">{{listenHint}}</view>
+    <view wx:if="{{processedUiText}}" class="processed-status processed-status--{{processedUiState}}">
+      <view wx:if="{{processedUiSpinning}}" class="processed-status__dot processed-status__dot--pending"></view>
+      <view wx:elif="{{processedUiState === 'playing'}}" class="processed-status__dot processed-status__dot--live"></view>
+      <view wx:elif="{{processedUiState === 'error'}}" class="processed-status__dot processed-status__dot--error"></view>
+      <text class="processed-status__text">{{processedUiText}}</text>
+    </view>
+    <view wx:elif="{{listenHint}}" class="listen-hint listen-hint--top">{{listenHint}}</view>
   </view>
 
   <!-- 模拟场景 -->

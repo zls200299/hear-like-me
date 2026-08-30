@@ -319,6 +319,65 @@
   opacity: 0.45;
 }
 
+.play-btn__spinner {
+  width: 40rpx;
+  height: 40rpx;
+  border: 4rpx solid rgba(6, 20, 28, 0.18);
+  border-top-color: #06141c;
+  border-radius: 50%;
+  animation: play-btn-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes play-btn-spin {
+  to { transform: rotate(360deg); }
+}
+
+.processed-status {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 24rpx;
+  min-height: 40rpx;
+}
+
+.processed-status__text {
+  color: #8fa0ba;
+  font-size: 26rpx;
+  line-height: 1.5;
+}
+
+.processed-status--playing .processed-status__text {
+  color: #9debd9;
+}
+
+.processed-status--error .processed-status__text {
+  color: #ffb38f;
+}
+
+.processed-status__dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.processed-status__dot--pending {
+  border: 2rpx solid rgba(143, 160, 186, 0.45);
+  border-top-color: #28e0c2;
+  animation: play-btn-spin 0.8s linear infinite;
+  box-sizing: border-box;
+}
+
+.processed-status__dot--live {
+  background: #28e0c2;
+  box-shadow: 0 0 12rpx rgba(40, 224, 194, 0.55);
+}
+
+.processed-status__dot--error {
+  background: #f2895e;
+}
+
 .listen-hint--top {
   margin-top: 20rpx;
 }

@@ -18,6 +18,16 @@ const REALTIME_PARAM_SUPERSEDED = 'PARAM_SUPERSEDED'
 const FILE_STREAM_FRAME_MS = 60
 const FILE_STREAM_MAX_PENDING_FRAMES = 5
 const FILE_STREAM_BOOTSTRAP_FRAMES = 3
+const PROCESSED_UI_ERROR_HOLD_MS = 5000
+
+const PROCESSED_UI_TEXT = {
+  idle: '',
+  starting: '正在准备模拟声…',
+  playing: '正在播放模拟声',
+  switching: '正在切换音频…',
+  stopping: '正在停止…',
+  error: '模拟声启动失败，请重试'
+}
 
 const SCENARIO_PRESETS = {
   quiet: {
@@ -195,7 +205,12 @@ Page({
     sourceDetailActionLabel: '',
     sourceDetailActionTone: 'neutral',
     sourceDetailActionDisabled: false,
-    realtimeMicStatusLabel: '等待开始'
+    realtimeMicStatusLabel: '等待开始',
+    processedUiState: 'idle',
+    processedUiText: '',
+    processedUiBusy: false,
+    processedUiSpinning: false,
+    processedBtnLabel: '播放模拟声'
   },
 
   _scenarioPresets: null,
@@ -250,6 +265,8 @@ Page({
   _realtimeRecorderStartTimeoutTimer: null,
   _realtimePermissionRequesting: false,
   _realtimePermissionRequestId: 0,
+  _processedUiGeneration: 0,
+  _processedUiErrorTimer: null,
 
   onLoad() {
     this._audioPlayer = createSeamlessAudioPlayer()
@@ -286,6 +303,7 @@ Page({
 
   onUnload() {
     this._unloaded = true
+    this._clearProcessedUiErrorTimer()
     this._clearRealtimeConnectTimeout()
     this._clearRealtimeRecorderStartTimeout()
     this._destroyMicLevelCanvas()
@@ -637,6 +655,138 @@ Page({
     }
   },
 
+  _getProcessedDisplayName() {
+    if (this.data.sourceType === 'sample') {
+      return this._getSampleLabel(this.data.selectedSample)
+    }
+    if (this.data.sourceType === 'upload') {
+      return this.data.uploadedFileName || '上传音频'
+    }
+    return ''
+  },
+
+  _resolveProcessedUiText(state, displayName) {
+    if (state === 'playing') {
+      return displayName ? `正在播放：${displayName}` : PROCESSED_UI_TEXT.playing
+    }
+    if (state === 'switching') {
+      return displayName ? `正在切换到「${displayName}」…` : PROCESSED_UI_TEXT.switching
+    }
+    return PROCESSED_UI_TEXT[state] || ''
+  },
+
+  _buildProcessedUiView(state, displayName) {
+    const busy = state === 'starting' || state === 'switching' || state === 'stopping'
+    const spinning = state === 'starting' || state === 'switching'
+    let processedBtnLabel = '播放模拟声'
+    if (this.data.isProcessing) {
+      processedBtnLabel = this.data.isAudioPlaying && this.data.playingKind === 'processed'
+        ? '更新中...'
+        : '正在生成...'
+    } else if (state === 'starting') {
+      processedBtnLabel = '正在启动…'
+    } else if (state === 'switching') {
+      processedBtnLabel = '正在切换…'
+    } else if (state === 'stopping') {
+      processedBtnLabel = '正在停止…'
+    } else if (state === 'playing') {
+      processedBtnLabel = '停止模拟声'
+    }
+
+    return {
+      processedUiState: state,
+      processedUiText: this._resolveProcessedUiText(state, displayName),
+      processedUiBusy: busy,
+      processedUiSpinning: spinning,
+      processedBtnLabel
+    }
+  },
+
+  _clearProcessedUiErrorTimer() {
+    if (!this._processedUiErrorTimer) return
+    clearTimeout(this._processedUiErrorTimer)
+    this._processedUiErrorTimer = null
+  },
+
+  _scheduleProcessedUiErrorClear() {
+    this._clearProcessedUiErrorTimer()
+    this._processedUiErrorTimer = setTimeout(() => {
+      this._processedUiErrorTimer = null
+      if (this._unloaded || this.data.processedUiState !== 'error') return
+      this._setProcessedUiState('idle', { force: true })
+    }, PROCESSED_UI_ERROR_HOLD_MS)
+  },
+
+  _isProcessedUiBusy() {
+    const state = this.data.processedUiState
+    return state === 'starting' || state === 'switching' || state === 'stopping'
+  },
+
+  _isProcessedUiGeneration(generation) {
+    return Number(generation) === Number(this._processedUiGeneration)
+  },
+
+  _setProcessedUiState(state, options = {}) {
+    const { generation, displayName, force = false } = options
+    if (!force && generation != null && !this._isProcessedUiGeneration(generation)) {
+      return
+    }
+
+    if (state !== 'error') {
+      this._clearProcessedUiErrorTimer()
+    }
+
+    const name = displayName != null ? displayName : this._getProcessedDisplayName()
+    const patch = this._buildProcessedUiView(state, name)
+
+    if (state === 'playing') {
+      patch.isAudioPlaying = true
+      patch.playingKind = 'processed'
+    } else if (state === 'idle' || state === 'error') {
+      patch.isAudioPlaying = false
+      patch.playingKind = ''
+    }
+
+    if (state === 'idle' || state === 'error') {
+      this._processedUiGeneration = 0
+    } else if (generation != null) {
+      this._processedUiGeneration = generation
+    }
+
+    if (state === 'error') {
+      this._scheduleProcessedUiErrorClear()
+    }
+
+    if (this._unloaded) return
+    this.setData(patch, () => {
+      this._refreshVisualFeedback()
+    })
+  },
+
+  _handleRealtimePcmPlayerState(state, generation) {
+    if (this._unloaded || !this._isProcessedUiGeneration(generation)) return
+
+    const patch = {
+      realtimePlaybackStarted: !!state.started,
+      realtimePlaybackUnderruns: state.underruns || 0,
+      realtimeBufferedMs: state.bufferedMs || 0,
+      realtimePlaybackPendingFrames: state.pendingFrames || 0,
+      realtimePlaybackDroppedFrames: state.droppedFrames || 0,
+      realtimePlaybackRecoveryCount: state.recoveryCount || 0
+    }
+
+    if (state.started) {
+      const uiState = this.data.processedUiState
+      if (uiState === 'starting' || uiState === 'switching') {
+        Object.assign(patch, this._buildProcessedUiView('playing', this._getProcessedDisplayName()))
+        patch.isAudioPlaying = true
+        patch.playingKind = 'processed'
+      }
+    }
+
+    this.setData(patch)
+  },
+
   _getClarityLevelClass(score) {
     const s = score != null && score !== '' ? Number(score) : 0
     if (Number.isNaN(s) || s < 24) return 'level-lowest'
@@ -694,19 +844,39 @@ Page({
     if (this._unloaded) return
 
     const { score, grade, desc } = this._computeLocalClarity()
-    this.setData({
+    const listenHint = this._resolveListenHint()
+    const patch = {
       clarityScore: score,
       clarityGrade: grade,
       clarityDesc: desc,
       clarityLevelClass: this._getClarityLevelClass(score),
-      listenHint: this._resolveListenHint()
-    })
+      listenHint
+    }
+    if (this.data.processedUiState === 'idle' || this.data.processedUiState === 'error') {
+      if (this.data.isProcessing) {
+        patch.processedBtnLabel = this.data.isAudioPlaying && this.data.playingKind === 'processed'
+          ? '更新中...'
+          : '正在生成...'
+        patch.processedUiBusy = true
+        patch.processedUiSpinning = false
+      } else if (this.data.isAudioPlaying && this.data.playingKind === 'processed') {
+        patch.processedBtnLabel = '停止模拟声'
+        patch.processedUiBusy = false
+      } else if (!listenHint) {
+        patch.processedBtnLabel = '播放模拟声'
+        patch.processedUiBusy = false
+      }
+    }
+    this.setData(patch)
 
     const panel = this._getVisualPanel()
     if (panel) panel.refreshViews()
   },
 
   _resolveListenHint() {
+    if (this.data.processedUiText) {
+      return ''
+    }
     if (this.data.isProcessing && this.data.isAudioPlaying && this.data.playingKind === 'processed') {
       return '正在按新参数更新模拟声，当前仍在播放上一版声音。'
     }
@@ -1580,7 +1750,7 @@ Page({
   },
 
   _stopFileStreamingProcessed(options = {}) {
-    const { silent = false, keepStatus = false } = options
+    const { silent = false, keepStatus = false, keepUiState = false } = options
     this._fileStreamGeneration += 1
     const wasActive = this._fileStreamActive || this._fileStreamStarting
 
@@ -1609,6 +1779,15 @@ Page({
         patch.playingKind = ''
         patch.statusText = silent ? this.data.statusText : '已停止模拟声音播放'
       }
+      if (!keepUiState) {
+        const nextUiState = this.data.processedUiState === 'stopping' ? 'idle' : 'idle'
+        Object.assign(patch, this._buildProcessedUiView(nextUiState, ''))
+        if (nextUiState === 'idle') {
+          patch.isAudioPlaying = false
+          patch.playingKind = ''
+          this._processedUiGeneration = 0
+        }
+      }
       this.setData(patch, () => {
         this._syncVisualPlaybackState()
         this._refreshVisualFeedback()
@@ -1623,7 +1802,9 @@ Page({
       prepareUrl,
       startingStatusText = '正在启动流式模拟...',
       playingStatusText = '正在循环播放人工耳蜗模拟声音',
-      realtimeStatusText = '流式模拟播放中'
+      realtimeStatusText = '流式模拟播放中',
+      preservePlayingState = false,
+      displayName = ''
     } = options
 
     if (!mode || (mode !== 'sample' && mode !== 'upload')) {
@@ -1634,22 +1815,33 @@ Page({
     if (this._fileStreamActive
       && this.data.isAudioPlaying
       && this.data.playingKind === 'processed') {
+      this._setProcessedUiState('stopping', { force: true })
       this._stopFileStreamingProcessed()
       return
     }
 
-    this._stopAudio('')
+    if (!preservePlayingState) {
+      this._stopAudio('')
+    } else if (this._audioPlayer) {
+      this._audioPlayer.stop({ silent: true })
+    }
     this._cancelAutoRefresh()
     const generation = ++this._fileStreamGeneration
     this._fileStreamStarting = true
     this._streamingMode = mode
+    this._processedUiGeneration = generation
 
     if (!this._unloaded) {
-      this.setData({
+      const uiState = preservePlayingState ? 'switching' : 'starting'
+      const patch = {
         realtimeError: '',
         isProcessing: false,
-        statusText: startingStatusText
-      })
+        statusText: startingStatusText,
+        ...this._buildProcessedUiView(uiState, displayName || this._getProcessedDisplayName())
+      }
+      patch.isAudioPlaying = false
+      patch.playingKind = ''
+      this.setData(patch)
     }
 
     try {
@@ -1681,7 +1873,7 @@ Page({
       await this._sendRealtimeParams()
       if (!this._isCurrentFileStream(generation, mode)) return
 
-      const pcmPlayer = await this._initRealtimePcmPlayer()
+      const pcmPlayer = await this._initRealtimePcmPlayer(generation)
       if (!this._isCurrentFileStream(generation, mode)) {
         if (this._realtimePcmPlayer === pcmPlayer) {
           pcmPlayer.destroy()
@@ -1695,8 +1887,6 @@ Page({
       this._fileStreamBootstrapRemaining = FILE_STREAM_BOOTSTRAP_FRAMES
 
       this.setData({
-        isAudioPlaying: true,
-        playingKind: 'processed',
         fileStreamingActive: true,
         realtimeSocketConnected: true,
         statusText: playingStatusText,
@@ -1714,9 +1904,10 @@ Page({
         || this._streamingMode !== mode) {
         return
       }
-      this._stopFileStreamingProcessed({ silent: true })
+      this._stopFileStreamingProcessed({ silent: true, keepUiState: true })
       if (!this._unloaded) {
         const decodeError = this._isFileDecodeError(err)
+        this._setProcessedUiState('error', { generation, force: true })
         this.setData({
           realtimeError: decodeError
             ? '该音频格式暂不支持实时模拟'
@@ -1726,14 +1917,14 @@ Page({
         wx.showToast({
           title: decodeError
             ? '该音频格式暂不支持实时模拟，请尝试 MP3 或 WAV'
-            : '模拟声播放失败',
+            : '模拟声启动失败',
           icon: 'none'
         })
       }
     }
   },
 
-  async _startSampleStreamingProcessed() {
+  async _startSampleStreamingProcessed(options = {}) {
     await this._startFileStreamingProcessed({
       mode: 'sample',
       prepareUrl: async () => {
@@ -1742,7 +1933,8 @@ Page({
       },
       startingStatusText: '正在启动示例流式模拟...',
       playingStatusText: '正在循环播放人工耳蜗模拟声音',
-      realtimeStatusText: '示例流式模拟播放中'
+      realtimeStatusText: '示例流式模拟播放中',
+      ...options
     })
   },
 
@@ -1888,20 +2080,13 @@ Page({
     this._flushRealtimeParamUpdate()
   },
 
-  async _initRealtimePcmPlayer() {
+  async _initRealtimePcmPlayer(generation) {
     this._destroyRealtimePcmPlayer()
 
     const player = createRealtimePcmPlayer({
       onState: (state) => {
         if (this._unloaded) return
-        this.setData({
-          realtimePlaybackStarted: !!state.started,
-          realtimePlaybackUnderruns: state.underruns || 0,
-          realtimeBufferedMs: state.bufferedMs || 0,
-          realtimePlaybackPendingFrames: state.pendingFrames || 0,
-          realtimePlaybackDroppedFrames: state.droppedFrames || 0,
-          realtimePlaybackRecoveryCount: state.recoveryCount || 0
-        })
+        this._handleRealtimePcmPlayerState(state, generation)
       },
       onFramePlay: (meta, frame) => {
         if (this._unloaded) return
@@ -2628,7 +2813,8 @@ Page({
       && !wasFileStreaming
 
     if (wasFileStreaming || this._fileStreamStarting) {
-      this._stopFileStreamingProcessed({ silent: true, keepStatus: wasFileStreaming })
+      this._setProcessedUiState('switching', { displayName: label, force: true })
+      this._stopFileStreamingProcessed({ silent: true, keepUiState: true })
     }
 
     if (!wasPlayingOriginal && !wasPlayingProcessedOffline && !wasFileStreaming) {
@@ -2655,7 +2841,10 @@ Page({
         : (wasFileStreaming || wasPlayingProcessedOffline)
           ? '正在切换示例并更新模拟声...'
           : `已选择${label}`,
-      selectedScenario: ''
+      selectedScenario: '',
+      ...(wasFileStreaming || this._fileStreamStarting
+        ? this._buildProcessedUiView('switching', label)
+        : {})
     }, () => {
       this._syncRuntimeParamsFromData()
       this._invalidateProcessedResult({
@@ -2664,7 +2853,7 @@ Page({
       })
       this._syncSourceDetailUI()
       if (wasFileStreaming) {
-        this._startSampleStreamingProcessed()
+        this._startSampleStreamingProcessed({ preservePlayingState: true, displayName: label })
       } else if (wasPlayingOriginal) {
         this._continueOriginalAfterSampleSwitch(cache, label)
       }
@@ -3264,13 +3453,27 @@ Page({
 
   async playProcessedAuto() {
     if (this.data.sourceType === 'sample') {
-      if (this._fileStreamStarting) return
+      if (this._isProcessedUiBusy()) return
+      if (this._fileStreamActive
+        && (this.data.processedUiState === 'playing'
+          || (this.data.isAudioPlaying && this.data.playingKind === 'processed'))) {
+        this._setProcessedUiState('stopping', { force: true })
+        this._stopFileStreamingProcessed()
+        return
+      }
       await this._startSampleStreamingProcessed()
       return
     }
 
     if (this.data.sourceType === 'upload') {
-      if (this._fileStreamStarting) return
+      if (this._isProcessedUiBusy()) return
+      if (this._fileStreamActive
+        && (this.data.processedUiState === 'playing'
+          || (this.data.isAudioPlaying && this.data.playingKind === 'processed'))) {
+        this._setProcessedUiState('stopping', { force: true })
+        this._stopFileStreamingProcessed()
+        return
+      }
       await this._startUploadStreamingProcessed()
       return
     }
