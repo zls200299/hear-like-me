@@ -197,6 +197,8 @@ Page({
   _realtimeReadyTimeoutTimer: null,
   _realtimeParamPromise: null,
   _realtimeParamTimeoutTimer: null,
+  _realtimeParamVersion: 0,
+  _realtimeAppliedParamVersion: 0,
 
   onLoad() {
     this._audioPlayer = createSeamlessAudioPlayer()
@@ -904,6 +906,8 @@ Page({
 
       const url = `${config.wsBaseUrl}/ws/realtime/echo`
       this._realtimeConnectSettled = false
+      this._realtimeParamVersion = 0
+      this._realtimeAppliedParamVersion = 0
 
       const socketTask = wx.connectSocket({ url })
       this._realtimeSocket = socketTask
@@ -1013,6 +1017,12 @@ Page({
     }
   },
 
+  _isPendingParamVersion(version) {
+    if (!this._realtimeParamPromise) return false
+    const responseVersion = Number(version)
+    return Number.isFinite(responseVersion) && responseVersion === this._realtimeParamPromise.version
+  },
+
   _clearRealtimeParamPromise(error) {
     if (this._realtimeParamTimeoutTimer) {
       clearTimeout(this._realtimeParamTimeoutTimer)
@@ -1027,14 +1037,23 @@ Page({
   },
 
   _resolveRealtimeParamPromise(msg) {
+    if (!this._isPendingParamVersion(msg && msg.version)) return
+
     if (this._realtimeParamTimeoutTimer) {
       clearTimeout(this._realtimeParamTimeoutTimer)
       this._realtimeParamTimeoutTimer = null
     }
-    if (!this._realtimeParamPromise) return
     const pending = this._realtimeParamPromise
     this._realtimeParamPromise = null
+    this._realtimeAppliedParamVersion = pending.version
     pending.resolve(msg)
+  },
+
+  _rejectRealtimeParamPromise(msg) {
+    if (!this._isPendingParamVersion(msg && msg.version)) return
+
+    const err = new Error((msg && msg.message) ? msg.message : '参数更新失败')
+    this._clearRealtimeParamPromise(err)
   },
 
   _sendRealtimeParams() {
@@ -1045,15 +1064,16 @@ Page({
       }
 
       this._clearRealtimeParamPromise(new Error('参数更新被新的请求取代'))
-      this._realtimeParamPromise = { resolve, reject }
+      const version = ++this._realtimeParamVersion
+      this._realtimeParamPromise = { resolve, reject, version }
       this._realtimeParamTimeoutTimer = setTimeout(() => {
-        if (!this._realtimeParamPromise) return
+        if (!this._realtimeParamPromise || this._realtimeParamPromise.version !== version) return
         this._clearRealtimeParamPromise(new Error('参数同步超时'))
       }, 8000)
 
       const payload = JSON.stringify({
         type: 'PARAM_UPDATE',
-        version: 1,
+        version,
         params: this._buildRealtimeParams()
       })
 
@@ -1185,8 +1205,7 @@ Page({
         return true
       }
       if (msg && msg.type === 'PARAM_ERROR') {
-        const err = new Error((msg && msg.message) ? msg.message : '参数更新失败')
-        this._clearRealtimeParamPromise(err)
+        this._rejectRealtimeParamPromise(msg)
         return true
       }
     } catch (e) {
@@ -1778,6 +1797,7 @@ Page({
       statusText: `频率范围已设为 ${value} Hz`
     }, () => {
       this._invalidateProcessedResult()
+      this._maybeSendRealtimeParams()
     })
   },
 
@@ -1805,6 +1825,7 @@ Page({
       statusText: `电流扩散已设为 ${value}%`
     }, () => {
       this._invalidateProcessedResult()
+      this._maybeSendRealtimeParams()
     })
   },
 

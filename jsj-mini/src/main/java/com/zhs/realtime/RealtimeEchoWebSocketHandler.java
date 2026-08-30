@@ -70,16 +70,20 @@ public class RealtimeEchoWebSocketHandler extends AbstractWebSocketHandler {
                         return;
                     }
 
+                    if (!session.isOpen()) {
+                        pythonSession.close();
+                        log.info("[realtime-ws] socket closed before ready session={} pid={}", sessionId, pythonSession.pid());
+                        return;
+                    }
+
                     pythonSessions.put(sessionId, pythonSession);
                     try {
-                        if (session.isOpen()) {
-                            session.sendMessage(new TextMessage(READY_MESSAGE));
-                            log.info(
-                                    "[realtime-ws] ready session={} pythonPid={}",
-                                    sessionId,
-                                    pythonSession.pid()
-                            );
-                        }
+                        session.sendMessage(new TextMessage(READY_MESSAGE));
+                        log.info(
+                                "[realtime-ws] ready session={} pythonPid={}",
+                                sessionId,
+                                pythonSession.pid()
+                        );
                     } catch (IOException exception) {
                         log.error("[realtime-ws] failed to send READY session={}", sessionId, exception);
                         closeWithPythonUnavailable(session, exception.getMessage());

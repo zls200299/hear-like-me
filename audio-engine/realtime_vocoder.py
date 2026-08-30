@@ -81,10 +81,12 @@ class RealtimeConfig:
         spread = float(pick("spread", default=0.15))
         noise_level = float(pick("noiseLevel", "noise_level", default=0.0))
 
-        if n_channels < 1 or n_channels > 32:
+        if n_channels < 1 or n_channels > 22:
             raise ValueError(f"nChannels out of range: {n_channels}")
         if f_lo <= 0 or f_hi <= f_lo:
             raise ValueError(f"invalid frequency range: {f_lo}-{f_hi}")
+        if f_hi >= SAMPLE_RATE / 2:
+            raise ValueError(f"fHi must be below Nyquist ({SAMPLE_RATE / 2:.0f} Hz)")
         if env_cut < 20 or env_cut > 500:
             raise ValueError(f"envCut out of range: {env_cut}")
         if spread < 0 or spread > 1:
@@ -283,23 +285,26 @@ class RealtimeVocoderSession:
         try:
             msg = json.loads(raw.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            return self._error_response(f"invalid JSON: {exc}")
+            return self._error_response(0, f"invalid JSON: {exc}")
+
+        version = msg.get("version", 0)
 
         if msg.get("type") != "PARAM_UPDATE":
-            return self._error_response("unsupported control type")
+            return self._error_response(version, "unsupported control type")
 
         params = msg.get("params")
         if not isinstance(params, dict):
-            return self._error_response("params must be an object")
+            return self._error_response(version, "params must be an object")
 
         try:
             new_config = RealtimeConfig.from_params(params)
             self._apply_config(new_config)
         except ValueError as exc:
-            return self._error_response(str(exc))
+            return self._error_response(version, str(exc))
 
         print(
             "[realtime-vocoder] params applied "
+            f"version={version} "
             f"n={new_config.n_channels} "
             f"{new_config.f_lo:.0f}-{new_config.f_hi:.0f}Hz "
             f"carrier={new_config.carrier} "
@@ -307,7 +312,21 @@ class RealtimeVocoderSession:
             f"noise={new_config.noise_level:.2f}",
             file=sys.stderr,
         )
-        return json.dumps({"type": "PARAM_APPLIED", "version": 1}, separators=(",", ":")).encode("utf-8")
+        return json.dumps(
+            {"type": "PARAM_APPLIED", "version": version},
+            separators=(",", ":"),
+        ).encode("utf-8")
+
+    def _apply_light_params(self, new_config: RealtimeConfig) -> None:
+        self.config.spread = new_config.spread
+        self.config.noise_level = new_config.noise_level
+        self.engine.config.spread = new_config.spread
+        self.engine.config.noise_level = new_config.noise_level
+        if self._crossfade is not None:
+            self._crossfade.old_engine.config.spread = new_config.spread
+            self._crossfade.old_engine.config.noise_level = new_config.noise_level
+            self._crossfade.new_engine.config.spread = new_config.spread
+            self._crossfade.new_engine.config.noise_level = new_config.noise_level
 
     def _apply_config(self, new_config: RealtimeConfig) -> None:
         if new_config.structural_key() != self.config.structural_key():
@@ -320,16 +339,13 @@ class RealtimeVocoderSession:
             self.config = new_config.copy()
             return
 
-        self.config.spread = new_config.spread
-        self.config.noise_level = new_config.noise_level
-        self.engine.config.spread = new_config.spread
-        self.engine.config.noise_level = new_config.noise_level
+        self._apply_light_params(new_config)
 
     @staticmethod
-    def _error_response(message: str) -> bytes:
+    def _error_response(version: int, message: str) -> bytes:
         payload = {
             "type": "PARAM_ERROR",
-            "version": 1,
+            "version": version,
             "message": message,
         }
         return json.dumps(payload, separators=(",", ":")).encode("utf-8")
