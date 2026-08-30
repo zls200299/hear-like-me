@@ -117,7 +117,6 @@ Page({
     sourceOptions: [
       { type: 'sample', label: '示例声音' },
       { type: 'upload', label: '上传音频' },
-      { type: 'record', label: '录制声音' },
       { type: 'realtime', label: '实时麦克风' }
     ],
     sampleOptions: [
@@ -555,7 +554,6 @@ Page({
         options.schedulePrefetch !== false
         && !wasPlayingProcessed
         && this.data.sourceType !== 'realtime'
-        && this.data.sourceType !== 'record'
       ) {
         this._invalidateInFlightPrefetch()
         this._schedulePrefetchProcessed()
@@ -1769,11 +1767,6 @@ Page({
       return
     }
 
-    if (type === 'record') {
-      sourceHint = '录制功能后续接入'
-      statusText = '录制功能后续接入'
-    }
-
     this._stopAudio('已停止播放')
     this._cancelAutoRefresh()
     this._invalidateProcessedResult({ autoRefresh: false })
@@ -2163,11 +2156,6 @@ Page({
       return
     }
 
-    if (this.data.sourceType === 'record') {
-      wx.showToast({ title: '录制功能后续接入', icon: 'none' })
-      return
-    }
-
     if (this.data.sourceType === 'realtime') {
       wx.showToast({ title: '请先使用下方实时体验', icon: 'none' })
       return
@@ -2197,7 +2185,7 @@ Page({
 
   _schedulePrefetchProcessed(delayMs = 800) {
     if (this._unloaded) return
-    if (this.data.sourceType === 'realtime' || this.data.sourceType === 'record') return
+    if (this.data.sourceType === 'realtime') return
     if (this.data.isProcessing) return
 
     if (this._prefetchTimer) {
@@ -2212,7 +2200,7 @@ Page({
 
   async _prefetchProcessedAudio() {
     if (this._unloaded || this.data.isProcessing) return
-    if (this.data.sourceType === 'realtime' || this.data.sourceType === 'record') return
+    if (this.data.sourceType === 'realtime') return
 
     const key = this._buildProcessKey()
     if (this.data.processedKey === key && this.data.processedAudioUrl) {
@@ -2255,13 +2243,6 @@ Page({
 
     if (!background) {
       this._cancelPrefetch()
-    }
-
-    if (this.data.sourceType === 'record') {
-      if (!background) {
-        wx.showToast({ title: '录制功能后续接入', icon: 'none' })
-      }
-      return
     }
 
     if (this.data.sourceType === 'realtime') {
