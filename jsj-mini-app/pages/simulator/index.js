@@ -891,35 +891,27 @@ Page({
       this._startRealtimePendingSweep()
 
       const url = `${config.wsBaseUrl}/ws/realtime/echo`
-      let settled = false
+      this._realtimeConnectSettled = false
 
       const socketTask = wx.connectSocket({ url })
       this._realtimeSocket = socketTask
+      this._realtimeConnectResolve = resolve
+      this._realtimeConnectReject = reject
 
       const failConnect = (err) => {
-        if (settled) return
-        settled = true
+        if (this._realtimeConnectSettled) return
+        this._realtimeConnectSettled = true
         this._realtimeSocketReady = false
+        this._realtimeConnectResolve = null
+        this._realtimeConnectReject = null
         reject(err || new Error('WebSocket 连接失败'))
       }
 
       socketTask.onOpen(() => {
-        if (settled) return
-        settled = true
-        this._realtimeSocketReady = true
         if (this._unloaded) return
         this.setData({
-          realtimeSocketConnected: true,
-          realtimeSentFrames: 0,
-          realtimeReceivedFrames: 0,
-          realtimeSentBytes: 0,
-          realtimeReceivedBytes: 0,
-          realtimeLastRttMs: null,
-          realtimeAvgRttMs: null,
-          realtimeLostFrames: 0,
-          realtimeStatusText: '实时连接已建立，正在采集麦克风音频'
+          realtimeStatusText: '实时连接已建立，正在初始化声码器...'
         })
-        resolve()
       })
 
       socketTask.onMessage((res) => {
@@ -928,6 +920,9 @@ Page({
 
       socketTask.onClose(() => {
         this._realtimeSocketReady = false
+        if (!this._realtimeConnectSettled) {
+          failConnect(new Error('WebSocket closed before READY'))
+        }
         if (!this._unloaded) {
           this.setData({ realtimeSocketConnected: false })
         }
@@ -944,6 +939,31 @@ Page({
           })
         }
       })
+    })
+  },
+
+  _onRealtimeSocketReady() {
+    if (this._realtimeConnectSettled) return
+    this._realtimeConnectSettled = true
+    this._realtimeSocketReady = true
+
+    if (this._realtimeConnectResolve) {
+      this._realtimeConnectResolve()
+      this._realtimeConnectResolve = null
+      this._realtimeConnectReject = null
+    }
+
+    if (this._unloaded) return
+    this.setData({
+      realtimeSocketConnected: true,
+      realtimeSentFrames: 0,
+      realtimeReceivedFrames: 0,
+      realtimeSentBytes: 0,
+      realtimeReceivedBytes: 0,
+      realtimeLastRttMs: null,
+      realtimeAvgRttMs: null,
+      realtimeLostFrames: 0,
+      realtimeStatusText: '声码器已就绪，正在采集麦克风音频'
     })
   },
 
@@ -981,8 +1001,19 @@ Page({
 
   _handleRealtimeSocketMessage(res) {
     const data = res && res.data
+    if (typeof data === 'string') {
+      try {
+        const msg = JSON.parse(data)
+        if (msg && msg.type === 'READY') {
+          this._onRealtimeSocketReady()
+        }
+      } catch (e) {
+        console.warn('[realtime-ws] ignore invalid text message', data)
+      }
+      return
+    }
     if (!(data instanceof ArrayBuffer)) {
-      console.warn('[realtime-ws] ignore non-arraybuffer message')
+      console.warn('[realtime-ws] ignore unsupported message type')
       return
     }
     if (data.byteLength < 4) return
@@ -1055,6 +1086,9 @@ Page({
     const { silent = false } = options
     this._stopRealtimePendingSweep()
     this._realtimeSocketReady = false
+    this._realtimeConnectSettled = false
+    this._realtimeConnectResolve = null
+    this._realtimeConnectReject = null
 
     if (this._realtimeSocket) {
       try {

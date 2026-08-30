@@ -6,8 +6,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
-import org.springframework.web.socket.handler.BinaryWebSocketHandler;
+import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -16,10 +17,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
-public class RealtimeEchoWebSocketHandler extends BinaryWebSocketHandler {
+public class RealtimeEchoWebSocketHandler extends AbstractWebSocketHandler {
 
     private static final Logger log = LoggerFactory.getLogger(RealtimeEchoWebSocketHandler.class);
     private static final int SEQ_BYTES = 4;
+    private static final String READY_MESSAGE = "{\"type\":\"READY\"}";
     private static final CloseStatus PYTHON_UNAVAILABLE = new CloseStatus(1011, "realtime python unavailable");
 
     private final EngineProperties engineProperties;
@@ -34,9 +36,14 @@ public class RealtimeEchoWebSocketHandler extends BinaryWebSocketHandler {
         try {
             RealtimePythonSession pythonSession = new RealtimePythonSession(session.getId(), engineProperties);
             pythonSessions.put(session.getId(), pythonSession);
-            log.info("[realtime-ws] connected session={} pythonPid={}", session.getId(), pythonSession.pid());
+            session.sendMessage(new TextMessage(READY_MESSAGE));
+            log.info(
+                    "[realtime-ws] ready session={} pythonPid={}",
+                    session.getId(),
+                    pythonSession.pid()
+            );
         } catch (IOException exception) {
-            log.error("[realtime-ws] failed to start python session={}", session.getId(), exception);
+            log.error("[realtime-ws] failed to warm up python session={}", session.getId(), exception);
             session.close(PYTHON_UNAVAILABLE);
         }
     }
@@ -44,8 +51,8 @@ public class RealtimeEchoWebSocketHandler extends BinaryWebSocketHandler {
     @Override
     protected void handleBinaryMessage(WebSocketSession session, BinaryMessage message) throws Exception {
         RealtimePythonSession pythonSession = pythonSessions.get(session.getId());
-        if (pythonSession == null || !pythonSession.isAlive()) {
-            closeWithPythonUnavailable(session, "python session missing or not alive");
+        if (pythonSession == null || !pythonSession.isReady()) {
+            closeWithPythonUnavailable(session, "python session missing or not ready");
             return;
         }
 

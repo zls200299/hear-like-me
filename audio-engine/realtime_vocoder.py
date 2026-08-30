@@ -186,6 +186,11 @@ class StreamingVocoder:
         self.frame_count += 1
         return out_bytes, in_rms, out_rms, processing_ms
 
+    def warmup(self) -> None:
+        """Prime scipy/filter path so the first realtime chunk is not cold-started."""
+        silent = b"\x00\x00" * (5292 // 2)
+        self.process_pcm(silent)
+
 
 def read_exact(stream, nbytes: int) -> bytes | None:
     """Read exactly nbytes from stream, or None on clean EOF before any data."""
@@ -204,8 +209,9 @@ def main() -> None:
     stdin = sys.stdin.buffer
     stdout = sys.stdout.buffer
     vocoder = StreamingVocoder()
+    vocoder.warmup()
 
-    print("realtime vocoder started", file=sys.stderr)
+    print("realtime vocoder ready", file=sys.stderr)
 
     while True:
         header = read_exact(stdin, HEADER_SIZE)
@@ -217,7 +223,12 @@ def main() -> None:
             print(f"invalid pcm_length: {pcm_length}", file=sys.stderr)
             sys.exit(1)
 
-        pcm = b"" if pcm_length == 0 else read_exact(stdin, pcm_length)
+        if seq == 0 and pcm_length == 0:
+            stdout.write(struct.pack(HEADER_FORMAT, 0, 0))
+            stdout.flush()
+            continue
+
+        pcm = read_exact(stdin, pcm_length)
         if pcm is None:
             break
 

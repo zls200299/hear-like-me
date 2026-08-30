@@ -19,12 +19,14 @@ public class RealtimePythonSession implements Closeable {
     private static final Logger log = LoggerFactory.getLogger(RealtimePythonSession.class);
     private static final int MAX_PCM_BYTES = 1024 * 1024;
     private static final int DESTROY_WAIT_MS = 500;
+    private static final int WARMUP_SEQ = 0;
 
     private final String webSocketSessionId;
     private final Process process;
     private final DataInputStream pythonStdout;
     private final DataOutputStream pythonStdin;
     private volatile boolean closed;
+    private volatile boolean ready;
 
     public RealtimePythonSession(String webSocketSessionId, EngineProperties engineProperties) throws IOException {
         this.webSocketSessionId = webSocketSessionId;
@@ -47,6 +49,8 @@ public class RealtimePythonSession implements Closeable {
         stderrConsumer.start();
 
         log.info("[realtime-python] started session={} pid={}", webSocketSessionId, process.pid());
+        warmup();
+        this.ready = true;
     }
 
     private void consumeStderr(InputStream stderr) {
@@ -62,9 +66,24 @@ public class RealtimePythonSession implements Closeable {
         }
     }
 
+    private void warmup() throws IOException {
+        long startNanos = System.nanoTime();
+        byte[] returnedPcm = exchangeFrame(WARMUP_SEQ, new byte[0]);
+        if (returnedPcm.length != 0) {
+            throw new IOException("Warmup returned unexpected PCM length: " + returnedPcm.length);
+        }
+        long warmupMs = (System.nanoTime() - startNanos) / 1_000_000L;
+        log.info(
+                "[realtime-python] ready session={} pid={} warmupMs={}",
+                webSocketSessionId,
+                process.pid(),
+                warmupMs
+        );
+    }
+
     public synchronized byte[] processFrame(int seq, byte[] pcm) throws IOException {
-        if (closed || !process.isAlive()) {
-            throw new IOException("Python process is not alive");
+        if (!ready) {
+            throw new IOException("Python session is not ready");
         }
         if (pcm == null) {
             throw new IOException("PCM payload is null");
@@ -74,10 +93,28 @@ public class RealtimePythonSession implements Closeable {
         }
 
         long startNanos = System.nanoTime();
+        byte[] returnedPcm = exchangeFrame(seq, pcm);
+        long pythonMs = (System.nanoTime() - startNanos) / 1_000_000L;
+        log.info(
+                "[realtime-python] session={} seq={} pcmBytes={} pythonMs={}",
+                webSocketSessionId,
+                seq,
+                pcm.length,
+                pythonMs
+        );
+        return returnedPcm;
+    }
+
+    private byte[] exchangeFrame(int seq, byte[] pcm) throws IOException {
+        if (closed || !process.isAlive()) {
+            throw new IOException("Python process is not alive");
+        }
 
         pythonStdin.writeInt(seq);
         pythonStdin.writeInt(pcm.length);
-        pythonStdin.write(pcm);
+        if (pcm.length > 0) {
+            pythonStdin.write(pcm);
+        }
         pythonStdin.flush();
 
         int returnedSeq = pythonStdout.readInt();
@@ -94,17 +131,11 @@ public class RealtimePythonSession implements Closeable {
         if (returnedLength > 0) {
             pythonStdout.readFully(returnedPcm);
         }
-
-        long pythonMs = (System.nanoTime() - startNanos) / 1_000_000L;
-        log.info(
-                "[realtime-python] session={} seq={} pcmBytes={} pythonMs={}",
-                webSocketSessionId,
-                seq,
-                pcm.length,
-                pythonMs
-        );
-
         return returnedPcm;
+    }
+
+    public boolean isReady() {
+        return ready && isAlive();
     }
 
     public boolean isAlive() {
@@ -121,6 +152,7 @@ public class RealtimePythonSession implements Closeable {
             return;
         }
         closed = true;
+        ready = false;
 
         try {
             pythonStdin.close();
