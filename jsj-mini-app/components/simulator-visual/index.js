@@ -3,7 +3,8 @@ const {
   getFrameAtCurrentTime,
   buildFallbackFrame,
   buildElectrodeBars,
-  buildCochleaElectrodes
+  buildCochleaElectrodes,
+  normalizeChannelFrame
 } = require('../../utils/simulator/visual/frames.js')
 const { drawNeuroColumn, clearNeuroCanvas } = require('../../utils/simulator/visual/draw-neuro.js')
 const { drawWave } = require('../../utils/simulator/visual/draw-wave.js')
@@ -48,7 +49,8 @@ Component({
     frequencyRange: { type: String, value: '150-7000' },
     isAudioPlaying: { type: Boolean, value: false },
     playingKind: { type: String, value: '' },
-    audioSeekSec: { type: Number, value: 0 }
+    audioSeekSec: { type: Number, value: 0 },
+    realtimeActive: { type: Boolean, value: false }
   },
 
   data: {
@@ -77,6 +79,9 @@ Component({
       this._visualizationLevelScale = 255
       this._visualizationNChannels = 0
       this._visualizationBands = []
+      this._realtimeLevels = null
+      this._realtimeChannelCount = 0
+      this._realtimeLevelScale = 255
       this._audioAnchorSec = 0
       this._audioAnchorWallMs = Date.now()
       this._updateMeta()
@@ -109,6 +114,14 @@ Component({
       this._audioAnchorSec = Number(value) || 0
       this._audioAnchorWallMs = Date.now()
       if (this._playbackTimer) return
+      this._refreshStaticViews()
+    },
+    realtimeActive(value) {
+      if (!value) {
+        this.clearRealtimeLevels()
+        return
+      }
+      this._stopIdleTimer()
       this._refreshStaticViews()
     }
   },
@@ -166,6 +179,33 @@ Component({
 
     clearVisualizationData() {
       this.applyVisualizationData(null)
+    },
+
+    applyRealtimeLevels(levels, opts) {
+      const options = opts || {}
+      const channelCount = Number(options.channelCount) || (Array.isArray(levels) ? levels.length : 0)
+      const levelScale = Number(options.levelScale) > 0 ? Number(options.levelScale) : 255
+      if (!this.properties.realtimeActive || !Array.isArray(levels) || !levels.length || channelCount <= 0) {
+        return
+      }
+
+      this._realtimeLevels = levels.slice(0, channelCount)
+      this._realtimeChannelCount = channelCount
+      this._realtimeLevelScale = levelScale
+      this._refreshStaticViews()
+      if (isCanvasView(this.data.activeView) && this._hasCanvasForView(this.data.activeView)) {
+        this._drawActiveCanvasFrame()
+      }
+    },
+
+    clearRealtimeLevels() {
+      this._realtimeLevels = null
+      this._realtimeChannelCount = 0
+      this._realtimeLevelScale = 255
+      this._refreshStaticViews()
+      if (!this.properties.isAudioPlaying) {
+        this._startIdleTimer()
+      }
     },
 
     syncPlaybackState() {
@@ -253,6 +293,20 @@ Component({
     _getCurrentLevels() {
       const flags = this._getRuntimeFlags()
       const nChannels = Number(this.properties.nChannels) || 8
+
+      if (
+        this.properties.realtimeActive
+        && Array.isArray(this._realtimeLevels)
+        && this._realtimeLevels.length
+      ) {
+        const channelCount = this._realtimeChannelCount || this._realtimeLevels.length || nChannels
+        return normalizeChannelFrame(
+          this._realtimeLevels,
+          channelCount,
+          this._realtimeLevelScale || 255
+        )
+      }
+
       if (this._visualizationFrames && this._visualizationFrames.length && flags.isProcessed) {
         const channelCount = this._visualizationNChannels || nChannels
         return getFrameAtCurrentTime(this._visualizationFrames, {
@@ -301,11 +355,14 @@ Component({
     _refreshStaticViews() {
       const levels = this._getCurrentLevels()
       const flags = this._getRuntimeFlags()
+      const isRealtime = !!this.properties.realtimeActive
+      const isProcessed = flags.isProcessed || isRealtime
+      const isPlaying = flags.isPlaying || isRealtime
       this.setData({
-        electrodeBarLevels: buildElectrodeBars(levels, { isProcessed: flags.isProcessed }),
+        electrodeBarLevels: buildElectrodeBars(levels, { isProcessed }),
         cochleaElectrodes: buildCochleaElectrodes(levels, {
-          isProcessed: flags.isProcessed,
-          isPlaying: flags.isPlaying
+          isProcessed,
+          isPlaying
         })
       })
     },
@@ -340,6 +397,7 @@ Component({
       const levels = this._getCurrentLevels()
       const opts = this._getDrawOpts()
       const flags = this._getRuntimeFlags()
+      const isProcessed = flags.isProcessed || !!this.properties.realtimeActive
 
       if (view === 'wave' && this._vizCtx && this._vizCanvas) {
         drawWave(this._vizCtx, this._vizCanvas, this._dpr, opts)
@@ -352,7 +410,7 @@ Component({
           this._neuroChannelCount = N
           clearNeuroCanvas(this._vizCtx, this._vizCanvas)
         }
-        drawNeuroColumn(this._vizCtx, this._vizCanvas, levels, this._dpr, flags.isProcessed)
+        drawNeuroColumn(this._vizCtx, this._vizCanvas, levels, this._dpr, isProcessed)
         return
       }
 

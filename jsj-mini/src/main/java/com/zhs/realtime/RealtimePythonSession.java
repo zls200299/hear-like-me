@@ -18,6 +18,7 @@ public class RealtimePythonSession implements Closeable {
 
     private static final Logger log = LoggerFactory.getLogger(RealtimePythonSession.class);
     private static final int MAX_PCM_BYTES = 1024 * 1024;
+    private static final int MAX_FRAME_PAYLOAD_BYTES = MAX_PCM_BYTES + 64;
     private static final int DESTROY_WAIT_MS = 500;
     private static final int WARMUP_SEQ = 0;
 
@@ -73,9 +74,9 @@ public class RealtimePythonSession implements Closeable {
 
     private void warmup() throws IOException {
         long startNanos = System.nanoTime();
-        byte[] returnedPcm = exchangeFrame(WARMUP_SEQ, new byte[0]);
-        if (returnedPcm.length != 0) {
-            throw new IOException("Warmup returned unexpected PCM length: " + returnedPcm.length);
+        byte[] returnedPayload = exchangeFrame(WARMUP_SEQ, new byte[0]);
+        if (returnedPayload.length != 0) {
+            throw new IOException("Warmup returned unexpected payload length: " + returnedPayload.length);
         }
         long warmupMs = (System.nanoTime() - startNanos) / 1_000_000L;
         log.info(
@@ -118,16 +119,17 @@ public class RealtimePythonSession implements Closeable {
         }
 
         long startNanos = System.nanoTime();
-        byte[] returnedPcm = exchangeFrame(seq, pcm);
+        byte[] returnedPayload = exchangeFrame(seq, pcm);
         long pythonMs = (System.nanoTime() - startNanos) / 1_000_000L;
         log.info(
-                "[realtime-python] session={} seq={} pcmBytes={} pythonMs={}",
+                "[realtime-python] session={} seq={} pcmBytes={} payloadBytes={} pythonMs={}",
                 webSocketSessionId,
                 seq,
                 pcm.length,
+                returnedPayload.length,
                 pythonMs
         );
-        return returnedPcm;
+        return returnedPayload;
     }
 
     private byte[] exchangeFrame(int seq, byte[] pcm) throws IOException {
@@ -148,15 +150,15 @@ public class RealtimePythonSession implements Closeable {
         if (returnedSeq != seq) {
             throw new IOException("Seq mismatch: expected " + seq + ", got " + returnedSeq);
         }
-        if (returnedLength < 0 || returnedLength > MAX_PCM_BYTES) {
-            throw new IOException("Invalid returned PCM length: " + returnedLength);
+        if (returnedLength < 0 || returnedLength > MAX_FRAME_PAYLOAD_BYTES) {
+            throw new IOException("Invalid returned payload length: " + returnedLength);
         }
 
-        byte[] returnedPcm = new byte[returnedLength];
+        byte[] returnedPayload = new byte[returnedLength];
         if (returnedLength > 0) {
-            pythonStdout.readFully(returnedPcm);
+            pythonStdout.readFully(returnedPayload);
         }
-        return returnedPcm;
+        return returnedPayload;
     }
 
     public boolean isReady() {

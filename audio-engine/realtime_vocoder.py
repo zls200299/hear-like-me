@@ -20,6 +20,8 @@ MAX_PCM_LENGTH = 1024 * 1024
 HEADER_FORMAT = ">II"
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 CROSSFADE_FRAMES = 2
+LEVEL_ANALYSER_SIZE = 256
+LEVEL_GAIN = 3.2
 
 SAMPLE_RATE = 44100
 ENV_AMP = 2.6
@@ -227,7 +229,24 @@ class StreamingVocoder:
 
         return x * (10.0 ** (smoothed / 20.0))
 
-    def process_samples(self, x: np.ndarray) -> np.ndarray:
+    @staticmethod
+    def _chunk_levels_from_modulated(
+        modulated_signals: list[np.ndarray],
+        analyser_size: int = LEVEL_ANALYSER_SIZE,
+        level_gain: float = LEVEL_GAIN,
+    ) -> list[int]:
+        levels: list[int] = []
+        for modulated in modulated_signals:
+            tail = modulated[-analyser_size:] if modulated.size > analyser_size else modulated
+            if tail.size == 0:
+                levels.append(0)
+                continue
+            rms = float(np.sqrt(np.mean(tail * tail)))
+            level = clamp(rms * level_gain, 0.0, 1.0)
+            levels.append(int(round(level * 255.0)))
+        return levels
+
+    def process_samples(self, x: np.ndarray) -> tuple[np.ndarray, list[int]]:
         n = x.size
         cfg = self.config
         sig = x + self.babble.process(n, cfg.noise_level)
@@ -245,13 +264,16 @@ class StreamingVocoder:
         gains = self._apply_spread(envs)
 
         wet = np.zeros(n, dtype=np.float64)
+        modulated_signals: list[np.ndarray] = []
         for i, channel in enumerate(self.channels):
             modulated = carriers[i] * gains[i]
+            modulated_signals.append(modulated)
             wet += channel.output_bp.process(modulated)
 
         y = wet * WET
         y = self._compress(y)
-        return y * OUTPUT_GAIN
+        levels = self._chunk_levels_from_modulated(modulated_signals)
+        return y * OUTPUT_GAIN, levels
 
     @staticmethod
     def _float_to_pcm16_le(y: np.ndarray) -> bytes:
@@ -350,20 +372,22 @@ class RealtimeVocoderSession:
         }
         return json.dumps(payload, separators=(",", ":")).encode("utf-8")
 
-    def process_pcm(self, pcm_bytes: bytes) -> tuple[bytes, float, float, float, float, float]:
+    def process_pcm(
+        self, pcm_bytes: bytes
+    ) -> tuple[bytes, list[int], float, float, float, float, float]:
         if len(pcm_bytes) % 2 != 0:
             raise ValueError(f"PCM byte length must be even, got {len(pcm_bytes)}")
 
         if len(pcm_bytes) == 0:
-            return b"", 0.0, 0.0, 0.0, 0.0, 0.0
+            return b"", [], 0.0, 0.0, 0.0, 0.0, 0.0
 
         started = time.perf_counter()
         x = np.frombuffer(pcm_bytes, dtype="<i2").astype(np.float64) / 32768.0
         in_rms = float(np.sqrt(np.mean(x * x)))
 
         if self._crossfade is not None:
-            old_y = self._crossfade.old_engine.process_samples(x)
-            new_y = self._crossfade.new_engine.process_samples(x)
+            old_y, _ = self._crossfade.old_engine.process_samples(x)
+            new_y, levels = self._crossfade.new_engine.process_samples(x)
             alpha = (self._crossfade.frames_done + 1) / CROSSFADE_FRAMES
             y = (1.0 - alpha) * old_y + alpha * new_y
             self._crossfade.frames_done += 1
@@ -371,7 +395,7 @@ class RealtimeVocoderSession:
                 self.engine = self._crossfade.new_engine
                 self._crossfade = None
         else:
-            y = self.engine.process_samples(x)
+            y, levels = self.engine.process_samples(x)
 
         out_rms = float(np.sqrt(np.mean(y * y)))
         peak = float(np.max(np.abs(y)))
@@ -385,7 +409,19 @@ class RealtimeVocoderSession:
             )
 
         self.frame_count += 1
-        return out_bytes, in_rms, out_rms, processing_ms, peak, clip_ratio
+        return out_bytes, levels, in_rms, out_rms, processing_ms, peak, clip_ratio
+
+
+def build_audio_frame_payload(pcm_bytes: bytes, levels: list[int]) -> bytes:
+    channel_count = len(levels)
+    if channel_count < 0 or channel_count > 255:
+        raise ValueError(f"invalid channel count for levels: {channel_count}")
+    return (
+        struct.pack(">I", len(pcm_bytes))
+        + pcm_bytes
+        + struct.pack("B", channel_count)
+        + bytes(levels)
+    )
 
 
 def read_exact(stream, nbytes: int) -> bytes | None:
@@ -440,7 +476,9 @@ def main() -> None:
             break
 
         try:
-            out_pcm, in_rms, out_rms, processing_ms, peak, clip_ratio = session.process_pcm(pcm)
+            out_pcm, levels, in_rms, out_rms, processing_ms, peak, clip_ratio = session.process_pcm(
+                pcm
+            )
         except Exception as exc:
             print(f"frame processing failed seq={seq}: {exc}", file=sys.stderr)
             sys.exit(1)
@@ -453,13 +491,14 @@ def main() -> None:
                 f"outRms={out_rms:.6f}\n"
                 f"peak={peak:.6f}\n"
                 f"clipRatio={clip_ratio:.6f}\n"
-                f"processingMs={processing_ms:.2f}",
+                f"processingMs={processing_ms:.2f}\n"
+                f"levels={levels}",
                 file=sys.stderr,
             )
 
-        stdout.write(struct.pack(HEADER_FORMAT, seq, len(out_pcm)))
-        if out_pcm:
-            stdout.write(out_pcm)
+        payload = build_audio_frame_payload(out_pcm, levels)
+        stdout.write(struct.pack(HEADER_FORMAT, seq, len(payload)))
+        stdout.write(payload)
         stdout.flush()
 
 

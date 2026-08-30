@@ -359,6 +359,13 @@ Page({
     if (panel) panel.clearVisualizationData()
   },
 
+  _clearRealtimeVisualLevels() {
+    const panel = this._getVisualPanel()
+    if (panel && panel.clearRealtimeLevels) {
+      panel.clearRealtimeLevels()
+    }
+  },
+
   _refreshVisualFeedback() {
     if (this._unloaded) return
 
@@ -812,6 +819,7 @@ Page({
 
     recorder.onStop(() => {
       this._realtimeStarting = false
+      this._clearRealtimeVisualLevels()
       if (this._unloaded) return
       this.setData({
         realtimeRecording: false,
@@ -822,6 +830,7 @@ Page({
     recorder.onError((err) => {
       this._realtimeStarting = false
       console.error('[realtime-recorder] error', err)
+      this._clearRealtimeVisualLevels()
       this._closeRealtimeSocket()
       if (this._unloaded) return
       this.setData({
@@ -1222,11 +1231,11 @@ Page({
       console.warn('[realtime-ws] ignore unsupported message type')
       return
     }
-    if (data.byteLength < 4) return
+    if (data.byteLength < 8) return
 
     const view = new DataView(data)
     const seq = view.getUint32(0, false)
-    const pcmBytes = data.byteLength - 4
+    let offset = 4
 
     const pending = this._realtimePendingFrames && this._realtimePendingFrames.get(seq)
     if (!pending) return
@@ -1234,18 +1243,54 @@ Page({
     const rtt = Date.now() - pending.sentAt
     this._realtimePendingFrames.delete(seq)
 
+    const pcmLength = view.getUint32(offset, false)
+    offset += 4
+    if (!Number.isFinite(pcmLength) || pcmLength < 0 || offset + pcmLength > data.byteLength) {
+      console.warn('[realtime-ws] invalid pcmLength', { seq, pcmLength, bytes: data.byteLength })
+      return
+    }
+
+    const pcmBytes = pcmLength
     if (pcmBytes !== pending.bytes) {
-      console.warn('[realtime-ws] echo size mismatch', {
+      console.warn('[realtime-ws] echo pcm size mismatch', {
         seq,
         pcmBytes,
         expected: pending.bytes
       })
     }
 
-    if (pcmBytes > 0 && this._realtimePcmPlayer) {
-      const pcmBuffer = data.slice(4)
+    if (pcmLength > 0 && this._realtimePcmPlayer) {
+      const pcmBuffer = data.slice(offset, offset + pcmLength)
       this._realtimePcmPlayer.enqueue(pcmBuffer)
     }
+    offset += pcmLength
+
+    if (offset < data.byteLength) {
+      const channelCount = view.getUint8(offset)
+      offset += 1
+      const levelsAvailable = data.byteLength - offset
+      if (channelCount > 0 && levelsAvailable >= channelCount) {
+        const levels = []
+        for (let i = 0; i < channelCount; i++) {
+          levels.push(view.getUint8(offset + i))
+        }
+        const panel = this._getVisualPanel()
+        if (panel && panel.applyRealtimeLevels) {
+          panel.applyRealtimeLevels(levels, {
+            levelScale: 255,
+            channelCount
+          })
+        }
+      } else if (channelCount > 0) {
+        console.warn('[realtime-ws] invalid levels payload', {
+          seq,
+          channelCount,
+          levelsAvailable
+        })
+      }
+    }
+
+    const receivedBytes = data.byteLength - 4
 
     this._realtimeRttTotal += rtt
     this._realtimeRttCount += 1
@@ -1254,7 +1299,7 @@ Page({
     if (this._unloaded) return
     this.setData({
       realtimeReceivedFrames: this.data.realtimeReceivedFrames + 1,
-      realtimeReceivedBytes: this.data.realtimeReceivedBytes + pcmBytes,
+      realtimeReceivedBytes: this.data.realtimeReceivedBytes + receivedBytes,
       realtimeLastRttMs: rtt,
       realtimeAvgRttMs: avgRtt
     })
@@ -1302,6 +1347,7 @@ Page({
     this._realtimeConnectResolve = null
     this._realtimeConnectReject = null
     this._clearRealtimeParamPromise(new Error('实时连接已关闭'))
+    this._clearRealtimeVisualLevels()
 
     if (this._realtimeSocket) {
       try {

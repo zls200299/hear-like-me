@@ -147,10 +147,12 @@ public class RealtimeEchoWebSocketHandler extends AbstractWebSocketHandler {
         payload.get(pcm);
 
         try {
-            byte[] returnedPcm = pythonSession.processFrame(seq, pcm);
-            ByteBuffer response = ByteBuffer.allocate(SEQ_BYTES + returnedPcm.length).order(ByteOrder.BIG_ENDIAN);
+            byte[] returnedPayload = pythonSession.processFrame(seq, pcm);
+            ByteBuffer response = ByteBuffer
+                    .allocate(SEQ_BYTES + returnedPayload.length)
+                    .order(ByteOrder.BIG_ENDIAN);
             response.putInt(seq);
-            response.put(returnedPcm);
+            response.put(returnedPayload);
 
             if (!session.isOpen()) {
                 return;
