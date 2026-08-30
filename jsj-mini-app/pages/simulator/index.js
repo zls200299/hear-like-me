@@ -218,6 +218,7 @@ Page({
   _filePcmSource: null,
   _fileStreamTimer: null,
   _fileStreamBootstrapRemaining: 0,
+  _sampleStreamGeneration: 0,
 
   onLoad() {
     this._audioPlayer = createSeamlessAudioPlayer()
@@ -984,7 +985,10 @@ Page({
       this._realtimeConnectResolve = resolve
       this._realtimeConnectReject = reject
 
+      const isCurrentSocket = () => this._realtimeSocket === socketTask
+
       const failConnect = (err) => {
+        if (!isCurrentSocket()) return
         if (this._realtimeConnectSettled) return
         this._realtimeConnectSettled = true
         this._clearRealtimeReadyTimeout()
@@ -995,15 +999,18 @@ Page({
       }
 
       socketTask.onMessage((res) => {
+        if (!isCurrentSocket()) return
         this._handleRealtimeSocketMessage(res)
       })
 
       socketTask.onOpen(() => {
+        if (!isCurrentSocket()) return
         if (this._unloaded) return
         this._clearRealtimeReadyTimeout()
         this._realtimeReadyTimeoutTimer = setTimeout(() => {
-          if (this._realtimeConnectSettled) return
+          if (!isCurrentSocket() || this._realtimeConnectSettled) return
           failConnect(new Error('声码器初始化超时'))
+          if (!isCurrentSocket()) return
           this._closeRealtimeSocket({ silent: true })
           if (!this._unloaded) {
             this.setData({
@@ -1018,6 +1025,7 @@ Page({
       })
 
       socketTask.onClose(() => {
+        if (!isCurrentSocket()) return
         this._realtimeSocketReady = false
         if (this._sampleStreamActive || this._sampleStreamStarting) {
           this._stopSampleStreamingProcessed({ silent: true })
@@ -1031,6 +1039,7 @@ Page({
       })
 
       socketTask.onError((err) => {
+        if (!isCurrentSocket()) return
         console.error('[realtime-ws] error', err)
         failConnect(err)
         if (!this._unloaded) {
@@ -1124,6 +1133,14 @@ Page({
     return false
   },
 
+  _isCurrentSampleStream(generation) {
+    return !this._unloaded
+      && generation === this._sampleStreamGeneration
+      && this._sampleStreamStarting
+      && this._streamingMode === 'sample'
+      && this.data.sourceType === 'sample'
+  },
+
   _destroyFilePcmSource() {
     if (!this._filePcmSource) return
     this._filePcmSource.destroy()
@@ -1188,6 +1205,7 @@ Page({
 
   _stopSampleStreamingProcessed(options = {}) {
     const { silent = false, keepStatus = false } = options
+    this._sampleStreamGeneration += 1
     const wasActive = this._sampleStreamActive || this._sampleStreamStarting
 
     this._stopFileStreamPump()
@@ -1234,6 +1252,7 @@ Page({
 
     this._stopAudio('')
     this._cancelAutoRefresh()
+    const generation = ++this._sampleStreamGeneration
     this._sampleStreamStarting = true
     this._streamingMode = 'sample'
 
@@ -1247,21 +1266,38 @@ Page({
 
     try {
       const sampleSource = await this._ensureSampleSource()
-      if (this._unloaded) return
+      if (!this._isCurrentSampleStream(generation)) return
 
       this._destroyFilePcmSource()
-      this._filePcmSource = createFilePcmSource({
+      const fileSource = createFilePcmSource({
         targetSampleRate: 44100,
         frameMs: FILE_STREAM_FRAME_MS,
         loop: true
       })
-      await this._filePcmSource.load(sampleSource.url)
-      if (this._unloaded) return
+      this._filePcmSource = fileSource
+      await fileSource.load(sampleSource.url)
+      if (!this._isCurrentSampleStream(generation)) {
+        if (this._filePcmSource === fileSource) {
+          fileSource.destroy()
+          this._filePcmSource = null
+        }
+        return
+      }
 
       await this._connectRealtimeSocket()
+      if (!this._isCurrentSampleStream(generation)) return
+
       await this._sendRealtimeParams()
-      await this._initRealtimePcmPlayer()
-      if (this._unloaded) return
+      if (!this._isCurrentSampleStream(generation)) return
+
+      const pcmPlayer = await this._initRealtimePcmPlayer()
+      if (!this._isCurrentSampleStream(generation)) {
+        if (this._realtimePcmPlayer === pcmPlayer) {
+          pcmPlayer.destroy()
+          this._realtimePcmPlayer = null
+        }
+        return
+      }
 
       this._sampleStreamActive = true
       this._sampleStreamStarting = false
@@ -1282,9 +1318,8 @@ Page({
       this._startFileStreamPump()
     } catch (err) {
       console.error('[sample-stream] start failed', err)
-      this._sampleStreamStarting = false
       this._stopSampleStreamingProcessed({ silent: true })
-      if (!this._unloaded) {
+      if (!this._unloaded && this._sampleStreamGeneration === generation + 1) {
         this.setData({
           realtimeError: (err && err.message) ? err.message : '示例流式模拟启动失败',
           statusText: '示例流式模拟启动失败'
@@ -1450,6 +1485,7 @@ Page({
 
     this._realtimePcmPlayer = player
     await player.init()
+    return player
   },
 
   _destroyRealtimePcmPlayer() {
@@ -2038,8 +2074,8 @@ Page({
       && this.data.playingKind === 'processed'
       && !wasSampleStreaming
 
-    if (wasSampleStreaming) {
-      this._stopSampleStreamingProcessed({ silent: true, keepStatus: true })
+    if (wasSampleStreaming || this._sampleStreamStarting) {
+      this._stopSampleStreamingProcessed({ silent: true, keepStatus: wasSampleStreaming })
     }
 
     if (!wasPlayingOriginal && !wasPlayingProcessedOffline && !wasSampleStreaming) {
