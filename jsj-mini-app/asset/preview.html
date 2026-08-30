@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Hear Like Me - 中部参数 UI 原型</title>
+<style>
+:root{
+  --bg:#07111f;
+  --bg-2:#0a1626;
+  --card:#101d2f;
+  --card-2:#0d1929;
+  --line:#2a3b50;
+  --line-strong:#43536a;
+  --line-soft:rgba(255,255,255,.08);
+  --text:#f4f7fb;
+  --text-2:#aab7ca;
+  --text-3:#71819a;
+  --teal:#2fe0c3;
+  --teal-2:#17cbb1;
+  --teal-soft:rgba(47,224,195,.12);
+  --shadow:0 18px 50px rgba(0,0,0,.34);
+}
+*{box-sizing:border-box}
+html,body{
+  margin:0;
+  background:#040b14;
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif
+}
+body{
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  padding:24px 0;
+}
+.demo-shell{
+  position:relative;
+  width:min(100vw,430px);
+  min-height:932px;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 14% 2%,rgba(32,95,137,.11),transparent 27%),
+    radial-gradient(circle at 92% 62%,rgba(30,224,195,.055),transparent 30%),
+    linear-gradient(180deg,#07111f 0%,#081321 100%);
+  border:1px solid rgba(255,255,255,.05);
+  box-shadow:var(--shadow);
+}
+.app{
+  padding:26px 18px 34px;
+}
+.card{
+  margin-bottom:16px;
+  padding:18px;
+  border:1px solid rgba(111,136,167,.36);
+  border-radius:18px;
+  background:
+    radial-gradient(circle at 85% 10%,rgba(41,109,139,.05),transparent 34%),
+    linear-gradient(180deg,rgba(16,29,47,.96),rgba(12,23,38,.97));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.03),
+    0 10px 24px rgba(0,0,0,.12);
+}
+.card-title{
+  margin:0 0 16px;
+  font-size:20px;
+  line-height:1.2;
+  font-weight:800;
+  letter-spacing:.2px;
+}
+.scene-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.scene-btn,
+.option-btn,
+.freq-btn,
+.channel-btn{
+  appearance:none;
+  border:1px solid var(--line-strong);
+  background:rgba(15,27,44,.75);
+  color:#93a4bf;
+  border-radius:14px;
+  cursor:pointer;
+  transition:.16s ease;
+  font-family:inherit;
+}
+.scene-btn{
+  min-height:58px;
+  font-size:16px;
+  font-weight:600;
+}
+.scene-btn.active,
+.option-btn.active,
+.freq-btn.active,
+.channel-btn.active{
+  color:var(--teal);
+  border-color:var(--teal);
+  background:
+    linear-gradient(180deg,rgba(43,115,112,.38),rgba(22,74,77,.46));
+  box-shadow:
+    0 0 0 1px rgba(47,224,195,.08),
+    0 0 20px rgba(47,224,195,.08),
+    inset 0 1px 0 rgba(255,255,255,.03);
+}
+.channel-top{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.channel-value{
+  color:var(--teal);
+  font-size:34px;
+  line-height:1;
+  font-weight:800;
+  letter-spacing:.2px;
+}
+.channel-value small{
+  margin-left:5px;
+  font-size:15px;
+  font-weight:600;
+  color:#7f91aa;
+}
+.slider-shell{
+  position:relative;
+  height:34px;
+  display:flex;
+  align-items:center;
+  margin:2px 0 12px;
+}
+.slider-shell input[type=range]{
+  position:relative;
+  z-index:2;
+  width:100%;
+  margin:0;
+  appearance:none;
+  background:transparent;
+  cursor:pointer;
+}
+.slider-shell::before{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  height:4px;
+  border-radius:999px;
+  background:#313e52;
+}
+.slider-shell .progress{
+  position:absolute;
+  left:0;
+  height:4px;
+  border-radius:999px;
+  background:linear-gradient(90deg,#39e4c8,#23cbb2);
+  pointer-events:none;
+}
+input[type=range]::-webkit-slider-runnable-track{
+  height:4px;
+  background:transparent;
+}
+input[type=range]::-webkit-slider-thumb{
+  appearance:none;
+  width:24px;
+  height:24px;
+  margin-top:-10px;
+  border-radius:50%;
+  border:1px solid #55efd4;
+  background:linear-gradient(180deg,#2cceb2,#149b8c);
+  box-shadow:0 0 0 4px rgba(47,224,195,.08),0 0 18px rgba(47,224,195,.18);
+}
+input[type=range]::-moz-range-track{height:4px;background:transparent}
+input[type=range]::-moz-range-thumb{
+  width:24px;height:24px;border-radius:50%;
+  border:1px solid #55efd4;
+  background:linear-gradient(180deg,#2cceb2,#149b8c);
+}
+.channel-buttons{
+  display:grid;
+  grid-template-columns:repeat(6,1fr);
+  gap:8px;
+}
+.channel-btn{
+  min-height:46px;
+  font-size:16px;
+}
+.help-text{
+  margin-top:13px;
+  color:#74859f;
+  font-size:13px;
+  line-height:1.55;
+}
+.param-row{
+  padding:16px 0;
+  border-top:1px solid rgba(255,255,255,.07);
+}
+.param-row:first-of-type{
+  border-top:none;
+  padding-top:0;
+}
+.param-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:12px;
+}
+.param-label{
+  color:#8fa0ba;
+  font-size:15px;
+}
+.param-value{
+  color:var(--teal);
+  font-size:17px;
+  font-weight:700;
+  white-space:nowrap;
+}
+.segment{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.option-btn{
+  min-height:50px;
+  font-size:16px;
+}
+.freq-wrap{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.freq-btn{
+  min-height:48px;
+  width:100%;
+  font-size:16px;
+}
+.param-slider{
+  display:grid;
+  grid-template-columns:110px 1fr 78px;
+  align-items:center;
+  gap:10px;
+}
+.param-slider .param-label{
+  margin:0;
+}
+.param-slider .slider-shell{
+  margin:0;
+}
+.param-slider .param-value{
+  text-align:right;
+}
+.section-label{
+  margin:4px 0 10px;
+  color:#8fa0ba;
+  font-size:15px;
+}
+.subtle-divider{
+  height:1px;
+  background:rgba(255,255,255,.07);
+  margin:2px 0 16px;
+}
+@media (max-width:370px){
+  .app{padding-left:14px;padding-right:14px}
+  .card{padding:16px}
+  .scene-btn{font-size:15px;min-height:54px}
+  .channel-buttons{gap:6px}
+  .channel-btn{min-height:42px;font-size:15px}
+  .param-slider{grid-template-columns:92px 1fr 68px;gap:8px}
+}
+</style>
+</head>
+<body>
+<div class="demo-shell">
+  <main class="app">
+
+    <section class="card">
+      <h2 class="card-title">模拟场景</h2>
+      <div class="scene-grid" id="sceneGrid">
+        <button class="scene-btn active" data-scene="quiet">安静对话</button>
+        <button class="scene-btn" data-scene="restaurant">嘈杂餐厅</button>
+        <button class="scene-btn" data-scene="phone">电话通话</button>
+        <button class="scene-btn" data-scene="music">听音乐</button>
+        <button class="scene-btn" data-scene="tone">声调语言</button>
+        <button class="scene-btn" data-scene="minimal">仅 4 通道</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">有效通道数</h2>
+      <div class="channel-top">
+        <div class="channel-value"><span id="channelValue">8</span> 通道</div>
+      </div>
+
+      <div class="slider-shell">
+        <span class="progress" id="channelProgress"></span>
+        <input id="channelSlider" type="range" min="0" max="5" step="1" value="3" aria-label="有效通道数">
+      </div>
+
+      <div class="channel-buttons" id="channelButtons">
+        <button class="channel-btn" data-index="0">1</button>
+        <button class="channel-btn" data-index="1">2</button>
+        <button class="channel-btn" data-index="2">4</button>
+        <button class="channel-btn active" data-index="3">8</button>
+        <button class="channel-btn" data-index="4">16</button>
+        <button class="channel-btn" data-index="5">22</button>
+      </div>
+
+      <div class="help-text">通道数越少，声音细节越少，听起来越模糊。</div>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">参数设置</h2>
+
+      <div class="param-row">
+        <div class="param-header">
+          <span class="param-label">载体类型</span>
+        </div>
+        <div class="segment" id="carrierSegment">
+          <button class="option-btn active" data-carrier="noise">噪声载体</button>
+          <button class="option-btn" data-carrier="sine">正弦载体</button>
+        </div>
+      </div>
+
+      <div class="param-row">
+        <div class="param-header">
+          <span class="param-label">频率范围</span>
+        </div>
+        <div class="freq-wrap" id="freqWrap">
+          <button class="freq-btn" data-freq="80-8000">80-8000 Hz</button>
+          <button class="freq-btn active" data-freq="150-7000">150-7000 Hz</button>
+          <button class="freq-btn" data-freq="300-3400">300-3400 Hz</button>
+        </div>
+      </div>
+
+      <div class="param-row">
+        <div class="param-slider">
+          <span class="param-label">包络细节</span>
+          <div class="slider-shell">
+            <span class="progress" id="envProgress"></span>
+            <input id="envSlider" type="range" min="50" max="500" step="10" value="160" aria-label="包络细节">
+          </div>
+          <span class="param-value" id="envValue">160 Hz</span>
+        </div>
+      </div>
+
+      <div class="param-row">
+        <div class="param-slider">
+          <span class="param-label">电流扩散</span>
+          <div class="slider-shell">
+            <span class="progress" id="spreadProgress"></span>
+            <input id="spreadSlider" type="range" min="0" max="100" step="1" value="15" aria-label="电流扩散">
+          </div>
+          <span class="param-value" id="spreadValue">15%</span>
+        </div>
+      </div>
+
+      <div class="param-row">
+        <div class="param-slider">
+          <span class="param-label">环境噪声</span>
+          <div class="slider-shell">
+            <span class="progress" id="noiseProgress"></span>
+            <input id="noiseSlider" type="range" min="0" max="100" step="1" value="60" aria-label="环境噪声">
+          </div>
+          <span class="param-value" id="noiseValue">60%</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+const CHANNELS = [1,2,4,8,16,22]
+
+function setProgress(input, progressEl){
+  const min = Number(input.min) || 0
+  const max = Number(input.max) || 100
+  const value = Number(input.value)
+  const ratio = (value - min) / (max - min)
+  progressEl.style.width = Math.max(0, Math.min(1, ratio)) * 100 + '%'
+}
+
+function bindSlider(inputId, progressId, valueId, format){
+  const input = document.getElementById(inputId)
+  const progress = document.getElementById(progressId)
+  const value = valueId ? document.getElementById(valueId) : null
+  const update = () => {
+    setProgress(input, progress)
+    if(value) value.textContent = format(Number(input.value))
+  }
+  input.addEventListener('input', update)
+  update()
+}
+
+bindSlider('envSlider','envProgress','envValue',v => `${v} Hz`)
+bindSlider('spreadSlider','spreadProgress','spreadValue',v => `${v}%`)
+bindSlider('noiseSlider','noiseProgress','noiseValue',v => `${v}%`)
+
+const channelSlider = document.getElementById('channelSlider')
+const channelProgress = document.getElementById('channelProgress')
+const channelValue = document.getElementById('channelValue')
+const channelButtons = [...document.querySelectorAll('.channel-btn')]
+
+function setChannel(index){
+  const safe = Math.max(0, Math.min(CHANNELS.length - 1, Number(index)))
+  channelSlider.value = safe
+  channelValue.textContent = CHANNELS[safe]
+  channelButtons.forEach((btn,i)=>btn.classList.toggle('active', i===safe))
+  setProgress(channelSlider, channelProgress)
+}
+channelSlider.addEventListener('input',()=>setChannel(channelSlider.value))
+channelButtons.forEach(btn=>btn.addEventListener('click',()=>setChannel(btn.dataset.index)))
+setChannel(3)
+
+document.querySelectorAll('#sceneGrid .scene-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('#sceneGrid .scene-btn').forEach(b=>b.classList.remove('active'))
+    btn.classList.add('active')
+  })
+})
+
+document.querySelectorAll('#carrierSegment .option-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('#carrierSegment .option-btn').forEach(b=>b.classList.remove('active'))
+    btn.classList.add('active')
+  })
+})
+
+document.querySelectorAll('#freqWrap .freq-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('#freqWrap .freq-btn').forEach(b=>b.classList.remove('active'))
+    btn.classList.add('active')
+  })
+})
+</script>
+</body>
+</html>
