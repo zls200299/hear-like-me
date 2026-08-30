@@ -163,6 +163,7 @@ Page({
     realtimeLastRttMs: null,
     realtimeAvgRttMs: null,
     realtimeLostFrames: 0,
+    showRealtimeDebug: false,
     realtimePlaybackStarted: false,
     realtimePlaybackUnderruns: 0,
     realtimeBufferedMs: 0,
