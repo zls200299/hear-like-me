@@ -27,6 +27,8 @@ SPREAD = 0.15
 NOISE_LEVEL = 0.0
 ENV_AMP = 2.6
 WET = 0.9
+# Offline cochlear_vocoder peak-normalizes to ~0.89; realtime keeps a fixed makeup gain instead.
+OUTPUT_GAIN = 10.0
 COMPRESS_THRESHOLD_DB = -16.0
 COMPRESS_RATIO = 4.0
 COMPRESS_KNEE_DB = 30.0
@@ -174,6 +176,7 @@ class StreamingVocoder:
 
         y = wet * self.wet
         y = self._compress(y)
+        y = y * OUTPUT_GAIN
 
         out_rms = float(np.sqrt(np.mean(y * y)))
         processing_ms = (time.perf_counter() - started) * 1000.0
