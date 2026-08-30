@@ -255,7 +255,7 @@ function createRealtimePcmPlayer(options = {}) {
       }
 
       const item = pendingQueue.shift()
-      const scheduled = scheduleOneChunk(item.samples)
+      const scheduled = scheduleOneChunk(item)
       if (!scheduled) {
         pendingQueue.unshift(item)
         break

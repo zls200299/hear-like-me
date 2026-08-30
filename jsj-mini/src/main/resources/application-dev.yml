@@ -36,7 +36,7 @@ mybatis-plus:
 hear-like-me:
   storage:
     root-path: D:/hear-like-me/data
-    preview-url-prefix: http://localhost:8081
+    preview-url-prefix: http://192.168.1.4:8081
   engine:
     ffmpeg-path: ${HLM_FFMPEG_PATH:E:/hear-like-me/ffmpeg-9.0.1-essentials_build/bin/ffmpeg.exe}
     python-path: ${HLM_PYTHON_PATH:E:/dev-env/miniconda3/python.exe}
