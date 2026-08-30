@@ -13,7 +13,7 @@
 
   <view class="sv-meta">{{vizMeta}}</view>
 
-  <view class="sv-stage">
+  <view class="sv-stage {{activeView === 'wave' || activeView === 'cochlea' ? 'sv-stage--proto' : ''}}">
     <view wx:if="{{activeView === 'bars'}}" class="sv-pane">
       <view class="sv-bars">
         <view wx:for="{{electrodeBarLevels}}" wx:key="channelIndex" class="sv-bar-row">
