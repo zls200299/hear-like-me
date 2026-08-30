@@ -379,9 +379,6 @@ Component({
       this.setData({
         electrodeBarLevels: buildElectrodeBars(levels, { isProcessed })
       })
-      if (this.data.activeView === 'cochlea' && this._hasCanvasForView('cochlea')) {
-        this._drawActiveCanvasFrame()
-      }
     },
 
     _setupCanvas(kind, item) {
