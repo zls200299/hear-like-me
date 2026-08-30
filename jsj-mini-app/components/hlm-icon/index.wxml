@@ -1,4 +1,4 @@
 <view
   class="hlm-icon {{customClass}}"
-  style="width: {{size}}rpx; height: {{size}}rpx; background-color: {{color}}; -webkit-mask-image: url({{src}}); mask-image: url({{src}});"
+  style="width: {{size}}rpx; height: {{size}}rpx; background-color: {{color}}; -webkit-mask-image: url('{{src}}'); mask-image: url('{{src}}');"
 />

@@ -119,146 +119,167 @@
   </view>
 
   <!-- 模拟场景 -->
-  <view class="card">
-    <view class="card-title">模拟场景</view>
-    <view class="scenario-grid">
+  <view class="mid-card">
+    <view class="mid-card__title">模拟场景</view>
+    <view class="scene-grid">
       <view
         wx:for="{{scenarioList}}"
         wx:key="code"
-        class="scenario-item {{selectedScenario === item.code ? 'scenario-item--active' : ''}}"
+        class="scene-btn {{selectedScenario === item.code ? 'scene-btn--active' : ''}}"
         data-code="{{item.code}}"
         bindtap="selectScenario"
       >
-        <text class="scenario-item__name">{{item.name}}</text>
+        {{item.name}}
       </view>
     </view>
   </view>
 
   <!-- 有效通道数 -->
-  <view class="card">
-    <view class="card-title">有效通道数</view>
-    <view class="channel-value">{{nChannels}} 通道</view>
-    <view class="slider-block">
+  <view class="mid-card">
+    <view class="mid-card__title">有效通道数</view>
+    <view class="channel-top">
+      <view class="channel-display">
+        <text class="channel-display__num">{{nChannels}}</text>
+        <text class="channel-display__unit">通道</text>
+      </view>
+    </view>
+    <view class="slider-shell">
+      <view class="slider-shell__track"></view>
+      <view class="slider-shell__progress" style="width: {{channelSliderPct}}%;"></view>
       <slider
+        class="slider-shell__control"
         min="1"
         max="22"
         step="1"
         value="{{nChannels}}"
-        activeColor="#35D0BA"
-        backgroundColor="rgba(255,255,255,0.12)"
-        block-color="#35D0BA"
-        block-size="20"
+        activeColor="transparent"
+        backgroundColor="transparent"
+        block-color="#2cceb2"
+        block-size="24"
         bindchange="changeChannels"
         bindchanging="onChannelsChanging"
       />
     </view>
-    <view class="quick-row">
+    <view class="channel-buttons">
       <view
         wx:for="{{channelQuickValues}}"
         wx:key="*this"
-        class="quick-btn {{nChannels === item ? 'quick-btn--active' : ''}}"
+        class="channel-btn {{nChannels === item ? 'channel-btn--active' : ''}}"
         data-value="{{item}}"
         bindtap="quickSetChannels"
       >
         {{item}}
       </view>
     </view>
-    <view class="param-hint">通道数越少，声音细节越少，听起来越模糊。</view>
+    <view class="help-text">通道数越少，声音细节越少，听起来越模糊。</view>
   </view>
 
   <!-- 参数设置 -->
-  <view class="card">
-    <view class="card-title">参数设置</view>
+  <view class="mid-card">
+    <view class="mid-card__title">参数设置</view>
 
-    <view class="param-group">
-      <view class="param-label">载体类型</view>
-      <view class="option-row">
+    <view class="param-row">
+      <view class="param-header">
+        <text class="param-label">载体类型</text>
+      </view>
+      <view class="segment">
         <view
-          class="chip-btn {{carrier === 'noise' ? 'chip-btn--active' : ''}}"
+          class="mid-option-btn {{carrier === 'noise' ? 'mid-option-btn--active' : ''}}"
           data-value="noise"
           bindtap="selectCarrier"
         >噪声载体</view>
         <view
-          class="chip-btn {{carrier === 'sine' ? 'chip-btn--active' : ''}}"
+          class="mid-option-btn {{carrier === 'sine' ? 'mid-option-btn--active' : ''}}"
           data-value="sine"
           bindtap="selectCarrier"
         >正弦载体</view>
       </view>
     </view>
 
-    <view class="param-group">
-      <view class="param-label">频率范围</view>
-      <view class="option-row option-row--wrap">
+    <view class="param-row">
+      <view class="param-header">
+        <text class="param-label">频率范围</text>
+      </view>
+      <view class="freq-wrap">
         <view
           wx:for="{{frequencyOptions}}"
           wx:key="value"
-          class="chip-btn chip-btn--freq {{frequencyRange === item.value ? 'chip-btn--active' : ''}}"
+          class="freq-btn {{frequencyRange === item.value ? 'freq-btn--active' : ''}}"
           data-value="{{item.value}}"
           bindtap="selectFrequencyRange"
         >{{item.label}}</view>
       </view>
     </view>
 
-    <view class="param-group">
-      <view class="param-label-row">
+    <view class="param-row">
+      <view class="param-slider">
         <text class="param-label">包络细节</text>
+        <view class="slider-shell slider-shell--compact">
+          <view class="slider-shell__track"></view>
+          <view class="slider-shell__progress" style="width: {{envCutSliderPct}}%;"></view>
+          <slider
+            class="slider-shell__control"
+            min="20"
+            max="500"
+            step="10"
+            value="{{envCut}}"
+            activeColor="transparent"
+            backgroundColor="transparent"
+            block-color="#2cceb2"
+            block-size="24"
+            bindchange="changeEnvCut"
+            bindchanging="onEnvCutChanging"
+          />
+        </view>
         <text class="param-value">{{envCut}} Hz</text>
       </view>
-      <view class="slider-block">
-        <slider
-          min="20"
-          max="500"
-          step="10"
-          value="{{envCut}}"
-          activeColor="#35D0BA"
-          backgroundColor="rgba(255,255,255,0.12)"
-          block-color="#35D0BA"
-          block-size="20"
-          bindchange="changeEnvCut"
-          bindchanging="onEnvCutChanging"
-        />
-      </view>
     </view>
 
-    <view class="param-group">
-      <view class="param-label-row">
+    <view class="param-row">
+      <view class="param-slider">
         <text class="param-label">电流扩散</text>
+        <view class="slider-shell slider-shell--compact">
+          <view class="slider-shell__track"></view>
+          <view class="slider-shell__progress" style="width: {{spreadSliderPct}}%;"></view>
+          <slider
+            class="slider-shell__control"
+            min="0"
+            max="100"
+            step="1"
+            value="{{spread}}"
+            activeColor="transparent"
+            backgroundColor="transparent"
+            block-color="#2cceb2"
+            block-size="24"
+            bindchange="changeSpread"
+            bindchanging="onSpreadChanging"
+          />
+        </view>
         <text class="param-value">{{spread}}%</text>
       </view>
-      <view class="slider-block">
-        <slider
-          min="0"
-          max="100"
-          step="1"
-          value="{{spread}}"
-          activeColor="#35D0BA"
-          backgroundColor="rgba(255,255,255,0.12)"
-          block-color="#35D0BA"
-          block-size="20"
-          bindchange="changeSpread"
-          bindchanging="onSpreadChanging"
-        />
-      </view>
     </view>
 
-    <view class="param-group">
-      <view class="param-label-row">
+    <view class="param-row">
+      <view class="param-slider">
         <text class="param-label">环境噪声</text>
+        <view class="slider-shell slider-shell--compact">
+          <view class="slider-shell__track"></view>
+          <view class="slider-shell__progress" style="width: {{noiseSliderPct}}%;"></view>
+          <slider
+            class="slider-shell__control"
+            min="0"
+            max="100"
+            step="1"
+            value="{{noiseLevel}}"
+            activeColor="transparent"
+            backgroundColor="transparent"
+            block-color="#2cceb2"
+            block-size="24"
+            bindchange="changeNoiseLevel"
+            bindchanging="onNoiseLevelChanging"
+          />
+        </view>
         <text class="param-value">{{noiseLevel}}%</text>
-      </view>
-      <view class="slider-block">
-        <slider
-          min="0"
-          max="100"
-          step="1"
-          value="{{noiseLevel}}"
-          activeColor="#35D0BA"
-          backgroundColor="rgba(255,255,255,0.12)"
-          block-color="#35D0BA"
-          block-size="20"
-          bindchange="changeNoiseLevel"
-          bindchanging="onNoiseLevelChanging"
-        />
       </view>
     </view>
   </view>

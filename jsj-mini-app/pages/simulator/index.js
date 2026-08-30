@@ -140,7 +140,7 @@ Page({
       { code: 'phone', name: '电话通话' },
       { code: 'music', name: '听音乐' },
       { code: 'tone', name: '声调语言' },
-      { code: 'minimal', name: '仅4通道' }
+      { code: 'minimal', name: '仅 4 通道' }
     ],
     frequencyOptions: [
       { value: '80-8000', label: '80-8000 Hz' },
@@ -148,6 +148,10 @@ Page({
       { value: '300-3400', label: '300-3400 Hz' }
     ],
     channelQuickValues: [1, 2, 4, 8, 16, 22],
+    channelSliderPct: 33,
+    envCutSliderPct: 29,
+    spreadSliderPct: 15,
+    noiseSliderPct: 0,
     isProcessing: false,
     taskNo: '',
     outputAssetId: null,
@@ -242,6 +246,10 @@ Page({
   _micLevelActive: false,
   _micLevelDrawTimer: null,
   _micLevelDecayTimer: null,
+  _realtimeConnectTimeoutTimer: null,
+  _realtimeRecorderStartTimeoutTimer: null,
+  _realtimePermissionRequesting: false,
+  _realtimePermissionRequestId: 0,
 
   onLoad() {
     this._audioPlayer = createSeamlessAudioPlayer()
@@ -255,9 +263,11 @@ Page({
       this._refreshVisualFeedback()
       this._schedulePrefetchProcessed(400)
       this._syncSourceDetailUI()
+      this.setData(this._midSliderPercents())
     })
     this._refreshVisualFeedback()
     this._syncSourceDetailUI()
+    this.setData(this._midSliderPercents())
   },
 
   onShow() {
@@ -276,6 +286,8 @@ Page({
 
   onUnload() {
     this._unloaded = true
+    this._clearRealtimeConnectTimeout()
+    this._clearRealtimeRecorderStartTimeout()
     this._destroyMicLevelCanvas()
     this._stopFileStreamingProcessed({ silent: true })
     this._clearRealtimeParamThrottle()
@@ -359,6 +371,7 @@ Page({
       realtimeConnecting
     } = this.data
     const realtimeStarting = !!this._realtimeStarting
+    const permissionRequesting = !!this._realtimePermissionRequesting
 
     let icon = 'music'
     let title = '示例声音'
@@ -389,10 +402,15 @@ Page({
         actionLabel = '停止采集'
         actionTone = 'stop'
         micStatusLabel = '正在采集麦克风音频'
-      } else if (realtimeConnecting || realtimeStarting) {
-        actionLabel = '连接中…'
+      } else if (permissionRequesting) {
+        actionLabel = '取消'
         actionTone = 'connecting'
-        actionDisabled = true
+        actionDisabled = false
+        micStatusLabel = '等待麦克风授权'
+      } else if (realtimeConnecting || realtimeStarting) {
+        actionLabel = '取消连接'
+        actionTone = 'connecting'
+        actionDisabled = false
         micStatusLabel = '连接中…'
       } else {
         actionLabel = '开始采集'
@@ -569,16 +587,17 @@ Page({
       return
     }
     if (sourceType === 'realtime') {
+      if (this._realtimePermissionRequesting) {
+        this._realtimePermissionRequestId += 1
+        this._realtimePermissionRequesting = false
+        this._syncSourceDetailUI()
+        return
+      }
       if (this.data.realtimeRecording || this._realtimeStarting || this.data.realtimeConnecting) {
         this.stopRealtimeMic()
         return
       }
-      this.setData({
-        realtimeConnecting: true,
-        realtimeError: ''
-      }, () => {
-        this._syncSourceDetailUI()
-      })
+      this.setData({ realtimeError: '' })
       this.startRealtimeMic()
     }
   },
@@ -595,6 +614,27 @@ Page({
       electrodeDots: buildElectrodeDots(count)
     })
     this._refreshVisualFeedback()
+  },
+
+  _sliderPct(value, min, max) {
+    const v = Number(value)
+    const lo = Number(min)
+    const hi = Number(max)
+    if (!Number.isFinite(v) || hi <= lo) return 0
+    return Math.round(((v - lo) / (hi - lo)) * 100)
+  },
+
+  _midSliderPercents(params = {}) {
+    const nChannels = params.nChannels != null ? params.nChannels : this.data.nChannels
+    const envCut = params.envCut != null ? params.envCut : this.data.envCut
+    const spread = params.spread != null ? params.spread : this.data.spread
+    const noiseLevel = params.noiseLevel != null ? params.noiseLevel : this.data.noiseLevel
+    return {
+      channelSliderPct: this._sliderPct(nChannels, 1, 22),
+      envCutSliderPct: this._sliderPct(envCut, 20, 500),
+      spreadSliderPct: this._sliderPct(spread, 0, 100),
+      noiseSliderPct: this._sliderPct(noiseLevel, 0, 100)
+    }
   },
 
   _getClarityLevelClass(score) {
@@ -934,6 +974,8 @@ Page({
   },
 
   _applySampleSourceToData(sampleSource) {
+    if (this.data.sourceType !== 'sample') return
+
     this._applyRuntimePatch({
       sourceType: 'sample',
       sourceAssetId: sampleSource.assetId
@@ -1099,6 +1141,7 @@ Page({
 
     recorder.onStart(() => {
       this._realtimeStarting = false
+      this._clearRealtimeRecorderStartTimeout()
       this._realtimeStats = { frameCount: 0, totalBytes: 0 }
       if (this._unloaded) return
       this.setData({
@@ -1148,6 +1191,7 @@ Page({
 
     recorder.onStop(() => {
       this._realtimeStarting = false
+      this._clearRealtimeRecorderStartTimeout()
       this._clearRealtimeVisualLevels()
       this._stopMicLevelVisualizer({ decay: true })
       if (this._unloaded) return
@@ -1162,6 +1206,7 @@ Page({
 
     recorder.onError((err) => {
       this._realtimeStarting = false
+      this._clearRealtimeRecorderStartTimeout()
       console.error('[realtime-recorder] error', err)
       this._clearRealtimeVisualLevels()
       this._closeRealtimeSocket()
@@ -1202,32 +1247,68 @@ Page({
 
   _ensureRecordPermission() {
     return new Promise((resolve) => {
+      let settled = false
+      const finish = (granted) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        resolve(!!granted)
+      }
+
+      const timer = setTimeout(() => {
+        finish(false)
+        if (!this._unloaded) {
+          wx.showToast({
+            title: '麦克风授权超时，请重试',
+            icon: 'none'
+          })
+        }
+      }, 12000)
+
+      const openPermissionSettings = () => {
+        wx.openSetting({
+          success: (openRes) => {
+            finish(openRes.authSetting && openRes.authSetting['scope.record'] === true)
+          },
+          fail: () => finish(false)
+        })
+      }
+
+      const promptOpenSettings = () => {
+        wx.showModal({
+          title: '需要麦克风权限',
+          content: '请在设置中开启麦克风权限后重试',
+          confirmText: '去设置',
+          cancelText: '取消',
+          success: (modalRes) => {
+            if (modalRes.confirm) {
+              openPermissionSettings()
+            } else {
+              finish(false)
+            }
+          },
+          fail: () => finish(false)
+        })
+      }
+
       wx.getSetting({
         success: (settingRes) => {
-          if (settingRes.authSetting && settingRes.authSetting['scope.record']) {
-            resolve(true)
+          const auth = (settingRes && settingRes.authSetting) || {}
+          if (auth['scope.record'] === true) {
+            finish(true)
+            return
+          }
+          if (auth['scope.record'] === false) {
+            promptOpenSettings()
             return
           }
           wx.authorize({
             scope: 'scope.record',
-            success: () => resolve(true),
-            fail: () => {
-              wx.showModal({
-                title: '需要麦克风权限',
-                content: '需要麦克风权限才能使用实时体验',
-                confirmText: '去设置',
-                cancelText: '取消',
-                success: (modalRes) => {
-                  if (modalRes.confirm) {
-                    wx.openSetting()
-                  }
-                }
-              })
-              resolve(false)
-            }
+            success: () => finish(true),
+            fail: () => promptOpenSettings()
           })
         },
-        fail: () => resolve(false)
+        fail: () => finish(false)
       })
     })
   },
@@ -1236,6 +1317,13 @@ Page({
     if (!this._recorderManager) {
       this._initRealtimeRecorder()
     }
+    this._clearRealtimeRecorderStartTimeout()
+    this._realtimeRecorderStartTimeoutTimer = setTimeout(() => {
+      if (this._unloaded || this.data.realtimeRecording) return
+      if (!this._realtimeStarting && !this.data.realtimeConnecting) return
+      this._failRealtimeConnectAttempt('麦克风启动超时，请检查权限后重试')
+    }, 8000)
+
     this._recorderManager.start({
       duration: 600000,
       sampleRate: 44100,
@@ -1273,11 +1361,18 @@ Page({
         if (this._realtimeConnectSettled) return
         this._realtimeConnectSettled = true
         this._clearRealtimeReadyTimeout()
+        this._clearRealtimeConnectTimeout()
         this._realtimeSocketReady = false
         this._realtimeConnectResolve = null
         this._realtimeConnectReject = null
         reject(err || new Error('WebSocket 连接失败'))
       }
+
+      this._clearRealtimeConnectTimeout()
+      this._realtimeConnectTimeoutTimer = setTimeout(() => {
+        if (!isCurrentSocket() || this._realtimeConnectSettled) return
+        failConnect(new Error('WebSocket 连接超时'))
+      }, 15000)
 
       socketTask.onMessage((res) => {
         if (!isCurrentSocket()) return
@@ -1287,18 +1382,11 @@ Page({
       socketTask.onOpen(() => {
         if (!isCurrentSocket()) return
         if (this._unloaded) return
+        this._clearRealtimeConnectTimeout()
         this._clearRealtimeReadyTimeout()
         this._realtimeReadyTimeoutTimer = setTimeout(() => {
           if (!isCurrentSocket() || this._realtimeConnectSettled) return
           failConnect(new Error('声码器初始化超时'))
-          if (!isCurrentSocket()) return
-          this._closeRealtimeSocket({ silent: true })
-          if (!this._unloaded) {
-            this.setData({
-              realtimeError: '声码器初始化超时，请检查服务端 Python 环境',
-              realtimeStatusText: '声码器初始化失败'
-            })
-          }
         }, 20000)
         this.setData({
           realtimeStatusText: '实时连接已建立，正在初始化声码器...'
@@ -1323,13 +1411,6 @@ Page({
         if (!isCurrentSocket()) return
         console.error('[realtime-ws] error', err)
         failConnect(err)
-        if (!this._unloaded) {
-          this.setData({
-            realtimeSocketConnected: false,
-            realtimeError: (err && err.errMsg) ? err.errMsg : '实时连接失败',
-            realtimeStatusText: '实时连接失败，请检查网络或服务端'
-          })
-        }
       })
     })
   },
@@ -1902,6 +1983,44 @@ Page({
     this._realtimeReadyTimeoutTimer = null
   },
 
+  _clearRealtimeConnectTimeout() {
+    if (!this._realtimeConnectTimeoutTimer) return
+    clearTimeout(this._realtimeConnectTimeoutTimer)
+    this._realtimeConnectTimeoutTimer = null
+  },
+
+  _clearRealtimeRecorderStartTimeout() {
+    if (!this._realtimeRecorderStartTimeoutTimer) return
+    clearTimeout(this._realtimeRecorderStartTimeoutTimer)
+    this._realtimeRecorderStartTimeoutTimer = null
+  },
+
+  _setRealtimeConnecting(active) {
+    if (this._unloaded) return
+    const next = !!active
+    if (this.data.realtimeConnecting === next) return
+    this.setData({ realtimeConnecting: next }, () => {
+      this._syncSourceDetailUI()
+    })
+  },
+
+  _failRealtimeConnectAttempt(message) {
+    this._realtimeStarting = false
+    this._clearRealtimeRecorderStartTimeout()
+    this._destroyRealtimePcmPlayer()
+    this._closeRealtimeSocket({ silent: true })
+    this._stopMicLevelVisualizer({ decay: false })
+    if (this._unloaded) return
+    this.setData({
+      realtimeConnecting: false,
+      realtimeRecording: false,
+      realtimeError: message || '实时连接失败',
+      realtimeStatusText: message || '实时连接失败，请检查网络或服务端'
+    }, () => {
+      this._syncSourceDetailUI()
+    })
+  },
+
   _decodeRealtimeSocketText(data) {
     if (typeof data === 'string') return data
     if (!(data instanceof ArrayBuffer)) return ''
@@ -2053,6 +2172,8 @@ Page({
     this._clearRealtimeParamThrottle()
     this._stopRealtimePendingSweep()
     this._clearRealtimeReadyTimeout()
+    this._clearRealtimeConnectTimeout()
+    this._clearRealtimeRecorderStartTimeout()
     this._realtimeSocketReady = false
 
     const connectReject = this._realtimeConnectReject
@@ -2089,20 +2210,51 @@ Page({
   },
 
   async startRealtimeMic() {
-    if (this.data.realtimeRecording) return
-
-    const granted = await this._ensureRecordPermission()
-    if (!granted) {
-      this._realtimeStarting = false
-      if (!this._unloaded) {
-        this.setData({ realtimeConnecting: false }, () => {
-          this._syncSourceDetailUI()
-        })
-      }
+    if (this.data.realtimeRecording) {
+      this._setRealtimeConnecting(false)
+      return
+    }
+    if (this._realtimePermissionRequesting || this._realtimeStarting || this.data.realtimeConnecting) {
       return
     }
 
-    if (this.data.realtimeRecording) return
+    this._realtimePermissionRequesting = true
+    const permissionRequestId = ++this._realtimePermissionRequestId
+    this._syncSourceDetailUI()
+
+    let granted = false
+    try {
+      granted = await this._ensureRecordPermission()
+    } finally {
+      if (permissionRequestId === this._realtimePermissionRequestId) {
+        this._realtimePermissionRequesting = false
+        this._syncSourceDetailUI()
+      }
+    }
+
+    if (permissionRequestId !== this._realtimePermissionRequestId) {
+      return
+    }
+
+    if (!granted) {
+      this._realtimeStarting = false
+      this._setRealtimeConnecting(false)
+      return
+    }
+
+    if (this.data.realtimeRecording) {
+      this._setRealtimeConnecting(false)
+      return
+    }
+
+    if (!this._unloaded) {
+      this.setData({
+        realtimeConnecting: true,
+        realtimeError: ''
+      }, () => {
+        this._syncSourceDetailUI()
+      })
+    }
 
     this._stopFileStreamingProcessed({ silent: true })
     this._realtimeStarting = true
@@ -2115,25 +2267,24 @@ Page({
       await this._initRealtimePcmPlayer()
       this._startRealtimeRecorder()
     } catch (err) {
-      this._realtimeStarting = false
-      this._destroyRealtimePcmPlayer()
-      this._closeRealtimeSocket({ silent: true })
-      this._stopMicLevelVisualizer({ decay: false })
-      console.error('[realtime-ws] connect failed', err)
-      if (!this._unloaded) {
-        this.setData({
-          realtimeConnecting: false,
-          realtimeError: (err && err.errMsg) ? err.errMsg : '实时连接失败',
-          realtimeStatusText: '实时连接失败，请检查网络或服务端'
-        }, () => {
-          this._syncSourceDetailUI()
-        })
+      if (err && err.message === 'WebSocket connection cancelled') {
+        this._realtimeStarting = false
+        this._clearRealtimeRecorderStartTimeout()
+        this._destroyRealtimePcmPlayer()
+        this._setRealtimeConnecting(false)
+        return
       }
+      console.error('[realtime-ws] connect failed', err)
+      this._failRealtimeConnectAttempt(
+        (err && err.errMsg) ? err.errMsg : ((err && err.message) ? err.message : '实时连接失败')
+      )
     }
   },
 
   stopRealtimeMic() {
     const wasRecording = this.data.realtimeRecording
+    const wasConnecting = this.data.realtimeConnecting || this._realtimeStarting
+    this._realtimePermissionRequesting = false
     if (this._recorderManager && (this.data.realtimeRecording || this._realtimeStarting)) {
       try {
         this._recorderManager.stop()
@@ -2147,7 +2298,7 @@ Page({
     if (!wasRecording) {
       this._stopMicLevelVisualizer({ decay: false })
     }
-    if (!this._unloaded && (this.data.realtimeConnecting || this.data.realtimeRecording)) {
+    if (!this._unloaded && (wasConnecting || this.data.realtimeRecording)) {
       this.setData({
         realtimeConnecting: false,
         realtimeRecording: false
@@ -2162,7 +2313,9 @@ Page({
     const sampleCode = this.data.selectedSample
     const cached = this._sampleSourceCache[sampleCode]
     if (cached) {
-      this._applySampleSourceToData(cached)
+      if (this.data.sourceType === 'sample') {
+        this._applySampleSourceToData(cached)
+      }
       return cached
     }
 
@@ -2172,7 +2325,7 @@ Page({
     }
 
     const preparePromise = (async () => {
-      if (!this._unloaded) {
+      if (!this._unloaded && this.data.sourceType === 'sample') {
         this.setData({
           sourceType: 'sample',
           taskStatus: 'uploading',
@@ -2185,7 +2338,7 @@ Page({
       try {
         const result = await prepareSampleSource(sampleCode)
         this._sampleSourceCache[sampleCode] = result
-        if (!this._unloaded) {
+        if (!this._unloaded && this.data.sourceType === 'sample') {
           this._applySampleSourceToData(result)
         }
         return result
@@ -2383,6 +2536,7 @@ Page({
     if (type === 'realtime') {
       this._stopAudio('已停止播放')
       this._cancelAutoRefresh()
+      this._cancelPrefetch()
       this._invalidateProcessedResult({ autoRefresh: false })
       this._applyRuntimePatch({
         sourceType: 'realtime',
@@ -2394,6 +2548,7 @@ Page({
         statusText: '已选择实时麦克风',
         taskStatus: 'idle',
         selectedScenario: '',
+        realtimeConnecting: false,
         realtimeError: '',
         realtimeStatusText: '未开始实时体验',
         realtimeSocketConnected: false,
@@ -2542,7 +2697,8 @@ Page({
       spread: preset.spread,
       noiseLevel: preset.noiseLevel,
       carrier: preset.carrier || this.data.carrier,
-      statusText: `已切换至${scenarioName}场景`
+      statusText: `已切换至${scenarioName}场景`,
+      ...this._midSliderPercents(preset)
     }, () => {
       this._invalidateProcessedResult()
       this._maybeSendRealtimeParams()
@@ -2556,7 +2712,8 @@ Page({
     this._updateElectrodeDots(value)
     this.setData({
       nChannels: value,
-      selectedScenario: ''
+      selectedScenario: '',
+      channelSliderPct: this._sliderPct(value, 1, 22)
     }, () => {
       this._refreshVisualFeedback()
     })
@@ -2571,6 +2728,7 @@ Page({
     this.setData({
       nChannels: value,
       selectedScenario: '',
+      channelSliderPct: this._sliderPct(value, 1, 22),
       statusText: `已设置 ${value} 通道`
     }, () => {
       this._invalidateProcessedResult()
@@ -2586,6 +2744,7 @@ Page({
     this.setData({
       nChannels: value,
       selectedScenario: '',
+      channelSliderPct: this._sliderPct(value, 1, 22),
       statusText: `已设置 ${value} 通道`
     }, () => {
       this._invalidateProcessedResult()
@@ -2626,6 +2785,7 @@ Page({
     this.setData({
       envCut: value,
       selectedScenario: '',
+      envCutSliderPct: this._sliderPct(value, 20, 500),
       statusText: `包络细节已设为 ${value} Hz`
     }, () => {
       this._invalidateProcessedResult()
@@ -2639,7 +2799,8 @@ Page({
     this._applyRuntimePatch({ envCut: value, selectedScenario: '' })
     this.setData({
       envCut: value,
-      selectedScenario: ''
+      selectedScenario: '',
+      envCutSliderPct: this._sliderPct(value, 20, 500)
     }, () => {
       this._refreshVisualFeedback()
     })
@@ -2653,6 +2814,7 @@ Page({
     this.setData({
       spread: value,
       selectedScenario: '',
+      spreadSliderPct: this._sliderPct(value, 0, 100),
       statusText: `电流扩散已设为 ${value}%`
     }, () => {
       this._invalidateProcessedResult()
@@ -2666,7 +2828,8 @@ Page({
     this._applyRuntimePatch({ spread: value, selectedScenario: '' })
     this.setData({
       spread: value,
-      selectedScenario: ''
+      selectedScenario: '',
+      spreadSliderPct: this._sliderPct(value, 0, 100)
     }, () => {
       this._refreshVisualFeedback()
     })
@@ -2680,6 +2843,7 @@ Page({
     this.setData({
       noiseLevel: value,
       selectedScenario: '',
+      noiseSliderPct: this._sliderPct(value, 0, 100),
       statusText: `环境噪声已设为 ${value}%`
     }, () => {
       this._invalidateProcessedResult()
@@ -2693,7 +2857,8 @@ Page({
     this._applyRuntimePatch({ noiseLevel: value, selectedScenario: '' })
     this.setData({
       noiseLevel: value,
-      selectedScenario: ''
+      selectedScenario: '',
+      noiseSliderPct: this._sliderPct(value, 0, 100)
     }, () => {
       this._refreshVisualFeedback()
     })
@@ -2933,6 +3098,9 @@ Page({
     try {
       if (this.data.sourceType === 'sample') {
         const sampleSource = await this._ensureSampleSource()
+        if (this.data.sourceType !== 'sample') {
+          return
+        }
         sourceAssetId = sampleSource.assetId
       } else if (this.data.sourceType === 'upload') {
         sourceAssetId = this._resolveSourceAssetId()

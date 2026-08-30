@@ -1,7 +1,9 @@
 /**
  * 听觉模拟 UI 图标清单（来源：asset/顶部.html）
- * 路径相对于小程序根目录，供 hlm-icon 组件与页面引用。
+ * 真机 mask 需 data URI，见 icon-svgs.js
  */
+const { ICON_SVGS, svgToMaskDataUri } = require('./icon-svgs.js')
+
 const ICON_BASE = '/assets/icons'
 
 const ICONS = {
@@ -36,9 +38,14 @@ const ICON_NAMES = Object.freeze({
 
 function resolveIconPath(name) {
   if (!name) return ''
-  if (ICON_NAMES[name]) return ICON_NAMES[name]
-  if (String(name).indexOf('/') === 0) return name
-  return `${ICON_BASE}/${name}.svg`
+  const key = String(name)
+  if (ICON_SVGS[key]) return svgToMaskDataUri(ICON_SVGS[key])
+  if (key.indexOf('/') === 0) {
+    const base = key.split('/').pop().replace(/\.svg$/i, '')
+    if (ICON_SVGS[base]) return svgToMaskDataUri(ICON_SVGS[base])
+    return key
+  }
+  return `${ICON_BASE}/${key}.svg`
 }
 
 module.exports = {

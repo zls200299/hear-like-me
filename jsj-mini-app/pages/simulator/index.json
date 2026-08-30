@@ -1,5 +1,6 @@
 {
   "navigationBarTitleText": "听觉模拟",
+  "navigationBarBackgroundColor": "#07111f",
   "usingComponents": {
     "simulator-visual": "/components/simulator-visual/index"
   }
