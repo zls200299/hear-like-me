@@ -293,8 +293,8 @@
   </view>
 
   <!-- 当前模拟反馈 -->
-  <view class="mid-card">
-    <view class="mid-card__title">当前模拟反馈</view>
+  <view class="card console-card">
+    <view class="card-title">当前模拟反馈</view>
 
     <view class="feedback-card {{clarityLevelClass}} {{taskStatus === 'failed' ? 'feedback-card--failed' : ''}} {{taskStatus === 'success' ? 'feedback-card--success' : ''}} {{taskStatus === 'processing' ? 'feedback-card--processing' : ''}}">
 
@@ -338,8 +338,8 @@
   </view>
 
   <!-- 视觉化反馈 -->
-  <view class="mid-card">
-    <view class="mid-card__title">视觉化反馈</view>
+  <view class="card visual-card">
+    <view class="card-title">视觉化反馈</view>
     <view class="visual-card-desc">模拟声播放时，电极阵列会根据各频率通道的活动强度实时变化，仅用于科普展示。</view>
 
     <simulator-visual
