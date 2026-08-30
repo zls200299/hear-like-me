@@ -23,6 +23,7 @@ import java.util.Set;
 public class EngineProperties {
 
     private static final String VOCODER_SCRIPT = "cochlear_vocoder.py";
+    private static final String REALTIME_VOCODER_SCRIPT = "realtime_vocoder.py";
 
     /**
      * Python 可执行文件路径
@@ -33,6 +34,11 @@ public class EngineProperties {
      * cochlear_vocoder.py 脚本路径（可为相对路径，相对 JVM 工作目录解析）
      */
     private String scriptPath = "../audio-engine/cochlear_vocoder.py";
+
+    /**
+     * realtime_vocoder.py 脚本路径（常驻 Python 实时链路）
+     */
+    private String realtimeScriptPath = "../audio-engine/realtime_vocoder.py";
 
     /**
      * 子进程超时（秒）
@@ -50,8 +56,20 @@ public class EngineProperties {
     private boolean vocoderEnabled = true;
 
     public Path resolveScriptPath() {
+        return resolveEngineScriptPath(scriptPath, VOCODER_SCRIPT, "声码器脚本不存在，请配置 hear-like-me.engine.script-path。");
+    }
+
+    public Path resolveRealtimeScriptPath() {
+        return resolveEngineScriptPath(
+                realtimeScriptPath,
+                REALTIME_VOCODER_SCRIPT,
+                "实时声码器脚本不存在，请配置 hear-like-me.engine.realtime-script-path。"
+        );
+    }
+
+    private Path resolveEngineScriptPath(String configuredScriptPath, String scriptFileName, String errorMessage) {
         Path userDir = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize();
-        List<Path> candidates = buildScriptCandidates(userDir);
+        List<Path> candidates = buildScriptCandidates(userDir, configuredScriptPath, scriptFileName);
 
         for (Path candidate : candidates) {
             if (Files.isRegularFile(candidate)) {
@@ -59,39 +77,38 @@ public class EngineProperties {
             }
         }
 
-        throw new ServiceException("声码器脚本不存在，请配置 hear-like-me.engine.script-path。"
-                + " 已尝试: " + candidates.get(0));
+        throw new ServiceException(errorMessage + " 已尝试: " + candidates.get(0));
     }
 
-    private List<Path> buildScriptCandidates(Path userDir) {
+    private List<Path> buildScriptCandidates(Path userDir, String configuredScriptPath, String scriptFileName) {
         Set<String> seen = new LinkedHashSet<>();
         List<Path> candidates = new ArrayList<>();
 
-        addCandidate(candidates, seen, resolveConfiguredPath(userDir));
-        addCandidate(candidates, seen, userDir.resolve("audio-engine").resolve(VOCODER_SCRIPT));
-        addCandidate(candidates, seen, userDir.resolve("scaffolding-v2/audio-engine").resolve(VOCODER_SCRIPT));
-        addCandidate(candidates, seen, userDir.resolve("../audio-engine").resolve(VOCODER_SCRIPT));
-        addCandidate(candidates, seen, userDir.resolve("../../audio-engine").resolve(VOCODER_SCRIPT));
+        addCandidate(candidates, seen, resolveConfiguredPath(userDir, configuredScriptPath));
+        addCandidate(candidates, seen, userDir.resolve("audio-engine").resolve(scriptFileName));
+        addCandidate(candidates, seen, userDir.resolve("scaffolding-v2/audio-engine").resolve(scriptFileName));
+        addCandidate(candidates, seen, userDir.resolve("../audio-engine").resolve(scriptFileName));
+        addCandidate(candidates, seen, userDir.resolve("../../audio-engine").resolve(scriptFileName));
 
         Path parent = userDir.getParent();
         if (parent != null) {
-            addCandidate(candidates, seen, parent.resolve("audio-engine").resolve(VOCODER_SCRIPT));
-            addCandidate(candidates, seen, parent.resolve("scaffolding-v2/audio-engine").resolve(VOCODER_SCRIPT));
+            addCandidate(candidates, seen, parent.resolve("audio-engine").resolve(scriptFileName));
+            addCandidate(candidates, seen, parent.resolve("scaffolding-v2/audio-engine").resolve(scriptFileName));
         }
 
         Path grandParent = parent != null ? parent.getParent() : null;
         if (grandParent != null) {
-            addCandidate(candidates, seen, grandParent.resolve("audio-engine").resolve(VOCODER_SCRIPT));
+            addCandidate(candidates, seen, grandParent.resolve("audio-engine").resolve(scriptFileName));
         }
 
         return candidates;
     }
 
-    private Path resolveConfiguredPath(Path userDir) {
-        if (!StringUtils.hasText(scriptPath)) {
+    private Path resolveConfiguredPath(Path userDir, String configuredScriptPath) {
+        if (!StringUtils.hasText(configuredScriptPath)) {
             return null;
         }
-        Path configured = Paths.get(scriptPath.trim());
+        Path configured = Paths.get(configuredScriptPath.trim());
         return configured.isAbsolute() ? configured.normalize() : userDir.resolve(configured).normalize();
     }
 

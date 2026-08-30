@@ -28,5 +28,6 @@ hear-like-me:
     ffmpeg-path: ${HLM_FFMPEG_PATH:ffmpeg}
     python-path: ${HLM_PYTHON_PATH:python}
     script-path: ${HLM_ENGINE_SCRIPT:../audio-engine/cochlear_vocoder.py}
+    realtime-script-path: ${HLM_REALTIME_SCRIPT:../audio-engine/realtime_vocoder.py}
     timeout-seconds: 120
     vocoder-enabled: ${HLM_VOCODER_ENABLED:true}
