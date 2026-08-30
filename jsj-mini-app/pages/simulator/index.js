@@ -4,10 +4,14 @@ const { uploadAudio } = require('../../services/file.js')
 const { createTask } = require('../../services/audioTask.js')
 const { createSeamlessAudioPlayer } = require('../../utils/simulator/seamlessAudioPlayer.js')
 const { createRealtimePcmPlayer } = require('../../utils/simulator/realtimePcmPlayer.js')
+const { createFilePcmSource } = require('../../utils/simulator/filePcmSource.js')
 const config = require('../../config.js')
 
 const REALTIME_PARAM_THROTTLE_MS = 120
 const REALTIME_PARAM_SUPERSEDED = 'PARAM_SUPERSEDED'
+const FILE_STREAM_FRAME_MS = 60
+const FILE_STREAM_MAX_PENDING_FRAMES = 5
+const FILE_STREAM_BOOTSTRAP_FRAMES = 3
 
 const SCENARIO_PRESETS = {
   quiet: {
@@ -171,7 +175,8 @@ Page({
     realtimeBufferedMs: 0,
     realtimePlaybackPendingFrames: 0,
     realtimePlaybackDroppedFrames: 0,
-    realtimePlaybackRecoveryCount: 0
+    realtimePlaybackRecoveryCount: 0,
+    sampleStreamingActive: false
   },
 
   _scenarioPresets: null,
@@ -207,6 +212,12 @@ Page({
   _realtimeParamThrottleTimer: null,
   _realtimeParamLastSentAt: 0,
   _realtimeParamPending: false,
+  _streamingMode: null,
+  _sampleStreamActive: false,
+  _sampleStreamStarting: false,
+  _filePcmSource: null,
+  _fileStreamTimer: null,
+  _fileStreamBootstrapRemaining: 0,
 
   onLoad() {
     this._audioPlayer = createSeamlessAudioPlayer()
@@ -238,6 +249,7 @@ Page({
 
   onUnload() {
     this._unloaded = true
+    this._stopSampleStreamingProcessed({ silent: true })
     this._clearRealtimeParamThrottle()
     this._cancelPrefetch()
     this._cancelAutoRefresh()
@@ -510,11 +522,15 @@ Page({
   },
 
   _invalidateProcessedResult(options = {}) {
+    const wasSampleStreamingProcessed = this._sampleStreamActive
+      && this.data.isAudioPlaying
+      && this.data.playingKind === 'processed'
     const wasPlayingProcessed = this.data.isAudioPlaying && this.data.playingKind === 'processed'
-    const cacheApplied = wasPlayingProcessed && options.autoRefresh !== false
+    const wasPlayingProcessedOffline = wasPlayingProcessed && !wasSampleStreamingProcessed
+    const cacheApplied = wasPlayingProcessedOffline && options.autoRefresh !== false
       ? this._tryApplyCachedCurrentResult()
       : false
-    const shouldKeepVisualization = wasPlayingProcessed && options.autoRefresh !== false
+    const shouldKeepVisualization = wasPlayingProcessedOffline && options.autoRefresh !== false
 
     const patch = {
       errorMessage: '',
@@ -534,7 +550,7 @@ Page({
       }
     }
 
-    if (wasPlayingProcessed && options.autoRefresh !== false) {
+    if (wasPlayingProcessedOffline && options.autoRefresh !== false) {
       if (cacheApplied) {
         this._shouldAutoPlayProcessed = false
       } else {
@@ -553,6 +569,7 @@ Page({
       if (
         options.schedulePrefetch !== false
         && !wasPlayingProcessed
+        && !wasSampleStreamingProcessed
         && this.data.sourceType !== 'realtime'
       ) {
         this._invalidateInFlightPrefetch()
@@ -1002,6 +1019,9 @@ Page({
 
       socketTask.onClose(() => {
         this._realtimeSocketReady = false
+        if (this._sampleStreamActive || this._sampleStreamStarting) {
+          this._stopSampleStreamingProcessed({ silent: true })
+        }
         if (!this._realtimeConnectSettled) {
           failConnect(new Error('WebSocket closed before READY'))
         }
@@ -1037,6 +1057,9 @@ Page({
     }
 
     if (this._unloaded) return
+    const statusText = this._streamingMode === 'sample'
+      ? '声码器已就绪，正在流式播放示例模拟声'
+      : '声码器已就绪，正在采集麦克风音频'
     this.setData({
       realtimeSocketConnected: true,
       realtimeSentFrames: 0,
@@ -1046,7 +1069,7 @@ Page({
       realtimeLastRttMs: null,
       realtimeAvgRttMs: null,
       realtimeLostFrames: 0,
-      realtimeStatusText: '声码器已就绪，正在采集麦克风音频',
+      realtimeStatusText: statusText,
       realtimePlaybackStarted: false,
       realtimePlaybackUnderruns: 0,
       realtimeBufferedMs: 0,
@@ -1090,6 +1113,190 @@ Page({
     }
   },
 
+  _isStreamingVocoderActive() {
+    if (this.data.sourceType === 'realtime'
+      && (this.data.realtimeRecording || this._realtimeStarting)) {
+      return true
+    }
+    if (this._sampleStreamActive || this._sampleStreamStarting) {
+      return true
+    }
+    return false
+  },
+
+  _destroyFilePcmSource() {
+    if (!this._filePcmSource) return
+    this._filePcmSource.destroy()
+    this._filePcmSource = null
+  },
+
+  _stopFileStreamPump() {
+    if (!this._fileStreamTimer) return
+    clearTimeout(this._fileStreamTimer)
+    this._fileStreamTimer = null
+  },
+
+  _scheduleNextFileStreamFrame(delayMs = FILE_STREAM_FRAME_MS) {
+    if (!this._sampleStreamActive || this._unloaded) return
+    this._stopFileStreamPump()
+    this._fileStreamTimer = setTimeout(() => {
+      this._fileStreamTimer = null
+      this._pumpFileStreamFrame()
+    }, delayMs)
+  },
+
+  _pumpFileStreamFrame() {
+    if (!this._sampleStreamActive || this._unloaded) return
+    if (!this._realtimeSocketReady || !this._filePcmSource || !this._filePcmSource.isReady()) {
+      this._scheduleNextFileStreamFrame()
+      return
+    }
+
+    const pendingCount = this._realtimePendingFrames ? this._realtimePendingFrames.size : 0
+    if (pendingCount >= FILE_STREAM_MAX_PENDING_FRAMES) {
+      this._scheduleNextFileStreamFrame()
+      return
+    }
+
+    try {
+      const frame = this._filePcmSource.readFrame()
+      this._sendRealtimeFrame(frame, frame.byteLength)
+    } catch (err) {
+      console.warn('[sample-stream] readFrame failed', err)
+      this._stopSampleStreamingProcessed()
+      return
+    }
+
+    if (this._fileStreamBootstrapRemaining > 0) {
+      this._fileStreamBootstrapRemaining -= 1
+      if (this._fileStreamBootstrapRemaining > 0) {
+        this._fileStreamTimer = setTimeout(() => {
+          this._fileStreamTimer = null
+          this._pumpFileStreamFrame()
+        }, 0)
+        return
+      }
+    }
+
+    this._scheduleNextFileStreamFrame()
+  },
+
+  _startFileStreamPump() {
+    this._stopFileStreamPump()
+    this._pumpFileStreamFrame()
+  },
+
+  _stopSampleStreamingProcessed(options = {}) {
+    const { silent = false, keepStatus = false } = options
+    const wasActive = this._sampleStreamActive || this._sampleStreamStarting
+
+    this._stopFileStreamPump()
+    this._destroyFilePcmSource()
+    this._clearRealtimeParamThrottle()
+    this._clearRealtimeVisualLevels()
+    this._destroyRealtimePcmPlayer()
+
+    this._sampleStreamActive = false
+    this._sampleStreamStarting = false
+    this._fileStreamBootstrapRemaining = 0
+
+    if (this._streamingMode === 'sample') {
+      this._streamingMode = null
+      this._closeRealtimeSocket({ silent: true })
+    }
+
+    if (!this._unloaded && wasActive) {
+      const patch = {
+        sampleStreamingActive: false,
+        realtimeSocketConnected: false
+      }
+      if (!keepStatus) {
+        patch.isAudioPlaying = false
+        patch.playingKind = ''
+        patch.statusText = silent ? this.data.statusText : '已停止模拟声音播放'
+      }
+      this.setData(patch, () => {
+        this._syncVisualPlaybackState()
+        this._refreshVisualFeedback()
+      })
+    }
+  },
+
+  async _startSampleStreamingProcessed() {
+    if (this._sampleStreamStarting) return
+
+    if (this._sampleStreamActive
+      && this.data.isAudioPlaying
+      && this.data.playingKind === 'processed') {
+      this._stopSampleStreamingProcessed()
+      return
+    }
+
+    this._stopAudio('')
+    this._cancelAutoRefresh()
+    this._sampleStreamStarting = true
+    this._streamingMode = 'sample'
+
+    if (!this._unloaded) {
+      this.setData({
+        realtimeError: '',
+        isProcessing: false,
+        statusText: '正在启动示例流式模拟...'
+      })
+    }
+
+    try {
+      const sampleSource = await this._ensureSampleSource()
+      if (this._unloaded) return
+
+      this._destroyFilePcmSource()
+      this._filePcmSource = createFilePcmSource({
+        targetSampleRate: 44100,
+        frameMs: FILE_STREAM_FRAME_MS,
+        loop: true
+      })
+      await this._filePcmSource.load(sampleSource.url)
+      if (this._unloaded) return
+
+      await this._connectRealtimeSocket()
+      await this._sendRealtimeParams()
+      await this._initRealtimePcmPlayer()
+      if (this._unloaded) return
+
+      this._sampleStreamActive = true
+      this._sampleStreamStarting = false
+      this._fileStreamBootstrapRemaining = FILE_STREAM_BOOTSTRAP_FRAMES
+
+      this.setData({
+        isAudioPlaying: true,
+        playingKind: 'processed',
+        sampleStreamingActive: true,
+        realtimeSocketConnected: true,
+        statusText: '正在循环播放人工耳蜗模拟声音',
+        realtimeStatusText: '示例流式模拟播放中'
+      }, () => {
+        this._syncVisualPlaybackState()
+        this._refreshVisualFeedback()
+      })
+
+      this._startFileStreamPump()
+    } catch (err) {
+      console.error('[sample-stream] start failed', err)
+      this._sampleStreamStarting = false
+      this._stopSampleStreamingProcessed({ silent: true })
+      if (!this._unloaded) {
+        this.setData({
+          realtimeError: (err && err.message) ? err.message : '示例流式模拟启动失败',
+          statusText: '示例流式模拟启动失败'
+        })
+        wx.showToast({
+          title: '模拟声播放失败',
+          icon: 'none'
+        })
+      }
+    }
+  },
+
   _clearRealtimeParamThrottle() {
     if (this._realtimeParamThrottleTimer) {
       clearTimeout(this._realtimeParamThrottleTimer)
@@ -1099,9 +1306,8 @@ Page({
   },
 
   _scheduleRealtimeParamUpdate() {
-    if (this.data.sourceType !== 'realtime') return
+    if (!this._isStreamingVocoderActive()) return
     if (!this._realtimeSocketReady) return
-    if (!this.data.realtimeRecording && !this._realtimeStarting) return
 
     this._realtimeParamPending = true
     const now = Date.now()
@@ -1127,9 +1333,8 @@ Page({
   },
 
   _flushRealtimeParamUpdate() {
-    if (this.data.sourceType !== 'realtime') return
+    if (!this._isStreamingVocoderActive()) return
     if (!this._realtimeSocketReady) return
-    if (!this.data.realtimeRecording && !this._realtimeStarting) return
 
     this._clearRealtimeParamThrottle()
     this._sendRealtimeParams().catch((err) => this._handleRealtimeParamSendError(err))
@@ -1451,6 +1656,7 @@ Page({
 
   _closeRealtimeSocket(options = {}) {
     const { silent = false } = options
+    this._stopFileStreamPump()
     this._clearRealtimeParamThrottle()
     this._stopRealtimePendingSweep()
     this._clearRealtimeReadyTimeout()
@@ -1488,8 +1694,10 @@ Page({
 
     if (this.data.realtimeRecording || this._realtimeStarting) return
 
+    this._stopSampleStreamingProcessed({ silent: true })
     this.setData({ realtimeError: '' })
     this._realtimeStarting = true
+    this._streamingMode = 'mic'
     this._stopAudio('已停止播放')
 
     try {
@@ -1598,6 +1806,10 @@ Page({
   },
 
   _playAudio(url, kind, onPlayText, onStopText, onErrorText, options = {}) {
+    if (this._sampleStreamActive || this._sampleStreamStarting) {
+      this._stopSampleStreamingProcessed({ silent: true })
+    }
+
     if (!url) {
       wx.showToast({
         title: '暂无可播放音频',
@@ -1677,6 +1889,10 @@ Page({
   selectSource(e) {
     this._ensurePageState()
     const type = e.currentTarget.dataset.type
+
+    if (this._sampleStreamActive || this._sampleStreamStarting) {
+      this._stopSampleStreamingProcessed({ silent: true })
+    }
 
     if (this.data.sourceType === 'realtime' && type !== 'realtime') {
       if (this.data.realtimeRecording || this._realtimeStarting) {
@@ -1814,10 +2030,19 @@ Page({
 
     const cache = this._sampleSourceCache[code]
     const label = this._getSampleLabel(code)
+    const wasSampleStreaming = this._sampleStreamActive
+      && this.data.isAudioPlaying
+      && this.data.playingKind === 'processed'
     const wasPlayingOriginal = this.data.isAudioPlaying && this.data.playingKind === 'original'
-    const wasPlayingProcessed = this.data.isAudioPlaying && this.data.playingKind === 'processed'
+    const wasPlayingProcessedOffline = this.data.isAudioPlaying
+      && this.data.playingKind === 'processed'
+      && !wasSampleStreaming
 
-    if (!wasPlayingOriginal && !wasPlayingProcessed) {
+    if (wasSampleStreaming) {
+      this._stopSampleStreamingProcessed({ silent: true, keepStatus: true })
+    }
+
+    if (!wasPlayingOriginal && !wasPlayingProcessedOffline && !wasSampleStreaming) {
       this._cancelAutoRefresh()
     }
 
@@ -1838,7 +2063,7 @@ Page({
       taskStatus: cache ? 'ready' : 'idle',
       statusText: wasPlayingOriginal
         ? `正在切换${label}...`
-        : wasPlayingProcessed
+        : (wasSampleStreaming || wasPlayingProcessedOffline)
           ? '正在切换示例并更新模拟声...'
           : `已选择${label}`,
       selectedScenario: ''
@@ -1846,9 +2071,11 @@ Page({
       this._syncRuntimeParamsFromData()
       this._invalidateProcessedResult({
         keepStatus: true,
-        autoRefresh: wasPlayingProcessed
+        autoRefresh: wasPlayingProcessedOffline
       })
-      if (wasPlayingOriginal) {
+      if (wasSampleStreaming) {
+        this._startSampleStreamingProcessed()
+      } else if (wasPlayingOriginal) {
         this._continueOriginalAfterSampleSwitch(cache, label)
       }
     })
@@ -2111,6 +2338,10 @@ Page({
   },
 
   async playOriginal() {
+    if (this._sampleStreamActive || this._sampleStreamStarting) {
+      this._stopSampleStreamingProcessed()
+    }
+
     if (this.data.sourceType === 'sample') {
       try {
         const sampleSource = await this._ensureSampleSource()
@@ -2419,6 +2650,12 @@ Page({
   },
 
   async playProcessedAuto() {
+    if (this.data.sourceType === 'sample') {
+      if (this._sampleStreamStarting) return
+      await this._startSampleStreamingProcessed()
+      return
+    }
+
     const key = this._buildProcessKey()
 
     if (
