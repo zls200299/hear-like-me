@@ -1825,6 +1825,7 @@ Page({
     } else if (this._audioPlayer) {
       this._audioPlayer.stop({ silent: true })
     }
+    this._clearOriginalVisualPcm()
     this._cancelAutoRefresh()
     const generation = ++this._fileStreamGeneration
     this._fileStreamStarting = true
@@ -2536,12 +2537,21 @@ Page({
     return preparePromise
   },
 
+  _clearOriginalVisualPcm() {
+    const panel = this._getVisualPanel()
+    if (panel && panel.clearOriginalPcm) {
+      panel.clearOriginalPcm()
+    }
+  },
+
   _stopAudio(statusText = '已停止播放') {
     if (this._audioPlayer) {
       this._audioPlayer.stop()
     }
 
     if (this._unloaded) return
+
+    this._clearOriginalVisualPcm()
 
     this.setData({
       isAudioPlaying: false,
@@ -2602,7 +2612,7 @@ Page({
       this._applyVisualizationData(options.visualizationData)
     }
 
-    this._audioPlayer.play(url, {
+    const playerCallbacks = {
       onTimeUpdate: (currentTime) => {
         if (this._unloaded) return
         this.setData({ audioSeekSec: currentTime })
@@ -2621,6 +2631,7 @@ Page({
       },
       onStop: () => {
         if (this._unloaded) return
+        this._clearOriginalVisualPcm()
         this._syncVisualPlaybackState()
         this.setData({
           isAudioPlaying: false,
@@ -2633,6 +2644,7 @@ Page({
       onError: (err) => {
         console.error(err)
         if (this._unloaded) return
+        this._clearOriginalVisualPcm()
         this._syncVisualPlaybackState()
         this.setData({
           isAudioPlaying: false,
@@ -2646,7 +2658,36 @@ Page({
           icon: 'none'
         })
       }
-    }).catch((err) => {
+    }
+
+    if (kind === 'original') {
+      const panel = this._getVisualPanel()
+      if (panel && panel.clearRealtimePcm) {
+        panel.clearRealtimePcm()
+      }
+      playerCallbacks.onPcmFrame = (frame) => {
+        if (
+          this._unloaded
+          || kind !== 'original'
+          || !frame
+          || !frame.samples
+          || !frame.samples.length
+        ) {
+          return
+        }
+        const visualPanel = this._getVisualPanel()
+        if (visualPanel && visualPanel.applyOriginalPcm) {
+          visualPanel.applyOriginalPcm(frame.samples, {
+            sampleRate: frame.sampleRate,
+            currentTime: frame.currentTime
+          })
+        }
+      }
+    } else {
+      this._clearOriginalVisualPcm()
+    }
+
+    this._audioPlayer.play(url, playerCallbacks).catch((err) => {
       console.error(err)
     })
   },

@@ -2,6 +2,8 @@ const BUFFER_CACHE_MAX = 4
 const TIME_POLL_MS = 100
 
 function createSeamlessAudioPlayer() {
+  let playGeneration = 0
+
   const state = {
     useWebAudio: typeof wx.createWebAudioContext === 'function',
     webCtx: null,
@@ -37,6 +39,12 @@ function createSeamlessAudioPlayer() {
       if (!state.playing) return
       const onTimeUpdate = state.callbacks.onTimeUpdate
       if (onTimeUpdate) onTimeUpdate(getCurrentTime())
+
+      const onPcmFrame = state.callbacks.onPcmFrame
+      if (onPcmFrame && state.buffer && state.source && state.webCtx) {
+        const frame = getPcmWindow({ sampleCount: 2646 })
+        if (frame) onPcmFrame(frame)
+      }
     }, TIME_POLL_MS)
   }
 
@@ -74,6 +82,35 @@ function createSeamlessAudioPlayer() {
       return state.inner.currentTime || 0
     }
     return 0
+  }
+
+  function readMonoSample(buffer, index) {
+    const channels = buffer.numberOfChannels
+    const frameIndex = ((index % buffer.length) + buffer.length) % buffer.length
+    let sum = 0
+    for (let ch = 0; ch < channels; ch++) {
+      sum += buffer.getChannelData(ch)[frameIndex]
+    }
+    return sum / channels
+  }
+
+  function getPcmWindow(options = {}) {
+    if (!state.playing || !state.buffer || !state.source || !state.webCtx || state.inner) {
+      return null
+    }
+
+    const sampleCount = Number(options.sampleCount) > 0 ? Number(options.sampleCount) : 2646
+    const buffer = state.buffer
+    const sampleRate = buffer.sampleRate
+    const currentTime = getCurrentTime()
+    const startIndex = Math.floor(currentTime * sampleRate)
+    const samples = new Float32Array(sampleCount)
+
+    for (let i = 0; i < sampleCount; i++) {
+      samples[i] = readMonoSample(buffer, startIndex + i)
+    }
+
+    return { samples, sampleRate, currentTime }
   }
 
   function ensureWebCtx() {
@@ -167,12 +204,13 @@ function createSeamlessAudioPlayer() {
   async function play(url, callbacks = {}) {
     if (state.destroyed) return
     stop({ silent: true })
+    const generation = playGeneration
     state.callbacks = callbacks || {}
 
     if (state.useWebAudio) {
       try {
         const buffer = await loadBuffer(url)
-        if (state.destroyed) return
+        if (state.destroyed || generation !== playGeneration) return
         startWebSource(buffer)
         state.playing = true
         startTimePoll()
@@ -183,16 +221,18 @@ function createSeamlessAudioPlayer() {
       }
     }
 
+    if (generation !== playGeneration) return
     bindInner(url)
   }
 
   async function switchSrc(url) {
     if (state.destroyed || !state.playing) return false
+    const generation = playGeneration
 
     if (state.useWebAudio && state.webCtx) {
       try {
         const buffer = await loadBuffer(url)
-        if (state.destroyed) return false
+        if (state.destroyed || generation !== playGeneration || !state.playing) return false
         startWebSource(buffer)
         return true
       } catch (err) {
@@ -215,6 +255,7 @@ function createSeamlessAudioPlayer() {
 
   function stop(opts = {}) {
     const { silent = false } = opts
+    playGeneration++
     const wasPlaying = state.playing
     state.playing = false
     stopTimePoll()
@@ -247,6 +288,7 @@ function createSeamlessAudioPlayer() {
     stop,
     destroy,
     getCurrentTime,
+    getPcmWindow,
     isPlaying
   }
 }

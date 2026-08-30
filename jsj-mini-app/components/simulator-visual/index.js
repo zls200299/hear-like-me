@@ -91,6 +91,9 @@ Component({
       this._realtimePcmSamples = null
       this._realtimePcmSampleRate = 44100
       this._realtimeSpectrumBins = null
+      this._originalPcmSamples = null
+      this._originalPcmSampleRate = 44100
+      this._originalSpectrumBins = null
       this._audioAnchorSec = 0
       this._audioAnchorWallMs = Date.now()
       this._updateMeta()
@@ -107,6 +110,7 @@ Component({
       this._stopPlaybackTimer()
       this._stopIdleTimer()
       this.clearRealtimePcm()
+      this.clearOriginalPcm()
       this._clearCanvasRefs()
     }
   },
@@ -123,6 +127,12 @@ Component({
       }
     },
     'isAudioPlaying, playingKind': function () {
+      if (!this.properties.isAudioPlaying || this.properties.playingKind !== 'original') {
+        if (this._originalPcmSamples) {
+          this.clearOriginalPcm()
+        }
+      }
+      this._updateAxisLabels()
       this.syncPlaybackState()
       this._syncBadgeModeText()
     },
@@ -247,7 +257,41 @@ Component({
       }
       if (this.data.activeView === 'spec' && this._hasCanvasForView('spec')) {
         clearSpecCanvas(this._specCtx, this._specCanvas)
-        if (!this.properties.realtimeActive) {
+        if (!this.properties.realtimeActive && !this._hasOriginalPcm()) {
+          this._drawSpecFrame()
+        }
+      }
+    },
+
+    applyOriginalPcm(samples, opts) {
+      const options = opts || {}
+      const flags = this._getRuntimeFlags()
+      if (!flags.isOriginal || !samples || !samples.length) return
+
+      this._originalPcmSamples = new Float32Array(samples)
+      this._originalPcmSampleRate = Number(options.sampleRate) > 0
+        ? Number(options.sampleRate)
+        : 44100
+
+      if (this.data.activeView === 'wave' && this._hasCanvasForView('wave')) {
+        this._drawWaveFrame()
+      }
+
+      if (this.data.activeView === 'spec' && this._hasCanvasForView('spec')) {
+        this._drawOriginalSpecColumn(this._originalPcmSamples)
+      }
+    },
+
+    clearOriginalPcm() {
+      this._originalPcmSamples = null
+      this._originalPcmSampleRate = 44100
+      this._originalSpectrumBins = null
+      if (this.data.activeView === 'wave' && this._hasCanvasForView('wave')) {
+        this._drawWaveFrame()
+      }
+      if (this.data.activeView === 'spec' && this._hasCanvasForView('spec')) {
+        clearSpecCanvas(this._specCtx, this._specCanvas)
+        if (!this._hasRealtimePcm()) {
           this._drawSpecFrame()
         }
       }
@@ -426,9 +470,14 @@ Component({
 
     _resolveVizMeta(carrierLabel) {
       const view = this.data.activeView
+      const flags = this._getRuntimeFlags()
       const carrier = carrierLabel || (this.properties.carrier === 'sine' ? '正弦载波' : '噪声载波')
-      if (view === 'wave') return '模拟声波形 · 时间域'
-      if (view === 'spec') return '频谱能量 · 频率分布'
+      if (view === 'wave') {
+        return flags.isOriginal ? '原声波形 · 时间域' : '模拟声波形 · 时间域'
+      }
+      if (view === 'spec') {
+        return flags.isOriginal ? '原声频谱 · 频率分布' : '频谱能量 · 频率分布'
+      }
       if (view === 'cochlea') return '耳蜗映射 · 基底膜位置'
       if (view === 'neuro') return '神经元放电 · 活动强度'
       return `${this.properties.nChannels} 个通道 · ${carrier}`
@@ -438,6 +487,7 @@ Component({
       const { lo, hi } = parseFreqRange(this.properties.frequencyRange)
       const fHiLabel = formatFreqHi(hi)
       const view = this.data.activeView
+      const flags = this._getRuntimeFlags()
       let axisLeft = `${lo} Hz`
       let axisCenter = '频率通道（低频 → 高频）'
       let axisRight = fHiLabel
@@ -445,13 +495,25 @@ Component({
       if (view === 'cochlea') {
         axisCenter = '频率通道（耳顶 → 耳底）'
       } else if (view === 'spec') {
-        axisLeft = '0'
-        axisCenter = '能量谱（低频 → 高频）'
-        axisRight = '8 kHz'
+        if (flags.isOriginal) {
+          axisLeft = '0 Hz'
+          axisCenter = '原声频率'
+          axisRight = '8 kHz'
+        } else {
+          axisLeft = '0'
+          axisCenter = '能量谱（低频 → 高频）'
+          axisRight = '8 kHz'
+        }
       } else if (view === 'wave') {
-        axisLeft = '0 ms'
-        axisCenter = '时间轴'
-        axisRight = '120 ms'
+        if (flags.isOriginal) {
+          axisLeft = '-1'
+          axisCenter = '原声振幅 / 当前 PCM'
+          axisRight = '+1'
+        } else {
+          axisLeft = '0 ms'
+          axisCenter = '时间轴'
+          axisRight = '120 ms'
+        }
       } else if (view === 'neuro') {
         axisLeft = '弱'
         axisCenter = '通道神经活动'
@@ -479,6 +541,10 @@ Component({
     },
 
     _getDisplayHiHz() {
+      if (this._hasOriginalPcm()) {
+        const sr = this._originalPcmSampleRate || 44100
+        return Math.min(8000, sr / 2)
+      }
       const { hi } = parseFreqRange(this.properties.frequencyRange)
       const sampleRate = this._realtimePcmSampleRate || 44100
       return Math.min(hi, sampleRate / 2)
@@ -521,7 +587,18 @@ Component({
         this._drawRealtimeSpecColumn(this._realtimePcmSamples)
         return
       }
+      if (this.data.activeView === 'spec' && this._hasOriginalPcm()) {
+        this._drawOriginalSpecColumn(this._originalPcmSamples)
+        return
+      }
       this._drawActiveCanvasFrame()
+    },
+
+    _hasOriginalPcm() {
+      const flags = this._getRuntimeFlags()
+      return flags.isOriginal
+        && this._originalPcmSamples
+        && this._originalPcmSamples.length > 0
     },
 
     _hasRealtimePcm() {
@@ -532,6 +609,26 @@ Component({
 
     _shouldUseRealtimePcmWave() {
       return this._hasRealtimePcm()
+    },
+
+    _shouldUseOriginalPcmWave() {
+      return this._hasOriginalPcm()
+    },
+
+    _drawOriginalSpecColumn(samples) {
+      if (!this._specCtx || !this._specCanvas) return
+      const pcm = samples || this._originalPcmSamples
+      if (!pcm || !pcm.length) return
+
+      const sampleRate = this._originalPcmSampleRate || 44100
+      const spectrum = computePcmSpectrum(pcm, sampleRate)
+      this._originalSpectrumBins = spectrum.normalizedBins
+
+      drawRealSpecColumn(this._specCtx, this._specCanvas, this._dpr, spectrum, {
+        displayHiHz: this._getDisplayHiHz(),
+        sampleRate: spectrum.sampleRate,
+        fftSize: spectrum.fftSize
+      })
     },
 
     _drawRealtimeSpecColumn(samples) {
@@ -552,17 +649,22 @@ Component({
 
     _drawSpecFrame() {
       if (!this._specCtx || !this._specCanvas) return
-      if (this._hasRealtimePcm()) return
+      if (this._hasRealtimePcm() || this._hasOriginalPcm()) return
       drawSpecColumn(this._specCtx, this._specCanvas, this._dpr, this._getDrawOpts())
     },
 
     _drawWaveFrame() {
       if (!this._vizCtx || !this._vizCanvas) return
       const flags = this._getRuntimeFlags()
+      const useRealtime = this._shouldUseRealtimePcmWave()
+      const useOriginal = !useRealtime && this._shouldUseOriginalPcmWave()
       drawWave(this._vizCtx, this._vizCanvas, this._dpr, {
         ...this._getDrawOpts(),
-        useRealPcm: this._shouldUseRealtimePcmWave(),
-        pcmSamples: this._shouldUseRealtimePcmWave() ? this._realtimePcmSamples : null,
+        useRealPcm: useRealtime || useOriginal,
+        pcmSamples: useRealtime
+          ? this._realtimePcmSamples
+          : (useOriginal ? this._originalPcmSamples : null),
+        playingKind: useOriginal ? 'original' : this.properties.playingKind,
         isPlaying: flags.isPlaying || !!this.properties.realtimeActive
       })
     },
@@ -577,7 +679,7 @@ Component({
       const isProcessed = flags.isProcessed || !!this.properties.realtimeActive
 
       if (view === 'wave' && this._vizCtx && this._vizCanvas) {
-        if (this._shouldUseRealtimePcmWave()) return
+        if (this._shouldUseRealtimePcmWave() || this._shouldUseOriginalPcmWave()) return
         this._drawWaveFrame()
         return
       }
@@ -593,7 +695,7 @@ Component({
       }
 
       if (view === 'spec' && this._specCtx && this._specCanvas) {
-        if (this._hasRealtimePcm()) return
+        if (this._hasRealtimePcm() || this._hasOriginalPcm()) return
         this._drawSpecFrame()
         return
       }
