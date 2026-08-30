@@ -2,6 +2,7 @@ const { listScenarios } = require('../../services/scenario.js')
 const { listSamples, prepareSampleSource } = require('../../services/sample.js')
 const { uploadAudio } = require('../../services/file.js')
 const { createTask } = require('../../services/audioTask.js')
+const { createSeamlessAudioPlayer } = require('../../utils/simulator/seamlessAudioPlayer.js')
 
 const SCENARIO_PRESETS = {
   quiet: {
@@ -156,9 +157,10 @@ Page({
   _autoRefreshSeq: 0,
   _shouldAutoPlayProcessed: false,
   _runtimeParams: null,
-  audioCtx: null,
+  _audioPlayer: null,
 
   onLoad() {
+    this._audioPlayer = createSeamlessAudioPlayer()
     this._ensurePageState()
     this._scenarioPresets = { ...SCENARIO_PRESETS }
     this._sampleLabels = { ...SAMPLE_LABELS }
@@ -187,6 +189,10 @@ Page({
     this._unloaded = true
     this._cancelAutoRefresh()
     this._stopAudio('已退出页面')
+    if (this._audioPlayer) {
+      this._audioPlayer.destroy()
+      this._audioPlayer = null
+    }
   },
 
   async _loadRemoteData() {
@@ -272,8 +278,8 @@ Page({
     const panel = this._getVisualPanel()
     if (!panel) return
     const patch = {}
-    if (this.audioCtx && typeof this.audioCtx.currentTime === 'number') {
-      patch.audioSeekSec = this.audioCtx.currentTime
+    if (this._audioPlayer && this._audioPlayer.isPlaying()) {
+      patch.audioSeekSec = this._audioPlayer.getCurrentTime()
     }
     if (Object.keys(patch).length) {
       this.setData(patch, () => panel.syncPlaybackState())
@@ -631,14 +637,8 @@ Page({
   },
 
   _stopAudio(statusText = '已停止播放') {
-    if (this.audioCtx) {
-      try {
-        this.audioCtx.stop()
-      } catch (e) {}
-      try {
-        this.audioCtx.destroy()
-      } catch (e) {}
-      this.audioCtx = null
+    if (this._audioPlayer) {
+      this._audioPlayer.stop()
     }
 
     if (this._unloaded) return
@@ -654,21 +654,19 @@ Page({
   },
 
   _switchPlayback(url, kind, onPlayText) {
-    if (!url || !this.audioCtx || !this.data.isAudioPlaying || this.data.playingKind !== kind) {
+    if (!url || !this._audioPlayer || !this._audioPlayer.isPlaying() || this.data.playingKind !== kind) {
       return false
     }
-    try {
-      this.audioCtx.stop()
-    } catch (e) {}
-    this.audioCtx.src = url
-    this.audioCtx.loop = true
-    this.audioCtx.play()
-    if (!this._unloaded) {
+
+    this._audioPlayer.switchSrc(url).then((ok) => {
+      if (!ok || this._unloaded) return
       this.setData({ statusText: onPlayText }, () => {
         this._refreshVisualFeedback()
         this._syncVisualPlaybackState()
       })
-    }
+    }).catch((err) => {
+      console.error(err)
+    })
     return true
   },
 
@@ -681,9 +679,13 @@ Page({
       return
     }
 
+    if (!this._audioPlayer) {
+      this._audioPlayer = createSeamlessAudioPlayer()
+    }
+
     if (this.data.isAudioPlaying && this.data.playingKind === kind) {
       if (options.forceRestart) {
-        this._stopAudio('')
+        if (this._audioPlayer) this._audioPlayer.stop({ silent: true })
       } else {
         this._stopAudio(onStopText || '已停止播放')
         return
@@ -696,70 +698,53 @@ Page({
       this._applyVisualizationData(options.visualizationData)
     }
 
-    const audioCtx = wx.createInnerAudioContext()
-    this.audioCtx = audioCtx
-    audioCtx.src = url
-    audioCtx.loop = true
-
-    audioCtx.onTimeUpdate(() => {
-      if (this._unloaded || !this.audioCtx) return
-      this.setData({ audioSeekSec: this.audioCtx.currentTime })
-    })
-
-    audioCtx.onPlay(() => {
-      if (this._unloaded) return
-      this.setData({
-        isAudioPlaying: true,
-        playingKind: kind,
-        statusText: onPlayText
-      }, () => {
-        this._refreshVisualFeedback()
+    this._audioPlayer.play(url, {
+      onTimeUpdate: (currentTime) => {
+        if (this._unloaded) return
+        this.setData({ audioSeekSec: currentTime })
+      },
+      onPlay: () => {
+        if (this._unloaded) return
+        this.setData({
+          isAudioPlaying: true,
+          playingKind: kind,
+          statusText: onPlayText,
+          audioSeekSec: 0
+        }, () => {
+          this._refreshVisualFeedback()
+          this._syncVisualPlaybackState()
+        })
+      },
+      onStop: () => {
+        if (this._unloaded) return
         this._syncVisualPlaybackState()
-      })
-    })
-
-    audioCtx.onStop(() => {
-      if (this._unloaded) return
-      this._syncVisualPlaybackState()
-      this.setData({
-        isAudioPlaying: false,
-        playingKind: '',
-        statusText: onStopText || '已停止播放'
-      }, () => {
-        this._refreshVisualFeedback()
-      })
-    })
-
-    audioCtx.onEnded(() => {
-      if (this._unloaded) return
-      this._syncVisualPlaybackState()
-      this.setData({
-        isAudioPlaying: false,
-        playingKind: '',
-        statusText: onStopText || '播放结束'
-      }, () => {
-        this._refreshVisualFeedback()
-      })
-    })
-
-    audioCtx.onError((err) => {
+        this.setData({
+          isAudioPlaying: false,
+          playingKind: '',
+          statusText: onStopText || '已停止播放'
+        }, () => {
+          this._refreshVisualFeedback()
+        })
+      },
+      onError: (err) => {
+        console.error(err)
+        if (this._unloaded) return
+        this._syncVisualPlaybackState()
+        this.setData({
+          isAudioPlaying: false,
+          playingKind: '',
+          statusText: onErrorText
+        }, () => {
+          this._refreshVisualFeedback()
+        })
+        wx.showToast({
+          title: '播放失败',
+          icon: 'none'
+        })
+      }
+    }).catch((err) => {
       console.error(err)
-      if (this._unloaded) return
-      this._syncVisualPlaybackState()
-      this.setData({
-        isAudioPlaying: false,
-        playingKind: '',
-        statusText: onErrorText
-      }, () => {
-        this._refreshVisualFeedback()
-      })
-      wx.showToast({
-        title: '播放失败',
-        icon: 'none'
-      })
     })
-
-    audioCtx.play()
   },
 
   selectSource(e) {
