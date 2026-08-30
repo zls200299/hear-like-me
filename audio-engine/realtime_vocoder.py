@@ -75,6 +75,7 @@ class StreamingVocoder:
         self.wet = WET
         self.compressor_gain_db = 0.0
         self.frame_count = 0
+        self.warmed_up = False
         self.rng = np.random.default_rng(seed)
 
         edges = log_edges(N_CHANNELS, F_LO, F_HI)
@@ -209,9 +210,8 @@ def main() -> None:
     stdin = sys.stdin.buffer
     stdout = sys.stdout.buffer
     vocoder = StreamingVocoder()
-    vocoder.warmup()
 
-    print("realtime vocoder ready", file=sys.stderr)
+    print("realtime vocoder started", file=sys.stderr)
 
     while True:
         header = read_exact(stdin, HEADER_SIZE)
@@ -224,6 +224,10 @@ def main() -> None:
             sys.exit(1)
 
         if seq == 0 and pcm_length == 0:
+            if not vocoder.warmed_up:
+                vocoder.warmup()
+                vocoder.warmed_up = True
+                print("realtime vocoder ready", file=sys.stderr)
             stdout.write(struct.pack(HEADER_FORMAT, 0, 0))
             stdout.flush()
             continue

@@ -14,7 +14,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Component
 public class RealtimeEchoWebSocketHandler extends AbstractWebSocketHandler {
@@ -26,26 +30,56 @@ public class RealtimeEchoWebSocketHandler extends AbstractWebSocketHandler {
 
     private final EngineProperties engineProperties;
     private final Map<String, RealtimePythonSession> pythonSessions = new ConcurrentHashMap<>();
+    private final ExecutorService pythonBootstrapExecutor = Executors.newCachedThreadPool((runnable) -> {
+        Thread thread = new Thread(runnable, "realtime-python-bootstrap");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     public RealtimeEchoWebSocketHandler(EngineProperties engineProperties) {
         this.engineProperties = engineProperties;
     }
 
     @Override
-    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        try {
-            RealtimePythonSession pythonSession = new RealtimePythonSession(session.getId(), engineProperties);
-            pythonSessions.put(session.getId(), pythonSession);
-            session.sendMessage(new TextMessage(READY_MESSAGE));
-            log.info(
-                    "[realtime-ws] ready session={} pythonPid={}",
-                    session.getId(),
-                    pythonSession.pid()
-            );
-        } catch (IOException exception) {
-            log.error("[realtime-ws] failed to warm up python session={}", session.getId(), exception);
-            session.close(PYTHON_UNAVAILABLE);
-        }
+    public void afterConnectionEstablished(WebSocketSession session) {
+        String sessionId = session.getId();
+        CompletableFuture
+                .supplyAsync(() -> {
+                    try {
+                        return new RealtimePythonSession(sessionId, engineProperties);
+                    } catch (IOException exception) {
+                        throw new CompletionException(exception);
+                    }
+                }, pythonBootstrapExecutor)
+                .whenComplete((pythonSession, error) -> {
+                    if (error != null) {
+                        Throwable cause = error.getCause() != null ? error.getCause() : error;
+                        log.error("[realtime-ws] failed to warm up python session={}", sessionId, cause);
+                        try {
+                            if (session.isOpen()) {
+                                session.close(PYTHON_UNAVAILABLE);
+                            }
+                        } catch (IOException closeException) {
+                            log.debug("[realtime-ws] close after warmup failure failed session={}", sessionId, closeException);
+                        }
+                        return;
+                    }
+
+                    pythonSessions.put(sessionId, pythonSession);
+                    try {
+                        if (session.isOpen()) {
+                            session.sendMessage(new TextMessage(READY_MESSAGE));
+                            log.info(
+                                    "[realtime-ws] ready session={} pythonPid={}",
+                                    sessionId,
+                                    pythonSession.pid()
+                            );
+                        }
+                    } catch (IOException exception) {
+                        log.error("[realtime-ws] failed to send READY session={}", sessionId, exception);
+                        closeWithPythonUnavailable(session, exception.getMessage());
+                    }
+                });
     }
 
     @Override

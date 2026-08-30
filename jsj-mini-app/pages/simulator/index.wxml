@@ -64,6 +64,9 @@
         <view class="realtime-card__stats">发送帧：{{realtimeSentFrames}} · 返回帧：{{realtimeReceivedFrames}}</view>
         <view class="realtime-card__stats" wx:if="{{realtimeLastRttMs != null}}">往返延迟：{{realtimeLastRttMs}} ms（平均 {{realtimeAvgRttMs}} ms）</view>
         <view class="realtime-card__stats" wx:if="{{realtimeLostFrames > 0}}">丢帧：{{realtimeLostFrames}}</view>
+        <view class="realtime-card__stats realtime-card__stats--dev" wx:if="{{realtimePlaybackStarted}}">实时播放：已启动</view>
+        <view class="realtime-card__stats realtime-card__stats--dev" wx:if="{{realtimePlaybackStarted}}">播放缓冲：{{realtimeBufferedMs}} ms</view>
+        <view class="realtime-card__stats realtime-card__stats--dev" wx:if="{{realtimePlaybackStarted}}">断流次数：{{realtimePlaybackUnderruns}}</view>
         <view class="realtime-card__btn realtime-card__btn--stop" bindtap="stopRealtimeMic">停止实时体验</view>
       </view>
     </view>

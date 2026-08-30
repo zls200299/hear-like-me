@@ -3,6 +3,7 @@ const { listSamples, prepareSampleSource } = require('../../services/sample.js')
 const { uploadAudio } = require('../../services/file.js')
 const { createTask } = require('../../services/audioTask.js')
 const { createSeamlessAudioPlayer } = require('../../utils/simulator/seamlessAudioPlayer.js')
+const { createRealtimePcmPlayer } = require('../../utils/simulator/realtimePcmPlayer.js')
 const config = require('../../config.js')
 
 const SCENARIO_PRESETS = {
@@ -161,7 +162,10 @@ Page({
     realtimeReceivedBytes: 0,
     realtimeLastRttMs: null,
     realtimeAvgRttMs: null,
-    realtimeLostFrames: 0
+    realtimeLostFrames: 0,
+    realtimePlaybackStarted: false,
+    realtimePlaybackUnderruns: 0,
+    realtimeBufferedMs: 0
   },
 
   _scenarioPresets: null,
@@ -186,6 +190,8 @@ Page({
   _realtimeRttTotal: 0,
   _realtimeRttCount: 0,
   _realtimePendingSweepTimer: null,
+  _realtimePcmPlayer: null,
+  _realtimeReadyTimeoutTimer: null,
 
   onLoad() {
     this._audioPlayer = createSeamlessAudioPlayer()
@@ -225,6 +231,7 @@ Page({
       this._realtimeStarting = false
     }
     this._closeRealtimeSocket({ silent: true })
+    this._destroyRealtimePcmPlayer()
     if (this._audioPlayer) {
       this._audioPlayer.destroy()
       this._audioPlayer = null
@@ -901,21 +908,34 @@ Page({
       const failConnect = (err) => {
         if (this._realtimeConnectSettled) return
         this._realtimeConnectSettled = true
+        this._clearRealtimeReadyTimeout()
         this._realtimeSocketReady = false
         this._realtimeConnectResolve = null
         this._realtimeConnectReject = null
         reject(err || new Error('WebSocket 连接失败'))
       }
 
+      socketTask.onMessage((res) => {
+        this._handleRealtimeSocketMessage(res)
+      })
+
       socketTask.onOpen(() => {
         if (this._unloaded) return
+        this._clearRealtimeReadyTimeout()
+        this._realtimeReadyTimeoutTimer = setTimeout(() => {
+          if (this._realtimeConnectSettled) return
+          failConnect(new Error('声码器初始化超时'))
+          this._closeRealtimeSocket({ silent: true })
+          if (!this._unloaded) {
+            this.setData({
+              realtimeError: '声码器初始化超时，请检查服务端 Python 环境',
+              realtimeStatusText: '声码器初始化失败'
+            })
+          }
+        }, 20000)
         this.setData({
           realtimeStatusText: '实时连接已建立，正在初始化声码器...'
         })
-      })
-
-      socketTask.onMessage((res) => {
-        this._handleRealtimeSocketMessage(res)
       })
 
       socketTask.onClose(() => {
@@ -945,6 +965,7 @@ Page({
   _onRealtimeSocketReady() {
     if (this._realtimeConnectSettled) return
     this._realtimeConnectSettled = true
+    this._clearRealtimeReadyTimeout()
     this._realtimeSocketReady = true
 
     if (this._realtimeConnectResolve) {
@@ -963,8 +984,44 @@ Page({
       realtimeLastRttMs: null,
       realtimeAvgRttMs: null,
       realtimeLostFrames: 0,
-      realtimeStatusText: '声码器已就绪，正在采集麦克风音频'
+      realtimeStatusText: '声码器已就绪，正在采集麦克风音频',
+      realtimePlaybackStarted: false,
+      realtimePlaybackUnderruns: 0,
+      realtimeBufferedMs: 0
     })
+  },
+
+  async _initRealtimePcmPlayer() {
+    this._destroyRealtimePcmPlayer()
+
+    const player = createRealtimePcmPlayer({
+      onState: (state) => {
+        if (this._unloaded) return
+        this.setData({
+          realtimePlaybackStarted: !!state.started,
+          realtimePlaybackUnderruns: state.underruns || 0,
+          realtimeBufferedMs: state.bufferedMs || 0
+        })
+      }
+    })
+
+    this._realtimePcmPlayer = player
+    await player.init()
+  },
+
+  _destroyRealtimePcmPlayer() {
+    if (this._realtimePcmPlayer) {
+      this._realtimePcmPlayer.destroy()
+      this._realtimePcmPlayer = null
+    }
+
+    if (!this._unloaded) {
+      this.setData({
+        realtimePlaybackStarted: false,
+        realtimePlaybackUnderruns: 0,
+        realtimeBufferedMs: 0
+      })
+    }
   },
 
   _sendRealtimeFrame(frameBuffer, bytes) {
@@ -999,19 +1056,43 @@ Page({
     })
   },
 
+  _clearRealtimeReadyTimeout() {
+    if (!this._realtimeReadyTimeoutTimer) return
+    clearTimeout(this._realtimeReadyTimeoutTimer)
+    this._realtimeReadyTimeoutTimer = null
+  },
+
+  _decodeRealtimeSocketText(data) {
+    if (typeof data === 'string') return data
+    if (!(data instanceof ArrayBuffer)) return ''
+
+    const bytes = new Uint8Array(data)
+    let text = ''
+    for (let i = 0; i < bytes.length; i++) {
+      text += String.fromCharCode(bytes[i])
+    }
+    return text
+  },
+
+  _tryHandleRealtimeControlMessage(data) {
+    const text = this._decodeRealtimeSocketText(data)
+    if (!text || text.charCodeAt(0) !== 123) return false
+
+    try {
+      const msg = JSON.parse(text)
+      if (msg && msg.type === 'READY') {
+        this._onRealtimeSocketReady()
+        return true
+      }
+    } catch (e) {
+      console.warn('[realtime-ws] ignore invalid control message', text)
+    }
+    return false
+  },
+
   _handleRealtimeSocketMessage(res) {
     const data = res && res.data
-    if (typeof data === 'string') {
-      try {
-        const msg = JSON.parse(data)
-        if (msg && msg.type === 'READY') {
-          this._onRealtimeSocketReady()
-        }
-      } catch (e) {
-        console.warn('[realtime-ws] ignore invalid text message', data)
-      }
-      return
-    }
+    if (this._tryHandleRealtimeControlMessage(data)) return
     if (!(data instanceof ArrayBuffer)) {
       console.warn('[realtime-ws] ignore unsupported message type')
       return
@@ -1034,6 +1115,11 @@ Page({
         pcmBytes,
         expected: pending.bytes
       })
+    }
+
+    if (pcmBytes > 0 && this._realtimePcmPlayer) {
+      const pcmBuffer = data.slice(4)
+      this._realtimePcmPlayer.enqueue(pcmBuffer)
     }
 
     this._realtimeRttTotal += rtt
@@ -1085,6 +1171,7 @@ Page({
   _closeRealtimeSocket(options = {}) {
     const { silent = false } = options
     this._stopRealtimePendingSweep()
+    this._clearRealtimeReadyTimeout()
     this._realtimeSocketReady = false
     this._realtimeConnectSettled = false
     this._realtimeConnectResolve = null
@@ -1119,12 +1206,15 @@ Page({
 
     this.setData({ realtimeError: '' })
     this._realtimeStarting = true
+    this._stopAudio('已停止播放')
 
     try {
       await this._connectRealtimeSocket()
+      await this._initRealtimePcmPlayer()
       this._startRealtimeRecorder()
     } catch (err) {
       this._realtimeStarting = false
+      this._destroyRealtimePcmPlayer()
       this._closeRealtimeSocket({ silent: true })
       console.error('[realtime-ws] connect failed', err)
       if (!this._unloaded) {
@@ -1145,6 +1235,7 @@ Page({
       }
     }
     this._realtimeStarting = false
+    this._destroyRealtimePcmPlayer()
     this._closeRealtimeSocket()
   },
 
@@ -1380,7 +1471,10 @@ Page({
         realtimeReceivedBytes: 0,
         realtimeLastRttMs: null,
         realtimeAvgRttMs: null,
-        realtimeLostFrames: 0
+        realtimeLostFrames: 0,
+        realtimePlaybackStarted: false,
+        realtimePlaybackUnderruns: 0,
+        realtimeBufferedMs: 0
       })
       return
     }
