@@ -145,7 +145,14 @@ Page({
     clarityDesc: '',
     isAudioPlaying: false,
     playingKind: '',
-    listenHint: '播放模拟声时会按当前参数生成。'
+    listenHint: '播放模拟声时会按当前参数生成。',
+    realtimeRecording: false,
+    realtimeRecorderReady: false,
+    realtimeFrameCount: 0,
+    realtimeLastFrameBytes: 0,
+    realtimeTotalBytes: 0,
+    realtimeError: '',
+    realtimeStatusText: '未开始实时体验'
   },
 
   _scenarioPresets: null,
@@ -159,10 +166,14 @@ Page({
   _runtimeParams: null,
   _audioPlayer: null,
   _processedResultCache: null,
+  _recorderManager: null,
+  _realtimeRecorderBound: false,
+  _realtimeStats: null,
 
   onLoad() {
     this._audioPlayer = createSeamlessAudioPlayer()
     this._ensurePageState()
+    this._initRealtimeRecorder()
     this._scenarioPresets = { ...SCENARIO_PRESETS }
     this._sampleLabels = { ...SAMPLE_LABELS }
     this._syncRuntimeParamsFromData()
@@ -190,6 +201,11 @@ Page({
     this._unloaded = true
     this._cancelAutoRefresh()
     this._stopAudio('已退出页面')
+    if (this.data.realtimeRecording && this._recorderManager) {
+      try {
+        this._recorderManager.stop()
+      } catch (e) {}
+    }
     if (this._audioPlayer) {
       this._audioPlayer.destroy()
       this._audioPlayer = null
@@ -447,7 +463,7 @@ Page({
     const cacheApplied = wasPlayingProcessed && options.autoRefresh !== false
       ? this._tryApplyCachedCurrentResult()
       : false
-    const shouldKeepVisualization = wasPlayingProcessed && options.autoRefresh !== false && !cacheApplied
+    const shouldKeepVisualization = wasPlayingProcessed && options.autoRefresh !== false
 
     const patch = {
       errorMessage: '',
@@ -711,6 +727,154 @@ Page({
     }
   },
 
+  _initRealtimeRecorder() {
+    if (this._realtimeRecorderBound) return
+
+    this._recorderManager = wx.getRecorderManager()
+    const recorder = this._recorderManager
+
+    recorder.onStart(() => {
+      this._realtimeStats = { frameCount: 0, totalBytes: 0 }
+      if (this._unloaded) return
+      this.setData({
+        realtimeRecording: true,
+        realtimeRecorderReady: true,
+        realtimeFrameCount: 0,
+        realtimeLastFrameBytes: 0,
+        realtimeTotalBytes: 0,
+        realtimeError: '',
+        realtimeStatusText: '正在采集麦克风音频'
+      })
+    })
+
+    recorder.onFrameRecorded((res) => {
+      const frameBuffer = res && res.frameBuffer
+      if (!(frameBuffer instanceof ArrayBuffer)) return
+
+      const bytes = frameBuffer.byteLength || 0
+      if (!this._realtimeStats) {
+        this._realtimeStats = { frameCount: 0, totalBytes: 0 }
+      }
+      this._realtimeStats.frameCount += 1
+      this._realtimeStats.totalBytes += bytes
+
+      console.log(
+        '[realtime-recorder]',
+        'frame=', this._realtimeStats.frameCount,
+        'bytes=', bytes,
+        'last=', !!(res && res.isLastFrame)
+      )
+
+      if (this._unloaded) return
+      this.setData({
+        realtimeFrameCount: this._realtimeStats.frameCount,
+        realtimeLastFrameBytes: bytes,
+        realtimeTotalBytes: this._realtimeStats.totalBytes
+      })
+    })
+
+    recorder.onStop(() => {
+      if (this._unloaded) return
+      this.setData({
+        realtimeRecording: false,
+        realtimeStatusText: '实时麦克风已停止'
+      })
+    })
+
+    recorder.onError((err) => {
+      console.error('[realtime-recorder] error', err)
+      if (this._unloaded) return
+      this.setData({
+        realtimeRecording: false,
+        realtimeError: (err && err.errMsg) ? err.errMsg : '录音失败',
+        realtimeStatusText: '麦克风录音失败'
+      })
+    })
+
+    recorder.onInterruptionBegin(() => {
+      if (this._unloaded) return
+      this.setData({
+        realtimeRecording: false,
+        realtimeStatusText: '麦克风被系统音频任务中断'
+      })
+    })
+
+    recorder.onInterruptionEnd(() => {
+      if (this._unloaded) return
+      this.setData({
+        realtimeStatusText: '系统音频中断已结束，请重新开始实时体验'
+      })
+    })
+
+    this._realtimeRecorderBound = true
+  },
+
+  _ensureRecordPermission() {
+    return new Promise((resolve) => {
+      wx.getSetting({
+        success: (settingRes) => {
+          if (settingRes.authSetting && settingRes.authSetting['scope.record']) {
+            resolve(true)
+            return
+          }
+          wx.authorize({
+            scope: 'scope.record',
+            success: () => resolve(true),
+            fail: () => {
+              wx.showModal({
+                title: '需要麦克风权限',
+                content: '需要麦克风权限才能使用实时体验',
+                confirmText: '去设置',
+                cancelText: '取消',
+                success: (modalRes) => {
+                  if (modalRes.confirm) {
+                    wx.openSetting()
+                  }
+                }
+              })
+              resolve(false)
+            }
+          })
+        },
+        fail: () => resolve(false)
+      })
+    })
+  },
+
+  _startRealtimeRecorder() {
+    if (!this._recorderManager) {
+      this._initRealtimeRecorder()
+    }
+    this._recorderManager.start({
+      duration: 600000,
+      sampleRate: 44100,
+      numberOfChannels: 1,
+      encodeBitRate: 128000,
+      format: 'pcm',
+      frameSize: 4
+    })
+  },
+
+  async startRealtimeMic() {
+    if (this.data.realtimeRecording) return
+
+    const granted = await this._ensureRecordPermission()
+    if (!granted) return
+
+    this.setData({ realtimeError: '' })
+    this._startRealtimeRecorder()
+  },
+
+  stopRealtimeMic() {
+    if (!this._recorderManager) return
+    if (!this.data.realtimeRecording) return
+    try {
+      this._recorderManager.stop()
+    } catch (e) {
+      console.warn('[realtime-recorder] stop failed', e)
+    }
+  },
+
   async _ensureSampleSource() {
     this._ensurePageState()
     const sampleCode = this.data.selectedSample
@@ -865,6 +1029,10 @@ Page({
     this._ensurePageState()
     const type = e.currentTarget.dataset.type
 
+    if (this.data.sourceType === 'realtime' && type !== 'realtime') {
+      this.stopRealtimeMic()
+    }
+
     if (type === 'upload') {
       this._stopAudio('已停止播放')
       this._cancelAutoRefresh()
@@ -914,12 +1082,29 @@ Page({
       return
     }
 
+    if (type === 'realtime') {
+      this._stopAudio('已停止播放')
+      this._cancelAutoRefresh()
+      this._invalidateProcessedResult({ autoRefresh: false })
+      this._applyRuntimePatch({
+        sourceType: 'realtime',
+        selectedScenario: ''
+      })
+      this.setData({
+        sourceType: 'realtime',
+        sourceHint: '',
+        statusText: '已选择实时麦克风',
+        taskStatus: 'idle',
+        selectedScenario: '',
+        realtimeError: '',
+        realtimeStatusText: '未开始实时体验'
+      })
+      return
+    }
+
     if (type === 'record') {
       sourceHint = '录制功能后续接入'
       statusText = '录制功能后续接入'
-    } else if (type === 'realtime') {
-      sourceHint = '实时麦克风功能需要真机验证，后续接入。'
-      statusText = '实时麦克风后续接入'
     }
 
     this._stopAudio('已停止播放')
@@ -1268,7 +1453,7 @@ Page({
     }
 
     if (this.data.sourceType === 'realtime') {
-      wx.showToast({ title: '实时麦克风功能后续接入', icon: 'none' })
+      wx.showToast({ title: '请先使用下方实时体验', icon: 'none' })
       return
     }
   },
@@ -1283,7 +1468,7 @@ Page({
     }
 
     if (this.data.sourceType === 'realtime') {
-      wx.showToast({ title: '实时麦克风功能后续接入', icon: 'none' })
+      wx.showToast({ title: '实时麦克风模式下请使用实时体验', icon: 'none' })
       return
     }
 

@@ -37,5 +37,10 @@
     ]
   },
   "style": "v2",
-  "sitemapLocation": "sitemap.json"
+  "sitemapLocation": "sitemap.json",
+  "permission": {
+    "scope.record": {
+      "desc": "用于实时体验人工耳蜗听觉模拟"
+    }
+  }
 }

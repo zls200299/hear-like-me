@@ -44,6 +44,25 @@
       <view wx:elif="{{taskStatus === 'ready' && uploadedFileName}}" class="source-hint">已上传：{{uploadedFileName}}</view>
       <view wx:else class="source-hint">请选择一个 MP3/WAV/M4A/AAC 音频文件</view>
     </view>
+
+    <view wx:if="{{sourceType === 'realtime'}}" class="sub-options realtime-card">
+      <view class="realtime-card__title">🎙 实时麦克风</view>
+      <view class="realtime-card__status">状态：{{realtimeStatusText}}</view>
+      <view class="realtime-card__tip">🎧 建议佩戴耳机，避免后续实时播放时产生回声或啸叫。</view>
+
+      <view wx:if="{{realtimeError}}" class="realtime-card__error">{{realtimeError}}</view>
+
+      <view wx:if="{{!realtimeRecording}}">
+        <view class="realtime-card__btn" bindtap="startRealtimeMic">开始实时体验</view>
+      </view>
+
+      <view wx:else class="realtime-card__active">
+        <view class="realtime-card__live">● 正在采集</view>
+        <view class="realtime-card__stats">已接收帧：{{realtimeFrameCount}}</view>
+        <view class="realtime-card__stats">最近一帧：{{realtimeLastFrameBytes}} bytes</view>
+        <view class="realtime-card__btn realtime-card__btn--stop" bindtap="stopRealtimeMic">停止实时体验</view>
+      </view>
+    </view>
   </view>
 
   <!-- 模拟场景 -->

@@ -63,6 +63,74 @@
   color: #8FA3C1;
 }
 
+.realtime-card__title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #E8EEF8;
+  margin-bottom: 12rpx;
+}
+
+.realtime-card__status {
+  font-size: 26rpx;
+  color: #B8C5DC;
+  margin-bottom: 12rpx;
+}
+
+.realtime-card__tip {
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: #8FA3C1;
+  margin-bottom: 20rpx;
+}
+
+.realtime-card__error {
+  margin-bottom: 16rpx;
+  padding: 12rpx 16rpx;
+  border-radius: 10rpx;
+  font-size: 24rpx;
+  color: #F2895E;
+  background: rgba(242, 137, 94, 0.1);
+  border: 1rpx solid rgba(242, 137, 94, 0.25);
+}
+
+.realtime-card__btn {
+  min-height: 80rpx;
+  padding: 20rpx 28rpx;
+  border-radius: 16rpx;
+  background: rgba(53, 208, 186, 0.15);
+  border: 1rpx solid rgba(53, 208, 186, 0.45);
+  color: #35D0BA;
+  font-size: 28rpx;
+  font-weight: 600;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.realtime-card__btn--stop {
+  margin-top: 20rpx;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #E8EEF8;
+}
+
+.realtime-card__active {
+  margin-top: 8rpx;
+}
+
+.realtime-card__live {
+  font-size: 28rpx;
+  color: #35D0BA;
+  margin-bottom: 12rpx;
+}
+
+.realtime-card__stats {
+  font-size: 22rpx;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.42);
+}
+
 .sub-options {
   margin-top: 24rpx;
   padding-top: 24rpx;
