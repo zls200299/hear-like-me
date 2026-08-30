@@ -444,17 +444,23 @@ Page({
 
   _invalidateProcessedResult(options = {}) {
     const wasPlayingProcessed = this.data.isAudioPlaying && this.data.playingKind === 'processed'
-    const shouldKeepVisualization = wasPlayingProcessed && options.autoRefresh !== false
+    const cacheApplied = wasPlayingProcessed && options.autoRefresh !== false
+      ? this._tryApplyCachedCurrentResult()
+      : false
+    const shouldKeepVisualization = wasPlayingProcessed && options.autoRefresh !== false && !cacheApplied
 
     const patch = {
-      processedAudioUrl: '',
-      outputAssetId: null,
-      processedKey: '',
-      taskNo: '',
       errorMessage: '',
     }
 
-    if (!options.keepStatus && !this.data.isProcessing && this.data.taskStatus !== 'uploading') {
+    if (!cacheApplied) {
+      patch.processedAudioUrl = ''
+      patch.outputAssetId = null
+      patch.processedKey = ''
+      patch.taskNo = ''
+    }
+
+    if (!cacheApplied && !options.keepStatus && !this.data.isProcessing && this.data.taskStatus !== 'uploading') {
       const status = this.data.taskStatus
       if (status === 'processing' || status === 'success' || status === 'failed') {
         patch.taskStatus = this._resolveReadyStatus()
@@ -462,10 +468,14 @@ Page({
     }
 
     if (wasPlayingProcessed && options.autoRefresh !== false) {
-      patch.statusText = '参数已变化，正在更新模拟声...'
-      this._shouldAutoPlayProcessed = true
-      this._autoRefreshSeq += 1
-      this._scheduleAutoRefreshProcessed()
+      if (cacheApplied) {
+        this._shouldAutoPlayProcessed = false
+      } else {
+        patch.statusText = '参数已变化，正在更新模拟声...'
+        this._shouldAutoPlayProcessed = true
+        this._autoRefreshSeq += 1
+        this._scheduleAutoRefreshProcessed()
+      }
     }
 
     this.setData(patch, () => {
@@ -632,6 +642,30 @@ Page({
       const oldestKey = cache.keys().next().value
       cache.delete(oldestKey)
     }
+  },
+
+  _tryApplyCachedCurrentResult() {
+    const key = this._buildProcessKey(this._getRuntimeParams())
+    const cached = this._getCachedProcessedResult(key)
+    if (!cached) {
+      return false
+    }
+
+    if (this._autoRefreshTimer) {
+      clearTimeout(this._autoRefreshTimer)
+      this._autoRefreshTimer = null
+    }
+
+    this._autoRefreshSeq += 1
+
+    console.log('[processed-cache] hit', key)
+    this._applyProcessedResult(key, cached, {
+      autoPlay: true,
+      replacePlaying: true,
+      fromCache: true
+    })
+
+    return true
   },
 
   _applyProcessedResult(key, result, options = {}) {
@@ -1286,7 +1320,6 @@ Page({
       if (autoPlay) {
         const cached = this._getCachedProcessedResult(key)
         if (cached) {
-          this._setCachedProcessedResult(key, cached)
           this._applyProcessedResult(key, cached, {
             autoPlay: true,
             replacePlaying,
@@ -1311,7 +1344,6 @@ Page({
         return
       }
       console.log('[processed-cache] hit', key)
-      this._setCachedProcessedResult(key, cached)
       this._applyProcessedResult(key, cached, {
         autoPlay,
         replacePlaying,
