@@ -172,6 +172,7 @@
           block-color="#35D0BA"
           block-size="20"
           bindchange="changeEnvCut"
+          bindchanging="onEnvCutChanging"
         />
       </view>
     </view>
@@ -192,6 +193,7 @@
           block-color="#35D0BA"
           block-size="20"
           bindchange="changeSpread"
+          bindchanging="onSpreadChanging"
         />
       </view>
     </view>
@@ -212,6 +214,7 @@
           block-color="#35D0BA"
           block-size="20"
           bindchange="changeNoiseLevel"
+          bindchanging="onNoiseLevelChanging"
         />
       </view>
     </view>

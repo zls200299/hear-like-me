@@ -6,6 +6,9 @@ const { createSeamlessAudioPlayer } = require('../../utils/simulator/seamlessAud
 const { createRealtimePcmPlayer } = require('../../utils/simulator/realtimePcmPlayer.js')
 const config = require('../../config.js')
 
+const REALTIME_PARAM_THROTTLE_MS = 120
+const REALTIME_PARAM_SUPERSEDED = 'PARAM_SUPERSEDED'
+
 const SCENARIO_PRESETS = {
   quiet: {
     nChannels: 8,
@@ -202,6 +205,9 @@ Page({
   _realtimeParamTimeoutTimer: null,
   _realtimeParamVersion: 0,
   _realtimeAppliedParamVersion: 0,
+  _realtimeParamThrottleTimer: null,
+  _realtimeParamLastSentAt: 0,
+  _realtimeParamPending: false,
 
   onLoad() {
     this._audioPlayer = createSeamlessAudioPlayer()
@@ -233,6 +239,7 @@ Page({
 
   onUnload() {
     this._unloaded = true
+    this._clearRealtimeParamThrottle()
     this._cancelPrefetch()
     this._cancelAutoRefresh()
     this._stopAudio('已退出页面')
@@ -1065,6 +1072,71 @@ Page({
     }
   },
 
+  _createParamSupersededError() {
+    const err = new Error('参数更新被新的请求取代')
+    err.code = REALTIME_PARAM_SUPERSEDED
+    return err
+  },
+
+  _isRealtimeParamSupersededError(err) {
+    return !!(err && err.code === REALTIME_PARAM_SUPERSEDED)
+  },
+
+  _handleRealtimeParamSendError(err) {
+    if (this._isRealtimeParamSupersededError(err)) return
+    console.warn('[realtime-ws] param update failed', err)
+    if (!this._unloaded) {
+      this.setData({
+        realtimeError: (err && err.message) ? err.message : '实时参数更新失败'
+      })
+    }
+  },
+
+  _clearRealtimeParamThrottle() {
+    if (this._realtimeParamThrottleTimer) {
+      clearTimeout(this._realtimeParamThrottleTimer)
+      this._realtimeParamThrottleTimer = null
+    }
+    this._realtimeParamPending = false
+  },
+
+  _scheduleRealtimeParamUpdate() {
+    if (this.data.sourceType !== 'realtime') return
+    if (!this._realtimeSocketReady) return
+    if (!this.data.realtimeRecording && !this._realtimeStarting) return
+
+    this._realtimeParamPending = true
+    const now = Date.now()
+    const elapsed = now - (this._realtimeParamLastSentAt || 0)
+
+    if (elapsed >= REALTIME_PARAM_THROTTLE_MS) {
+      this._flushRealtimeParamThrottlePending()
+      return
+    }
+
+    if (this._realtimeParamThrottleTimer) return
+
+    this._realtimeParamThrottleTimer = setTimeout(() => {
+      this._realtimeParamThrottleTimer = null
+      this._flushRealtimeParamThrottlePending()
+    }, REALTIME_PARAM_THROTTLE_MS - elapsed)
+  },
+
+  _flushRealtimeParamThrottlePending() {
+    if (!this._realtimeParamPending) return
+    this._realtimeParamPending = false
+    this._sendRealtimeParams().catch((err) => this._handleRealtimeParamSendError(err))
+  },
+
+  _flushRealtimeParamUpdate() {
+    if (this.data.sourceType !== 'realtime') return
+    if (!this._realtimeSocketReady) return
+    if (!this.data.realtimeRecording && !this._realtimeStarting) return
+
+    this._clearRealtimeParamThrottle()
+    this._sendRealtimeParams().catch((err) => this._handleRealtimeParamSendError(err))
+  },
+
   _isPendingParamVersion(version) {
     if (!this._realtimeParamPromise) return false
     const responseVersion = Number(version)
@@ -1111,7 +1183,7 @@ Page({
         return
       }
 
-      this._clearRealtimeParamPromise(new Error('参数更新被新的请求取代'))
+      this._clearRealtimeParamPromise(this._createParamSupersededError())
       const version = ++this._realtimeParamVersion
       this._realtimeParamPromise = { resolve, reject, version }
       this._realtimeParamTimeoutTimer = setTimeout(() => {
@@ -1125,6 +1197,7 @@ Page({
         params: this._buildRealtimeParams()
       })
 
+      this._realtimeParamLastSentAt = Date.now()
       this._realtimeSocket.send({
         data: payload,
         fail: (err) => {
@@ -1135,18 +1208,7 @@ Page({
   },
 
   _maybeSendRealtimeParams() {
-    if (this.data.sourceType !== 'realtime') return
-    if (!this._realtimeSocketReady) return
-    if (!this.data.realtimeRecording && !this._realtimeStarting) return
-
-    this._sendRealtimeParams().catch((err) => {
-      console.warn('[realtime-ws] param update failed', err)
-      if (!this._unloaded) {
-        this.setData({
-          realtimeError: (err && err.message) ? err.message : '实时参数更新失败'
-        })
-      }
-    })
+    this._flushRealtimeParamUpdate()
   },
 
   async _initRealtimePcmPlayer() {
@@ -1384,6 +1446,7 @@ Page({
 
   _closeRealtimeSocket(options = {}) {
     const { silent = false } = options
+    this._clearRealtimeParamThrottle()
     this._stopRealtimePendingSweep()
     this._clearRealtimeReadyTimeout()
     this._realtimeSocketReady = false
@@ -1828,12 +1891,14 @@ Page({
     const value = Number(e.detail.value)
     if (!Number.isFinite(value)) return
     this._applyRuntimePatch({ nChannels: value, selectedScenario: '' })
+    this._updateElectrodeDots(value)
     this.setData({
       nChannels: value,
       selectedScenario: ''
     }, () => {
       this._refreshVisualFeedback()
     })
+    this._scheduleRealtimeParamUpdate()
   },
 
   changeChannels(e) {
@@ -1847,7 +1912,7 @@ Page({
       statusText: `已设置 ${value} 通道`
     }, () => {
       this._invalidateProcessedResult()
-      this._maybeSendRealtimeParams()
+      this._flushRealtimeParamUpdate()
     })
   },
 
@@ -1902,8 +1967,21 @@ Page({
       statusText: `包络细节已设为 ${value} Hz`
     }, () => {
       this._invalidateProcessedResult()
-      this._maybeSendRealtimeParams()
+      this._flushRealtimeParamUpdate()
     })
+  },
+
+  onEnvCutChanging(e) {
+    const value = Number(e.detail.value)
+    if (!Number.isFinite(value)) return
+    this._applyRuntimePatch({ envCut: value, selectedScenario: '' })
+    this.setData({
+      envCut: value,
+      selectedScenario: ''
+    }, () => {
+      this._refreshVisualFeedback()
+    })
+    this._scheduleRealtimeParamUpdate()
   },
 
   changeSpread(e) {
@@ -1916,8 +1994,21 @@ Page({
       statusText: `电流扩散已设为 ${value}%`
     }, () => {
       this._invalidateProcessedResult()
-      this._maybeSendRealtimeParams()
+      this._flushRealtimeParamUpdate()
     })
+  },
+
+  onSpreadChanging(e) {
+    const value = Number(e.detail.value)
+    if (!Number.isFinite(value)) return
+    this._applyRuntimePatch({ spread: value, selectedScenario: '' })
+    this.setData({
+      spread: value,
+      selectedScenario: ''
+    }, () => {
+      this._refreshVisualFeedback()
+    })
+    this._scheduleRealtimeParamUpdate()
   },
 
   changeNoiseLevel(e) {
@@ -1930,8 +2021,21 @@ Page({
       statusText: `环境噪声已设为 ${value}%`
     }, () => {
       this._invalidateProcessedResult()
-      this._maybeSendRealtimeParams()
+      this._flushRealtimeParamUpdate()
     })
+  },
+
+  onNoiseLevelChanging(e) {
+    const value = Number(e.detail.value)
+    if (!Number.isFinite(value)) return
+    this._applyRuntimePatch({ noiseLevel: value, selectedScenario: '' })
+    this.setData({
+      noiseLevel: value,
+      selectedScenario: ''
+    }, () => {
+      this._refreshVisualFeedback()
+    })
+    this._scheduleRealtimeParamUpdate()
   },
 
   _chooseAndUpload() {
