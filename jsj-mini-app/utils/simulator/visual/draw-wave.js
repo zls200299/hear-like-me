@@ -1,20 +1,13 @@
 const { clamp, pseudoRandom } = require('./common.js')
 
-function drawWave(ctx, canvas, dpr, opts) {
-  if (!ctx || !canvas) return
+const VISUAL_GAIN = 1.2
+const MIN_BUCKETS = 160
+const MAX_BUCKETS = 240
 
-  const {
-    isPlaying = false,
-    playingKind = 'processed',
-    nChannels = 8,
-    carrier = 'noise',
-    noiseLevel = 0
-  } = opts || {}
-
+function drawWaveBackground(ctx, canvas, dpr) {
   const W = canvas.width
   const H = canvas.height
   const mid = H / 2
-  const now = Date.now() / 1000
 
   ctx.clearRect(0, 0, W, H)
 
@@ -40,6 +33,59 @@ function drawWave(ctx, canvas, dpr, opts) {
   ctx.moveTo(0, mid)
   ctx.lineTo(W, mid)
   ctx.stroke()
+
+  return { W, H, mid }
+}
+
+function getBucketCount(W, dpr) {
+  const logicalW = W / Math.max(dpr, 1)
+  return Math.min(MAX_BUCKETS, Math.max(MIN_BUCKETS, Math.round(logicalW * 0.55)))
+}
+
+function drawRealPcmEnvelope(ctx, canvas, dpr, samples, col) {
+  const { W, H, mid } = drawWaveBackground(ctx, canvas, dpr)
+  const bucketCount = getBucketCount(W, dpr)
+  const ampScale = H * 0.42 * VISUAL_GAIN
+
+  ctx.lineWidth = 1.6 * dpr
+  ctx.strokeStyle = col
+  ctx.lineCap = 'round'
+
+  for (let bi = 0; bi < bucketCount; bi++) {
+    const start = Math.floor(bi * samples.length / bucketCount)
+    const end = Math.floor((bi + 1) * samples.length / bucketCount)
+    if (end <= start) continue
+
+    let min = 1
+    let max = -1
+    for (let si = start; si < end; si++) {
+      const v = samples[si]
+      if (v < min) min = v
+      if (v > max) max = v
+    }
+
+    const x = (W * (bi + 0.5)) / bucketCount
+    const yMin = mid - clamp(min, -1, 1) * ampScale
+    const yMax = mid - clamp(max, -1, 1) * ampScale
+
+    ctx.beginPath()
+    ctx.moveTo(x, yMin)
+    ctx.lineTo(x, yMax)
+    ctx.stroke()
+  }
+}
+
+function drawFallbackWave(ctx, canvas, dpr, opts) {
+  const {
+    isPlaying = false,
+    playingKind = 'processed',
+    nChannels = 8,
+    carrier = 'noise',
+    noiseLevel = 0
+  } = opts || {}
+
+  const { W, H, mid } = drawWaveBackground(ctx, canvas, dpr)
+  const now = Date.now() / 1000
 
   const col = isPlaying
     ? (playingKind === 'original' ? '#F2C14E' : '#16B9A6')
@@ -86,6 +132,26 @@ function drawWave(ctx, canvas, dpr, opts) {
   ctx.globalAlpha = 1
 }
 
+function drawWave(ctx, canvas, dpr, opts) {
+  if (!ctx || !canvas) return
+
+  const {
+    useRealPcm = false,
+    pcmSamples = null,
+    isPlaying = false,
+    playingKind = 'processed'
+  } = opts || {}
+
+  if (useRealPcm && pcmSamples && pcmSamples.length) {
+    const col = playingKind === 'original' ? '#F2C14E' : '#16B9A6'
+    drawRealPcmEnvelope(ctx, canvas, dpr, pcmSamples, col)
+    return
+  }
+
+  drawFallbackWave(ctx, canvas, dpr, opts)
+}
+
 module.exports = {
+  VISUAL_GAIN,
   drawWave
 }

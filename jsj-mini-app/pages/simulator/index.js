@@ -1541,13 +1541,19 @@ Page({
           realtimePlaybackRecoveryCount: state.recoveryCount || 0
         })
       },
-      onFramePlay: (meta) => {
-        if (this._unloaded || !meta || !Array.isArray(meta.levels) || !meta.levels.length) return
+      onFramePlay: (meta, frame) => {
+        if (this._unloaded) return
         const panel = this._getVisualPanel()
-        if (panel && panel.applyRealtimeLevels) {
+        if (!panel) return
+        if (meta && Array.isArray(meta.levels) && meta.levels.length && panel.applyRealtimeLevels) {
           panel.applyRealtimeLevels(meta.levels, {
             levelScale: 255,
             channelCount: meta.channelCount
+          })
+        }
+        if (frame && frame.samples && frame.samples.length && panel.applyRealtimePcm) {
+          panel.applyRealtimePcm(frame.samples, {
+            sampleRate: frame.sampleRate
           })
         }
       }

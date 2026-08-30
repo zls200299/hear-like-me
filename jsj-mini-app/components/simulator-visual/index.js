@@ -83,6 +83,8 @@ Component({
       this._realtimeLevels = null
       this._realtimeChannelCount = 0
       this._realtimeLevelScale = 255
+      this._realtimePcmSamples = null
+      this._realtimePcmSampleRate = 44100
       this._audioAnchorSec = 0
       this._audioAnchorWallMs = Date.now()
       this._updateMeta()
@@ -96,6 +98,7 @@ Component({
     detached() {
       this._stopPlaybackTimer()
       this._stopIdleTimer()
+      this.clearRealtimePcm()
       this._clearCanvasRefs()
     }
   },
@@ -202,10 +205,33 @@ Component({
       }
     },
 
+    applyRealtimePcm(samples, opts) {
+      const options = opts || {}
+      if (!this.properties.realtimeActive || !samples || !samples.length) return
+
+      this._realtimePcmSamples = new Float32Array(samples)
+      this._realtimePcmSampleRate = Number(options.sampleRate) > 0
+        ? Number(options.sampleRate)
+        : 44100
+
+      if (this.data.activeView === 'wave' && this._hasCanvasForView('wave')) {
+        this._drawWaveFrame()
+      }
+    },
+
+    clearRealtimePcm() {
+      this._realtimePcmSamples = null
+      this._realtimePcmSampleRate = 44100
+      if (this.data.activeView === 'wave' && this._hasCanvasForView('wave')) {
+        this._drawWaveFrame()
+      }
+    },
+
     clearRealtimeLevels() {
       this._realtimeLevels = null
       this._realtimeChannelCount = 0
       this._realtimeLevelScale = 255
+      this.clearRealtimePcm()
       this._refreshStaticViews()
       if (!this.properties.isAudioPlaying) {
         this._startIdleTimer()
@@ -407,6 +433,23 @@ Component({
       this._drawActiveCanvasFrame()
     },
 
+    _shouldUseRealtimePcmWave() {
+      return !!this.properties.realtimeActive
+        && this._realtimePcmSamples
+        && this._realtimePcmSamples.length > 0
+    },
+
+    _drawWaveFrame() {
+      if (!this._vizCtx || !this._vizCanvas) return
+      const flags = this._getRuntimeFlags()
+      drawWave(this._vizCtx, this._vizCanvas, this._dpr, {
+        ...this._getDrawOpts(),
+        useRealPcm: this._shouldUseRealtimePcmWave(),
+        pcmSamples: this._shouldUseRealtimePcmWave() ? this._realtimePcmSamples : null,
+        isPlaying: flags.isPlaying || !!this.properties.realtimeActive
+      })
+    },
+
     _drawActiveCanvasFrame() {
       const view = this.data.activeView
       if (!isCanvasView(view)) return
@@ -417,7 +460,8 @@ Component({
       const isProcessed = flags.isProcessed || !!this.properties.realtimeActive
 
       if (view === 'wave' && this._vizCtx && this._vizCanvas) {
-        drawWave(this._vizCtx, this._vizCanvas, this._dpr, opts)
+        if (this._shouldUseRealtimePcmWave()) return
+        this._drawWaveFrame()
         return
       }
 
