@@ -139,12 +139,12 @@ class StreamingVocoder:
         pcm = np.where(clipped < 0, clipped * 0x8000, clipped * 0x7FFF).astype("<i2")
         return pcm.tobytes()
 
-    def process_pcm(self, pcm_bytes: bytes) -> tuple[bytes, float, float, float]:
+    def process_pcm(self, pcm_bytes: bytes) -> tuple[bytes, float, float, float, float, float]:
         if len(pcm_bytes) % 2 != 0:
             raise ValueError(f"PCM byte length must be even, got {len(pcm_bytes)}")
 
         if len(pcm_bytes) == 0:
-            return b"", 0.0, 0.0, 0.0
+            return b"", 0.0, 0.0, 0.0, 0.0, 0.0
 
         started = time.perf_counter()
         x = np.frombuffer(pcm_bytes, dtype="<i2").astype(np.float64) / 32768.0
@@ -179,6 +179,8 @@ class StreamingVocoder:
         y = y * OUTPUT_GAIN
 
         out_rms = float(np.sqrt(np.mean(y * y)))
+        peak = float(np.max(np.abs(y)))
+        clip_ratio = float(np.mean(np.abs(y) > 1.0))
         processing_ms = (time.perf_counter() - started) * 1000.0
 
         out_bytes = self._float_to_pcm16_le(y)
@@ -188,7 +190,7 @@ class StreamingVocoder:
             )
 
         self.frame_count += 1
-        return out_bytes, in_rms, out_rms, processing_ms
+        return out_bytes, in_rms, out_rms, processing_ms, peak, clip_ratio
 
     def warmup(self) -> None:
         """Prime scipy/filter path so the first realtime chunk is not cold-started."""
@@ -240,7 +242,7 @@ def main() -> None:
             break
 
         try:
-            out_pcm, in_rms, out_rms, processing_ms = vocoder.process_pcm(pcm)
+            out_pcm, in_rms, out_rms, processing_ms, peak, clip_ratio = vocoder.process_pcm(pcm)
         except Exception as exc:
             print(f"frame processing failed seq={seq}: {exc}", file=sys.stderr)
             sys.exit(1)
@@ -251,6 +253,8 @@ def main() -> None:
                 f"frame={vocoder.frame_count}\n"
                 f"inRms={in_rms:.6f}\n"
                 f"outRms={out_rms:.6f}\n"
+                f"peak={peak:.6f}\n"
+                f"clipRatio={clip_ratio:.6f}\n"
                 f"processingMs={processing_ms:.2f}",
                 file=sys.stderr,
             )

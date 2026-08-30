@@ -49,8 +49,13 @@ public class RealtimePythonSession implements Closeable {
         stderrConsumer.start();
 
         log.info("[realtime-python] started session={} pid={}", webSocketSessionId, process.pid());
-        warmup();
-        this.ready = true;
+        try {
+            warmup();
+            this.ready = true;
+        } catch (IOException exception) {
+            close();
+            throw exception;
+        }
     }
 
     private void consumeStderr(InputStream stderr) {

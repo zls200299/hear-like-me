@@ -12,6 +12,7 @@ const UNDERRUN_RECOVERY_OFFSET_SEC = 0.04
 const HARD_RESET_KEEP_FRAMES = 3
 const HARD_RESET_NEXT_PLAY_OFFSET_SEC = 0.06
 const HARD_RESET_STOP_THRESHOLD_SEC = 0.05
+const STATE_EMIT_INTERVAL_MS = 220
 
 const TARGET_BUFFER_SEC = TARGET_BUFFER_MS / 1000
 
@@ -28,6 +29,11 @@ function createRealtimePcmPlayer(options = {}) {
   let droppedFrames = 0
   let recoveryCount = 0
   let schedulerTimer = null
+  let lastStateEmitAt = 0
+  let lastEmittedStarted = false
+  let lastEmittedUnderruns = 0
+  let lastEmittedDroppedFrames = 0
+  let lastEmittedRecoveryCount = 0
 
   function pcm16ToFloat32(pcmBuffer) {
     const view = new DataView(pcmBuffer)
@@ -61,7 +67,27 @@ function createRealtimePcmPlayer(options = {}) {
     return getBufferAheadMs()
   }
 
-  function emitState() {
+  function shouldEmitImmediately() {
+    if (destroyed) return true
+    if (started && !lastEmittedStarted) return true
+    if (underrunCount > lastEmittedUnderruns) return true
+    if (droppedFrames > lastEmittedDroppedFrames) return true
+    if (recoveryCount > lastEmittedRecoveryCount) return true
+    return false
+  }
+
+  function emitState(force = false) {
+    const now = Date.now()
+    if (!force && !shouldEmitImmediately()) {
+      if (now - lastStateEmitAt < STATE_EMIT_INTERVAL_MS) return
+    }
+
+    lastStateEmitAt = now
+    lastEmittedStarted = started
+    lastEmittedUnderruns = underrunCount
+    lastEmittedDroppedFrames = droppedFrames
+    lastEmittedRecoveryCount = recoveryCount
+
     onState({
       started,
       underruns: underrunCount,
@@ -82,6 +108,7 @@ function createRealtimePcmPlayer(options = {}) {
     if (dropped > 0) {
       droppedFrames += dropped
       console.log(`[realtime-player] drop stale frames count=${dropped}`)
+      emitState(true)
     }
   }
 
@@ -111,6 +138,7 @@ function createRealtimePcmPlayer(options = {}) {
       underrunCount += 1
       console.log(`[realtime-player] underrun count=${underrunCount}`)
       nextPlayTime = now + UNDERRUN_RECOVERY_OFFSET_SEC
+      emitState(true)
     }
 
     const audioBuffer = audioCtx.createBuffer(CHANNELS, samples.length, SAMPLE_RATE)
@@ -169,12 +197,13 @@ function createRealtimePcmPlayer(options = {}) {
       pendingQueue.splice(0, dropCount)
       droppedFrames += dropCount
       console.log(`[realtime-player] drop stale frames count=${dropCount}`)
+      emitState(true)
     }
 
     nextPlayTime = now + HARD_RESET_NEXT_PLAY_OFFSET_SEC
     recoveryCount += 1
     console.warn('[realtime-player] latency reset', Math.round(oldBufferedMs))
-    emitState()
+    emitState(true)
   }
 
   function tickScheduler() {
@@ -192,6 +221,7 @@ function createRealtimePcmPlayer(options = {}) {
       pendingQueue.splice(0, dropCount)
       droppedFrames += dropCount
       console.log(`[realtime-player] drop stale frames count=${dropCount}`)
+      emitState(true)
     }
 
     while (pendingQueue.length > 0) {
@@ -217,7 +247,7 @@ function createRealtimePcmPlayer(options = {}) {
     nextPlayTime = audioCtx.currentTime + INITIAL_SCHEDULE_OFFSET_SEC
     startScheduler()
     tickScheduler()
-    emitState()
+    emitState(true)
   }
 
   function enqueue(pcmBuffer) {
@@ -285,7 +315,7 @@ function createRealtimePcmPlayer(options = {}) {
       audioCtx = null
     }
 
-    emitState()
+    emitState(true)
   }
 
   return {
