@@ -1201,6 +1201,13 @@ Page({
       this._realtimeSocket.send({
         data: payload,
         fail: (err) => {
+          if (
+            !this._realtimeParamPromise
+            || this._realtimeParamPromise.version !== version
+          ) {
+            return
+          }
+
           this._clearRealtimeParamPromise(err || new Error('参数发送失败'))
         }
       })
