@@ -1,0 +1,592 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Hear Like Me - 搴曢儴鍙嶉 UI 鍘熷瀷</title>
+<style>
+:root{
+  --bg:#07111f;
+  --bg-2:#0a1626;
+  --card:#101d2f;
+  --card-2:#0d1929;
+  --line:#2a3b50;
+  --line-strong:#43536a;
+  --line-soft:rgba(255,255,255,.08);
+  --text:#f4f7fb;
+  --text-2:#aab7ca;
+  --text-3:#71819a;
+  --teal:#2fe0c3;
+  --teal-2:#17cbb1;
+  --teal-soft:rgba(47,224,195,.12);
+  --yellow:#f1ca59;
+  --yellow-2:#cda534;
+  --yellow-soft:rgba(241,202,89,.12);
+  --blue:#3db2ff;
+  --blue-soft:rgba(61,178,255,.12);
+  --shadow:0 18px 50px rgba(0,0,0,.34);
+}
+*{box-sizing:border-box}
+html,body{
+  margin:0;
+  background:#040b14;
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif
+}
+body{
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  padding:24px 0;
+}
+.demo-shell{
+  width:min(100vw,430px);
+  min-height:932px;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 14% 2%,rgba(32,95,137,.11),transparent 27%),
+    radial-gradient(circle at 92% 62%,rgba(30,224,195,.055),transparent 30%),
+    linear-gradient(180deg,#07111f 0%,#081321 100%);
+  border:1px solid rgba(255,255,255,.05);
+  box-shadow:var(--shadow);
+}
+.app{
+  padding:26px 18px 34px;
+}
+.card{
+  margin-bottom:16px;
+  padding:18px;
+  border:1px solid rgba(111,136,167,.36);
+  border-radius:18px;
+  background:
+    radial-gradient(circle at 85% 10%,rgba(41,109,139,.05),transparent 34%),
+    linear-gradient(180deg,rgba(16,29,47,.96),rgba(12,23,38,.97));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.03),
+    0 10px 24px rgba(0,0,0,.12);
+}
+.card-title{
+  margin:0;
+  font-size:20px;
+  line-height:1.2;
+  font-weight:800;
+  letter-spacing:.2px;
+}
+.card-desc{
+  margin:8px 0 0;
+  color:#8ea0bb;
+  font-size:14px;
+  line-height:1.6;
+}
+.feedback-card{
+  border-color:rgba(47,224,195,.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.03),
+    0 10px 24px rgba(0,0,0,.12),
+    0 0 0 1px rgba(47,224,195,.06);
+}
+.feedback-main{
+  display:grid;
+  grid-template-columns:110px 1fr;
+  gap:14px;
+  align-items:center;
+  margin-top:16px;
+}
+.score-wrap{
+  display:flex;
+  align-items:baseline;
+  gap:4px;
+}
+.score-wrap .score{
+  color:var(--yellow);
+  font-size:64px;
+  line-height:.9;
+  font-weight:900;
+  letter-spacing:-1px;
+}
+.score-wrap .outof{
+  color:#8e9fb8;
+  font-size:18px;
+  font-weight:700;
+}
+.feedback-title{
+  font-size:18px;
+  font-weight:800;
+  margin-bottom:6px;
+}
+.feedback-text{
+  color:#93a6c0;
+  font-size:15px;
+  line-height:1.6;
+}
+.progress-track{
+  position:relative;
+  margin-top:16px;
+  height:10px;
+  border-radius:999px;
+  background:#2f3b50;
+  overflow:hidden;
+}
+.progress-fill{
+  height:100%;
+  width:51%;
+  border-radius:999px;
+  background:linear-gradient(90deg,#d2a934,#f0c34b);
+}
+.chips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:14px;
+}
+.chip{
+  padding:9px 12px;
+  border:1px solid rgba(86,102,126,.74);
+  background:rgba(18,28,43,.76);
+  border-radius:999px;
+  color:#aab7ca;
+  font-size:13px;
+  line-height:1;
+  white-space:nowrap;
+}
+.visual-header{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.visual-meta{
+  color:#8ea0bb;
+  font-size:14px;
+  white-space:nowrap;
+}
+.tabs{
+  display:flex;
+  gap:8px;
+  margin:16px 0 14px;
+  overflow:auto;
+  padding-bottom:2px;
+  scrollbar-width:none;
+}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  flex:0 0 auto;
+  appearance:none;
+  border:1px solid #4b5b72;
+  border-radius:12px;
+  background:rgba(16,28,44,.75);
+  color:#aab7ca;
+  padding:11px 14px;
+  font-size:15px;
+  font-weight:700;
+  cursor:pointer;
+  transition:.16s ease;
+}
+.tab.active{
+  color:#eefaff;
+  border-color:#72819a;
+  background:linear-gradient(180deg,rgba(79,90,110,.56),rgba(64,74,92,.72));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+}
+.canvas-card{
+  position:relative;
+  border:1px solid rgba(70,88,114,.68);
+  background:linear-gradient(180deg,#07142a,#0a1425);
+  border-radius:16px;
+  min-height:290px;
+  overflow:hidden;
+}
+.canvas-inner{
+  position:relative;
+  height:290px;
+}
+.footer-scale{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  color:#8d9eb7;
+  font-size:15px;
+  margin-top:12px;
+}
+.footer-scale .center{
+  flex:1;
+  text-align:center;
+}
+.electrode-grid{
+  position:absolute;
+  inset:16px;
+  display:grid;
+  grid-template-columns:repeat(22,1fr);
+  gap:8px;
+  align-items:end;
+}
+.electrode-col{
+  height:100%;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+}
+.electrode-bar{
+  width:100%;
+  max-width:16px;
+  border-radius:999px;
+  background:linear-gradient(180deg,#ff944b,#8c56f6);
+  opacity:.14;
+  box-shadow:0 0 10px rgba(78,185,255,.12);
+}
+.electrode-bar.active{
+  opacity:1;
+  background:linear-gradient(180deg,#f2b85f 0%,#58e1d1 45%,#3d83ff 100%);
+  box-shadow:0 0 16px rgba(60,196,219,.25);
+}
+.wave-svg, .spectrum-svg, .cochlea-svg, .neuron-svg{
+  width:100%;
+  height:100%;
+  display:block;
+}
+.hidden{display:none}
+.axis-label{
+  position:absolute;
+  top:12px;
+  right:14px;
+  color:#8ea0bb;
+  font-size:14px;
+}
+.badge-line{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:10px;
+}
+.small-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:12px;
+  color:#8ea0bb;
+  background:rgba(20,31,48,.68);
+  border:1px solid rgba(72,88,110,.65);
+}
+.small-dot{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:var(--teal);
+}
+</style>
+</head>
+<body>
+<div class="demo-shell">
+  <main class="app">
+
+    <section class="card feedback-card">
+      <h2 class="card-title">褰撳墠妯℃嫙鍙嶉</h2>
+      <p class="card-desc">鏍规嵁褰撳墠鍙傛暟锛屽鍚劅娓呮櫚搴﹁繘琛岀鏅€т及璁★紝甯姪鐞嗚В涓嶅悓璁剧疆甯︽潵鐨勫彉鍖栥€?/p>
+
+      <div class="feedback-main">
+        <div class="score-wrap">
+          <span class="score">51</span>
+          <span class="outof">/100</span>
+        </div>
+        <div>
+          <div class="feedback-title">澶ц嚧鑳芥噦</div>
+          <div class="feedback-text">鍙互鍚埌閮ㄥ垎鑺傚鍜岃疆寤擄紝鐞嗚В璇煶浼氭瘮杈冨悆鍔涖€?/div>
+        </div>
+      </div>
+
+      <div class="progress-track">
+        <div class="progress-fill"></div>
+      </div>
+
+      <div class="chips">
+        <span class="chip">閫氶亾 22</span>
+        <span class="chip">鍣０杞戒綋</span>
+        <span class="chip">150-7000 Hz</span>
+        <span class="chip">鍖呯粶 160 Hz</span>
+        <span class="chip">鎵╂暎 15%</span>
+        <span class="chip">鍣０ 60%</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="visual-header">
+        <div>
+          <h2 class="card-title">瑙嗚鍖栧弽棣?/h2>
+          <p class="card-desc">妯℃嫙澹版挱鏀炬椂锛岀數鏋侀樀鍒椼€佺ず娉㈠櫒銆侀璋卞浘銆佽€宠湕鍜岀缁忓厓鏀剧數浼氶殢娲诲姩寮哄害鍙樺寲锛屼粎鐢ㄤ簬绉戞櫘灞曠ず銆?/p>
+        </div>
+      </div>
+
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-tab="electrode">鐢垫瀬闃靛垪</button>
+        <button class="tab" data-tab="wave">绀烘尝鍣?/button>
+        <button class="tab" data-tab="spectrum">棰戣氨鍥?/button>
+        <button class="tab" data-tab="cochlea">鑰宠湕</button>
+        <button class="tab" data-tab="neuron">绁炵粡鍏冩斁鐢?/button>
+      </div>
+
+      <div class="visual-meta" id="visualMeta">22 涓€氶亾 路 鍣０杞芥尝</div>
+
+      <div class="canvas-card">
+        <div class="canvas-inner" id="panel-electrode">
+          <div class="axis-label">浣庨 鈫?楂橀</div>
+          <div class="electrode-grid" id="electrodeGrid"></div>
+        </div>
+
+        <div class="canvas-inner hidden" id="panel-wave">
+          <svg class="wave-svg" viewBox="0 0 360 290" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="waveGlow" x1="0" y1="0" x2="360" y2="0">
+                <stop offset="0" stop-color="#34E2C9"/>
+                <stop offset="1" stop-color="#4E8CFF"/>
+              </linearGradient>
+              <filter id="softGlow">
+                <feGaussianBlur stdDeviation="3.5" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+            <path d="M18 145H342" stroke="#203553" stroke-width="1"/>
+            <g opacity="0.35">
+              <path d="M18 70H342M18 110H342M18 180H342M18 220H342" stroke="#203553" stroke-width="1"/>
+            </g>
+            <path filter="url(#softGlow)" d="M18 146 
+              C28 146, 34 112, 42 112
+              C50 112, 54 168, 62 168
+              C70 168, 76 70, 86 70
+              C96 70, 100 210, 110 210
+              C120 210, 128 116, 138 116
+              C148 116, 154 152, 164 152
+              C174 152, 178 125, 188 125
+              C198 125, 206 186, 216 186
+              C226 186, 234 102, 244 102
+              C254 102, 262 168, 272 168
+              C282 168, 292 138, 302 138
+              C312 138, 320 144, 342 144" 
+              stroke="url(#waveGlow)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+
+        <div class="canvas-inner hidden" id="panel-spectrum">
+          <svg class="spectrum-svg" viewBox="0 0 360 290" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="spectroBg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#0B1D36"/>
+                <stop offset="1" stop-color="#081526"/>
+              </linearGradient>
+              <linearGradient id="spectroBar" x1="0" y1="1" x2="0" y2="0">
+                <stop offset="0" stop-color="#286BFF"/>
+                <stop offset="0.45" stop-color="#30E0C3"/>
+                <stop offset="1" stop-color="#F1C24B"/>
+              </linearGradient>
+            </defs>
+            <rect x="0" y="0" width="360" height="290" fill="url(#spectroBg)"/>
+            <g opacity="0.14" stroke="#4B627E">
+              <path d="M20 32H340M20 72H340M20 112H340M20 152H340M20 192H340M20 232H340"/>
+              <path d="M40 18V272M85 18V272M130 18V272M175 18V272M220 18V272M265 18V272M310 18V272"/>
+            </g>
+            <g id="spectrumBars"></g>
+          </svg>
+        </div>
+
+        <div class="canvas-inner hidden" id="panel-cochlea">
+          <svg class="cochlea-svg" viewBox="0 0 360 290" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="cochleaStroke" x1="55" y1="40" x2="290" y2="220" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#F0C24B"/>
+                <stop offset="0.45" stop-color="#2EE1C4"/>
+                <stop offset="1" stop-color="#447CFF"/>
+              </linearGradient>
+              <filter id="cochleaGlow">
+                <feGaussianBlur stdDeviation="2.2" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+            <path d="M72 192
+                     C76 208, 98 230, 134 236
+                     C186 245, 245 228, 274 192
+                     C301 159, 297 111, 265 85
+                     C236 62, 188 54, 146 64
+                     C100 76, 75 114, 80 149
+                     C84 181, 113 203, 149 205
+                     C183 207, 216 189, 228 160
+                     C240 133, 229 104, 205 89
+                     C183 75, 155 78, 136 92
+                     C116 107, 110 131, 119 151
+                     C129 172, 153 180, 174 174
+                     C193 169, 206 154, 208 138
+                     C210 124, 202 111, 190 105
+                     C177 98, 161 100, 151 109
+                     C141 118, 138 132, 143 143
+                     C148 154, 160 160, 170 159"
+                  stroke="url(#cochleaStroke)" stroke-width="8" stroke-linecap="round" filter="url(#cochleaGlow)"/>
+            <path d="M72 192
+                     C76 208, 98 230, 134 236
+                     C186 245, 245 228, 274 192
+                     C301 159, 297 111, 265 85
+                     C236 62, 188 54, 146 64
+                     C100 76, 75 114, 80 149
+                     C84 181, 113 203, 149 205
+                     C183 207, 216 189, 228 160
+                     C240 133, 229 104, 205 89
+                     C183 75, 155 78, 136 92
+                     C116 107, 110 131, 119 151
+                     C129 172, 153 180, 174 174
+                     C193 169, 206 154, 208 138
+                     C210 124, 202 111, 190 105
+                     C177 98, 161 100, 151 109
+                     C141 118, 138 132, 143 143
+                     C148 154, 160 160, 170 159"
+                  stroke="rgba(59,107,255,.18)" stroke-width="24" stroke-linecap="round"/>
+            <g id="cochleaDots"></g>
+          </svg>
+        </div>
+
+        <div class="canvas-inner hidden" id="panel-neuron">
+          <svg class="neuron-svg" viewBox="0 0 360 290" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="neuronBar" x1="0" y1="1" x2="0" y2="0">
+                <stop offset="0" stop-color="#2270F6"/>
+                <stop offset="0.4" stop-color="#29D8C2"/>
+                <stop offset="1" stop-color="#EFC04B"/>
+              </linearGradient>
+            </defs>
+            <g opacity="0.16" stroke="#48637D">
+              <path d="M18 50H342M18 98H342M18 146H342M18 194H342M18 242H342"/>
+            </g>
+            <g id="neuronBars"></g>
+          </svg>
+        </div>
+      </div>
+
+      <div class="footer-scale" id="footerScale">
+        <span>150 Hz</span>
+        <span class="center">棰戠巼閫氶亾锛堜綆棰?鈫?楂橀锛?/span>
+        <span>7 kHz</span>
+      </div>
+
+      <div class="badge-line">
+        <span class="small-badge"><span class="small-dot"></span>瀹炴椂鑱斿姩灞曠ず</span>
+        <span class="small-badge">褰撳墠妯″紡锛氭挱鏀炬ā鎷熷０</span>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+const panels = {
+  electrode: document.getElementById('panel-electrode'),
+  wave: document.getElementById('panel-wave'),
+  spectrum: document.getElementById('panel-spectrum'),
+  cochlea: document.getElementById('panel-cochlea'),
+  neuron: document.getElementById('panel-neuron'),
+}
+const metaEl = document.getElementById('visualMeta')
+const footerScale = document.getElementById('footerScale')
+
+document.querySelectorAll('#tabs .tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#tabs .tab').forEach(x => x.classList.remove('active'))
+    btn.classList.add('active')
+    const key = btn.dataset.tab
+    Object.entries(panels).forEach(([name, el]) => {
+      el.classList.toggle('hidden', name !== key)
+    })
+    const mapping = {
+      electrode: { meta:'22 涓€氶亾 路 鍣０杞芥尝', left:'150 Hz', center:'棰戠巼閫氶亾锛堜綆棰?鈫?楂橀锛?, right:'7 kHz' },
+      wave: { meta:'妯℃嫙澹版尝褰?路 鏃堕棿鍩?, left:'0 ms', center:'鏃堕棿杞?, right:'120 ms' },
+      spectrum: { meta:'棰戣氨鑳介噺 路 棰戠巼鍒嗗竷', left:'0', center:'鑳介噺璋憋紙浣庨 鈫?楂橀锛?, right:'8 kHz' },
+      cochlea: { meta:'鑰宠湕鏄犲皠 路 鍩哄簳鑶滀綅缃?, left:'150 Hz', center:'棰戠巼閫氶亾锛堣€抽《 鈫?鑰冲簳锛?, right:'7 kHz' },
+      neuron: { meta:'绁炵粡鍏冩斁鐢?路 娲诲姩寮哄害', left:'寮?, center:'閫氶亾绁炵粡娲诲姩', right:'寮? }
+    }
+    const m = mapping[key]
+    metaEl.textContent = m.meta
+    footerScale.innerHTML = `<span>${m.left}</span><span class="center">${m.center}</span><span>${m.right}</span>`
+  })
+})
+
+/* 鐢垫瀬闃靛垪 */
+const electrodeGrid = document.getElementById('electrodeGrid')
+const electrodeValues = [0.82,0.79,0.75,0.72,0.67,0.63,0.58,0.54,0.49,0.46,0.43,0.40,0.36,0.33,0.29,0.25,0.22,0.19,0.16,0.13,0.10,0.08]
+electrodeValues.forEach((v, i) => {
+  const col = document.createElement('div')
+  col.className = 'electrode-col'
+  const bar = document.createElement('div')
+  bar.className = 'electrode-bar' + (i < 12 ? ' active' : '')
+  bar.style.height = `${28 + v * 180}px`
+  col.appendChild(bar)
+  electrodeGrid.appendChild(col)
+})
+
+/* 棰戣氨鍥?*/
+const spectrumBars = document.getElementById('spectrumBars')
+const spectrumValues = [26,42,58,84,112,144,176,154,138,126,118,106,95,88,80,72,64,58,48,40,32,26]
+spectrumValues.forEach((h, i) => {
+  const x = 22 + i * 14.3
+  const y = 250 - h
+  const rect = document.createElementNS('http://www.w3.org/2000/svg','rect')
+  rect.setAttribute('x', x)
+  rect.setAttribute('y', y)
+  rect.setAttribute('width', 9)
+  rect.setAttribute('height', h)
+  rect.setAttribute('rx', 4.5)
+  rect.setAttribute('fill', 'url(#spectroBar)')
+  rect.setAttribute('opacity', i < 17 ? '0.94' : '0.55')
+  spectrumBars.appendChild(rect)
+})
+
+/* 鑰宠湕涓婄殑鐐逛綅 */
+const cochleaDots = document.getElementById('cochleaDots')
+const cochleaPositions = [
+  [72,192],[93,210],[119,224],[149,232],[182,232],[213,226],[241,212],[264,194],
+  [278,169],[281,142],[274,116],[257,93],[232,77],[203,68],[170,66],[138,71],
+  [111,83],[92,104],[82,128],[84,153],[96,175],[118,191]
+]
+cochleaPositions.forEach((p, i) => {
+  const circle = document.createElementNS('http://www.w3.org/2000/svg','circle')
+  circle.setAttribute('cx', p[0])
+  circle.setAttribute('cy', p[1])
+  circle.setAttribute('r', i < 16 ? 4.5 : 3.5)
+  const hue = 42 + i * 9
+  circle.setAttribute('fill', `hsl(${Math.max(180, 220 - i * 5)}, 85%, ${58 - i * 0.3}%)`)
+  circle.setAttribute('opacity', i < 16 ? '0.95' : '0.45')
+  cochleaDots.appendChild(circle)
+})
+
+/* 绁炵粡鍏冩斁鐢?*/
+const neuronBars = document.getElementById('neuronBars')
+const neuronValues = [48,58,70,88,102,122,136,118,106,96,88,80,74,68,60,54,50,46,42,38,34,30]
+neuronValues.forEach((h, i) => {
+  const x = 20 + i * 14.6
+  const rect = document.createElementNS('http://www.w3.org/2000/svg','rect')
+  rect.setAttribute('x', x)
+  rect.setAttribute('y', 246 - h)
+  rect.setAttribute('width', 8.5)
+  rect.setAttribute('height', h)
+  rect.setAttribute('rx', 4.25)
+  rect.setAttribute('fill', 'url(#neuronBar)')
+  rect.setAttribute('opacity', i < 17 ? '0.95' : '0.55')
+  neuronBars.appendChild(rect)
+
+  const spike = document.createElementNS('http://www.w3.org/2000/svg','path')
+  const sx = x + 4.25
+  const sy = 250 - h - 8
+  spike.setAttribute('d', `M ${sx-3} ${sy+8} L ${sx} ${sy} L ${sx+3} ${sy+8}`)
+  spike.setAttribute('stroke', '#AEEAD9')
+  spike.setAttribute('stroke-width', '1.4')
+  spike.setAttribute('stroke-linecap', 'round')
+  spike.setAttribute('stroke-linejoin', 'round')
+  spike.setAttribute('opacity', i % 2 === 0 ? '0.9' : '0.5')
+  neuronBars.appendChild(spike)
+})
+</script>
+</body>
+</html>
