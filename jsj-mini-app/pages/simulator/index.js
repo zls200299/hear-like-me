@@ -3,6 +3,7 @@ const { listSamples, prepareSampleSource } = require('../../services/sample.js')
 const { uploadAudio } = require('../../services/file.js')
 const { createTask } = require('../../services/audioTask.js')
 const { createSeamlessAudioPlayer } = require('../../utils/simulator/seamlessAudioPlayer.js')
+const config = require('../../config.js')
 
 const SCENARIO_PRESETS = {
   quiet: {
@@ -152,7 +153,15 @@ Page({
     realtimeLastFrameBytes: 0,
     realtimeTotalBytes: 0,
     realtimeError: '',
-    realtimeStatusText: '未开始实时体验'
+    realtimeStatusText: '未开始实时体验',
+    realtimeSocketConnected: false,
+    realtimeSentFrames: 0,
+    realtimeReceivedFrames: 0,
+    realtimeSentBytes: 0,
+    realtimeReceivedBytes: 0,
+    realtimeLastRttMs: null,
+    realtimeAvgRttMs: null,
+    realtimeLostFrames: 0
   },
 
   _scenarioPresets: null,
@@ -170,6 +179,13 @@ Page({
   _realtimeRecorderBound: false,
   _realtimeStats: null,
   _realtimeStarting: false,
+  _realtimeSocket: null,
+  _realtimeSocketReady: false,
+  _realtimeSeq: 0,
+  _realtimePendingFrames: null,
+  _realtimeRttTotal: 0,
+  _realtimeRttCount: 0,
+  _realtimePendingSweepTimer: null,
 
   onLoad() {
     this._audioPlayer = createSeamlessAudioPlayer()
@@ -208,6 +224,7 @@ Page({
       } catch (e) {}
       this._realtimeStarting = false
     }
+    this._closeRealtimeSocket({ silent: true })
     if (this._audioPlayer) {
       this._audioPlayer.destroy()
       this._audioPlayer = null
@@ -774,6 +791,8 @@ Page({
         realtimeLastFrameBytes: bytes,
         realtimeTotalBytes: this._realtimeStats.totalBytes
       })
+
+      this._sendRealtimeFrame(frameBuffer, bytes)
     })
 
     recorder.onStop(() => {
@@ -788,6 +807,7 @@ Page({
     recorder.onError((err) => {
       this._realtimeStarting = false
       console.error('[realtime-recorder] error', err)
+      this._closeRealtimeSocket()
       if (this._unloaded) return
       this.setData({
         realtimeRecording: false,
@@ -860,6 +880,201 @@ Page({
     })
   },
 
+  _connectRealtimeSocket() {
+    return new Promise((resolve, reject) => {
+      this._closeRealtimeSocket({ silent: true })
+
+      this._realtimeSeq = 0
+      this._realtimePendingFrames = new Map()
+      this._realtimeRttTotal = 0
+      this._realtimeRttCount = 0
+      this._startRealtimePendingSweep()
+
+      const url = `${config.wsBaseUrl}/ws/realtime/echo`
+      let settled = false
+
+      const socketTask = wx.connectSocket({ url })
+      this._realtimeSocket = socketTask
+
+      const failConnect = (err) => {
+        if (settled) return
+        settled = true
+        this._realtimeSocketReady = false
+        reject(err || new Error('WebSocket 连接失败'))
+      }
+
+      socketTask.onOpen(() => {
+        if (settled) return
+        settled = true
+        this._realtimeSocketReady = true
+        if (this._unloaded) return
+        this.setData({
+          realtimeSocketConnected: true,
+          realtimeSentFrames: 0,
+          realtimeReceivedFrames: 0,
+          realtimeSentBytes: 0,
+          realtimeReceivedBytes: 0,
+          realtimeLastRttMs: null,
+          realtimeAvgRttMs: null,
+          realtimeLostFrames: 0,
+          realtimeStatusText: '实时连接已建立，正在采集麦克风音频'
+        })
+        resolve()
+      })
+
+      socketTask.onMessage((res) => {
+        this._handleRealtimeSocketMessage(res)
+      })
+
+      socketTask.onClose(() => {
+        this._realtimeSocketReady = false
+        if (!this._unloaded) {
+          this.setData({ realtimeSocketConnected: false })
+        }
+      })
+
+      socketTask.onError((err) => {
+        console.error('[realtime-ws] error', err)
+        failConnect(err)
+        if (!this._unloaded) {
+          this.setData({
+            realtimeSocketConnected: false,
+            realtimeError: (err && err.errMsg) ? err.errMsg : '实时连接失败',
+            realtimeStatusText: '实时连接失败，请检查网络或服务端'
+          })
+        }
+      })
+    })
+  },
+
+  _sendRealtimeFrame(frameBuffer, bytes) {
+    if (!this._realtimeSocketReady || !this._realtimeSocket) return
+
+    const seq = ++this._realtimeSeq
+    const pcm = new Uint8Array(frameBuffer)
+    const packet = new ArrayBuffer(4 + pcm.byteLength)
+    const view = new DataView(packet)
+    view.setUint32(0, seq, false)
+    new Uint8Array(packet, 4).set(pcm)
+
+    if (!this._realtimePendingFrames) {
+      this._realtimePendingFrames = new Map()
+    }
+    this._realtimePendingFrames.set(seq, {
+      sentAt: Date.now(),
+      bytes
+    })
+
+    this._realtimeSocket.send({
+      data: packet,
+      fail: (err) => {
+        console.warn('[realtime-ws] send failed', err)
+      }
+    })
+
+    if (this._unloaded) return
+    this.setData({
+      realtimeSentFrames: this.data.realtimeSentFrames + 1,
+      realtimeSentBytes: this.data.realtimeSentBytes + bytes
+    })
+  },
+
+  _handleRealtimeSocketMessage(res) {
+    const data = res && res.data
+    if (!(data instanceof ArrayBuffer)) {
+      console.warn('[realtime-ws] ignore non-arraybuffer message')
+      return
+    }
+    if (data.byteLength < 4) return
+
+    const view = new DataView(data)
+    const seq = view.getUint32(0, false)
+    const pcmBytes = data.byteLength - 4
+
+    const pending = this._realtimePendingFrames && this._realtimePendingFrames.get(seq)
+    if (!pending) return
+
+    const rtt = Date.now() - pending.sentAt
+    this._realtimePendingFrames.delete(seq)
+
+    if (pcmBytes !== pending.bytes) {
+      console.warn('[realtime-ws] echo size mismatch', {
+        seq,
+        pcmBytes,
+        expected: pending.bytes
+      })
+    }
+
+    this._realtimeRttTotal += rtt
+    this._realtimeRttCount += 1
+    const avgRtt = Math.round(this._realtimeRttTotal / this._realtimeRttCount)
+
+    if (this._unloaded) return
+    this.setData({
+      realtimeReceivedFrames: this.data.realtimeReceivedFrames + 1,
+      realtimeReceivedBytes: this.data.realtimeReceivedBytes + pcmBytes,
+      realtimeLastRttMs: rtt,
+      realtimeAvgRttMs: avgRtt
+    })
+  },
+
+  _startRealtimePendingSweep() {
+    this._stopRealtimePendingSweep()
+    this._realtimePendingSweepTimer = setInterval(() => {
+      this._sweepRealtimePendingFrames()
+    }, 2000)
+  },
+
+  _stopRealtimePendingSweep() {
+    if (!this._realtimePendingSweepTimer) return
+    clearInterval(this._realtimePendingSweepTimer)
+    this._realtimePendingSweepTimer = null
+  },
+
+  _sweepRealtimePendingFrames() {
+    const pending = this._realtimePendingFrames
+    if (!pending || !pending.size) return
+
+    const now = Date.now()
+    let lost = 0
+    pending.forEach((item, seq) => {
+      if (now - item.sentAt > 3000) {
+        pending.delete(seq)
+        lost += 1
+      }
+    })
+
+    if (lost > 0 && !this._unloaded) {
+      this.setData({
+        realtimeLostFrames: this.data.realtimeLostFrames + lost
+      })
+    }
+  },
+
+  _closeRealtimeSocket(options = {}) {
+    const { silent = false } = options
+    this._stopRealtimePendingSweep()
+    this._realtimeSocketReady = false
+
+    if (this._realtimeSocket) {
+      try {
+        this._realtimeSocket.close({
+          code: 1000,
+          reason: 'user stop'
+        })
+      } catch (e) {
+        console.warn('[realtime-ws] close failed', e)
+      }
+      this._realtimeSocket = null
+    }
+
+    this._realtimePendingFrames = null
+
+    if (!silent && !this._unloaded) {
+      this.setData({ realtimeSocketConnected: false })
+    }
+  },
+
   async startRealtimeMic() {
     if (this.data.realtimeRecording || this._realtimeStarting) return
 
@@ -870,18 +1085,33 @@ Page({
 
     this.setData({ realtimeError: '' })
     this._realtimeStarting = true
-    this._startRealtimeRecorder()
+
+    try {
+      await this._connectRealtimeSocket()
+      this._startRealtimeRecorder()
+    } catch (err) {
+      this._realtimeStarting = false
+      this._closeRealtimeSocket({ silent: true })
+      console.error('[realtime-ws] connect failed', err)
+      if (!this._unloaded) {
+        this.setData({
+          realtimeError: (err && err.errMsg) ? err.errMsg : '实时连接失败',
+          realtimeStatusText: '实时连接失败，请检查网络或服务端'
+        })
+      }
+    }
   },
 
   stopRealtimeMic() {
-    if (!this._recorderManager) return
-    if (!this.data.realtimeRecording && !this._realtimeStarting) return
-    try {
-      this._recorderManager.stop()
-    } catch (e) {
-      console.warn('[realtime-recorder] stop failed', e)
+    if (this._recorderManager && (this.data.realtimeRecording || this._realtimeStarting)) {
+      try {
+        this._recorderManager.stop()
+      } catch (e) {
+        console.warn('[realtime-recorder] stop failed', e)
+      }
     }
     this._realtimeStarting = false
+    this._closeRealtimeSocket()
   },
 
   async _ensureSampleSource() {
@@ -1108,7 +1338,15 @@ Page({
         taskStatus: 'idle',
         selectedScenario: '',
         realtimeError: '',
-        realtimeStatusText: '未开始实时体验'
+        realtimeStatusText: '未开始实时体验',
+        realtimeSocketConnected: false,
+        realtimeSentFrames: 0,
+        realtimeReceivedFrames: 0,
+        realtimeSentBytes: 0,
+        realtimeReceivedBytes: 0,
+        realtimeLastRttMs: null,
+        realtimeAvgRttMs: null,
+        realtimeLostFrames: 0
       })
       return
     }
