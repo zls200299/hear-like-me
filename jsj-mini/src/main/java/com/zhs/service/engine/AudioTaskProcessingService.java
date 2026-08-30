@@ -1,5 +1,7 @@
 package com.zhs.service.engine;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.zhs.config.EngineProperties;
 import com.zhs.exception.ServiceException;
 import com.zhs.model.AudioProcessingTask;
@@ -35,6 +37,8 @@ public class AudioTaskProcessingService {
     private static final String DEFAULT_OWNER = "guest";
     private static final String ALGORITHM_FFMPEG_ONLY = "ffmpeg-normalize-v1";
     private static final String ALGORITHM_VOCODER = "cochlear-vocoder-v1";
+    private static final String ASSET_TYPE_AUDIO_NORMALIZED = "AUDIO_NORMALIZED";
+    private static final String ASSET_STATUS_ACTIVE = "ACTIVE";
 
     @Resource
     private EngineProperties engineProperties;
@@ -79,7 +83,16 @@ public class AudioTaskProcessingService {
             Path sourcePath = localFileStorageService.resolvePath(sourceAsset.getObjectKey());
             log.info("任务 taskNo={}, 输入文件路径={}", taskNo, sourcePath);
 
-            NormalizeResult normalizeResult = ffmpegNormalizeService.normalize(sourcePath, sourceAsset, DEFAULT_OWNER);
+            NormalizeResult normalizeResult = findReusableNormalized(sourceAsset);
+            if (normalizeResult == null) {
+                log.info("任务 taskNo={}, 未找到可复用 normalized，执行 FFmpeg", taskNo);
+                normalizeResult = ffmpegNormalizeService.normalize(sourcePath, sourceAsset, DEFAULT_OWNER);
+            } else {
+                log.info("任务 taskNo={}, 复用 normalizedAssetId={}, objectKey={}",
+                        taskNo,
+                        normalizeResult.getAsset().getId(),
+                        normalizeResult.getAsset().getObjectKey());
+            }
             task.setNormalizedAssetId(normalizeResult.getAsset().getId());
             task.setProgress(40);
             audioProcessingTaskService.updateById(task);
@@ -150,6 +163,41 @@ public class AudioTaskProcessingService {
             }
             throw new ServiceException("音频处理失败: " + e.getMessage());
         }
+    }
+
+    private NormalizeResult findReusableNormalized(FileAsset sourceAsset) {
+        if (sourceAsset == null || sourceAsset.getId() == null) {
+            return null;
+        }
+
+        LambdaQueryWrapper<FileAsset> wrapper = new QueryWrapper<FileAsset>().lambda()
+                .eq(FileAsset::getParentAssetId, sourceAsset.getId())
+                .eq(FileAsset::getAssetType, ASSET_TYPE_AUDIO_NORMALIZED)
+                .eq(FileAsset::getStatus, ASSET_STATUS_ACTIVE)
+                .eq(FileAsset::getIsDelete, 0)
+                .orderByDesc(FileAsset::getId)
+                .last("LIMIT 1");
+
+        FileAsset asset = fileAssetService.getOne(wrapper);
+        if (asset == null) {
+            return null;
+        }
+
+        if (!StringUtils.hasText(asset.getObjectKey())) {
+            log.warn("normalized 记录缺少 objectKey, normalizedAssetId={}", asset.getId());
+            return null;
+        }
+
+        if (!localFileStorageService.exists(asset.getObjectKey())) {
+            log.warn("normalized 记录存在但物理文件缺失, normalizedAssetId={}, objectKey={}",
+                    asset.getId(), asset.getObjectKey());
+            return null;
+        }
+
+        NormalizeResult result = new NormalizeResult();
+        result.setAsset(asset);
+        result.setLocalPath(localFileStorageService.resolvePath(asset.getObjectKey()));
+        return result;
     }
 
     private void markTaskFailed(AudioProcessingTask task, Exception e) {
