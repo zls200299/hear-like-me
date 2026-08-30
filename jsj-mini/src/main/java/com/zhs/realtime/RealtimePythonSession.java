@@ -86,6 +86,26 @@ public class RealtimePythonSession implements Closeable {
         );
     }
 
+    public synchronized String updateParams(String jsonPayload) throws IOException {
+        if (!ready) {
+            throw new IOException("Python session is not ready");
+        }
+        if (jsonPayload == null || jsonPayload.isBlank()) {
+            throw new IOException("PARAM_UPDATE payload is empty");
+        }
+
+        long startNanos = System.nanoTime();
+        byte[] responseBytes = exchangeFrame(WARMUP_SEQ, jsonPayload.getBytes(StandardCharsets.UTF_8));
+        long paramMs = (System.nanoTime() - startNanos) / 1_000_000L;
+        log.info(
+                "[realtime-python] session={} paramUpdateMs={} responseBytes={}",
+                webSocketSessionId,
+                paramMs,
+                responseBytes.length
+        );
+        return new String(responseBytes, StandardCharsets.UTF_8);
+    }
+
     public synchronized byte[] processFrame(int seq, byte[] pcm) throws IOException {
         if (!ready) {
             throw new IOException("Python session is not ready");

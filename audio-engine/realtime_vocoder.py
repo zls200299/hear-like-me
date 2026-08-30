@@ -3,10 +3,13 @@
 
 from __future__ import annotations
 
+import json
 import math
 import struct
 import sys
 import time
+from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from scipy.signal import lfilter
@@ -16,24 +19,88 @@ from cochlear_vocoder import biquad_coeffs, clamp, log_edges
 MAX_PCM_LENGTH = 1024 * 1024
 HEADER_FORMAT = ">II"
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
+CROSSFADE_FRAMES = 2
 
 SAMPLE_RATE = 44100
-N_CHANNELS = 8
-F_LO = 150.0
-F_HI = 7000.0
-CARRIER = "noise"
-ENV_CUT = 160.0
-SPREAD = 0.15
-NOISE_LEVEL = 0.0
 ENV_AMP = 2.6
 WET = 0.9
-# Offline cochlear_vocoder peak-normalizes to ~0.89; realtime keeps a fixed makeup gain instead.
 OUTPUT_GAIN = 10.0
 COMPRESS_THRESHOLD_DB = -16.0
 COMPRESS_RATIO = 4.0
 COMPRESS_KNEE_DB = 30.0
 COMPRESS_ATTACK = 0.003
 COMPRESS_RELEASE = 0.25
+
+
+@dataclass
+class RealtimeConfig:
+    n_channels: int = 8
+    f_lo: float = 150.0
+    f_hi: float = 7000.0
+    carrier: str = "noise"
+    env_cut: float = 160.0
+    spread: float = 0.15
+    noise_level: float = 0.0
+
+    def structural_key(self) -> tuple[Any, ...]:
+        return (
+            self.n_channels,
+            self.f_lo,
+            self.f_hi,
+            self.env_cut,
+            self.carrier,
+        )
+
+    def copy(self) -> RealtimeConfig:
+        return RealtimeConfig(
+            n_channels=self.n_channels,
+            f_lo=self.f_lo,
+            f_hi=self.f_hi,
+            carrier=self.carrier,
+            env_cut=self.env_cut,
+            spread=self.spread,
+            noise_level=self.noise_level,
+        )
+
+    @classmethod
+    def from_params(cls, params: dict[str, Any]) -> RealtimeConfig:
+        def pick(*keys: str, default: Any = None) -> Any:
+            for key in keys:
+                if key in params and params[key] is not None:
+                    return params[key]
+            return default
+
+        carrier = str(pick("carrier", default="noise")).strip().lower()
+        if carrier not in ("noise", "sine"):
+            raise ValueError(f"invalid carrier: {carrier}")
+
+        n_channels = int(pick("nChannels", "n_channels", default=8))
+        f_lo = float(pick("fLo", "f_lo", default=150.0))
+        f_hi = float(pick("fHi", "f_hi", default=7000.0))
+        env_cut = float(pick("envCut", "env_cut", default=160.0))
+        spread = float(pick("spread", default=0.15))
+        noise_level = float(pick("noiseLevel", "noise_level", default=0.0))
+
+        if n_channels < 1 or n_channels > 32:
+            raise ValueError(f"nChannels out of range: {n_channels}")
+        if f_lo <= 0 or f_hi <= f_lo:
+            raise ValueError(f"invalid frequency range: {f_lo}-{f_hi}")
+        if env_cut < 20 or env_cut > 500:
+            raise ValueError(f"envCut out of range: {env_cut}")
+        if spread < 0 or spread > 1:
+            raise ValueError(f"spread out of range: {spread}")
+        if noise_level < 0 or noise_level > 1:
+            raise ValueError(f"noiseLevel out of range: {noise_level}")
+
+        return cls(
+            n_channels=n_channels,
+            f_lo=f_lo,
+            f_hi=f_hi,
+            carrier=carrier,
+            env_cut=env_cut,
+            spread=spread,
+            noise_level=noise_level,
+        )
 
 
 class StatefulBiquad:
@@ -44,6 +111,27 @@ class StatefulBiquad:
     def process(self, x: np.ndarray) -> np.ndarray:
         y, self.zi = lfilter(self.b, self.a, x, zi=self.zi)
         return y
+
+
+class StatefulBabbleNoise:
+    def __init__(self, sr: int, rng: np.random.Generator):
+        self.sr = sr
+        self.rng = rng
+        self.hp = StatefulBiquad("highpass", 250.0, 0.4, sr)
+        self.lp = StatefulBiquad("lowpass", 3200.0, 0.4, sr)
+        self.sample_offset = 0
+
+    def process(self, n: int, level: float) -> np.ndarray:
+        if level <= 0 or n <= 0:
+            return np.zeros(n, dtype=np.float64)
+
+        v = self.rng.uniform(-1.0, 1.0, n)
+        v = self.hp.process(v)
+        v = self.lp.process(v)
+        t = (np.arange(n, dtype=np.float64) + self.sample_offset) / self.sr
+        v = v * (0.65 + 0.35 * np.sin(2.0 * math.pi * 3.3 * t))
+        self.sample_offset += n
+        return v * (level * 0.5)
 
 
 class ChannelState:
@@ -68,33 +156,37 @@ class ChannelState:
 
 
 class StreamingVocoder:
-    def __init__(self, seed: int | None = None):
+    def __init__(
+        self,
+        config: RealtimeConfig,
+        rng: np.random.Generator,
+        compressor_gain_db: float = 0.0,
+    ):
+        self.config = config.copy()
         self.sample_rate = SAMPLE_RATE
-        self.n_channels = N_CHANNELS
-        self.spread = SPREAD
-        self.noise_level = NOISE_LEVEL
-        self.env_amp = ENV_AMP
-        self.wet = WET
-        self.compressor_gain_db = 0.0
-        self.frame_count = 0
-        self.warmed_up = False
-        self.rng = np.random.default_rng(seed)
-
-        edges = log_edges(N_CHANNELS, F_LO, F_HI)
+        self.compressor_gain_db = compressor_gain_db
+        self.rng = rng
+        self.babble = StatefulBabbleNoise(SAMPLE_RATE, rng)
         self.channels: list[ChannelState] = []
-        for i in range(N_CHANNELS):
+        self._rebuild_channels()
+
+    def _rebuild_channels(self) -> None:
+        cfg = self.config
+        edges = log_edges(cfg.n_channels, cfg.f_lo, cfg.f_hi)
+        self.channels = []
+        for i in range(cfg.n_channels):
             lo, hi = float(edges[i]), float(edges[i + 1])
             fc = math.sqrt(lo * hi)
             bw = max(hi - lo, 1.0)
             q = clamp(fc / bw, 0.5, 18.0)
-            self.channels.append(ChannelState(fc, q, ENV_CUT, SAMPLE_RATE, CARRIER))
+            self.channels.append(ChannelState(fc, q, cfg.env_cut, SAMPLE_RATE, cfg.carrier))
 
     def _apply_spread(self, envs: np.ndarray) -> np.ndarray:
         gains = envs.copy()
-        if self.spread <= 0:
+        s = self.config.spread
+        if s <= 0:
             return gains
 
-        s = self.spread
         n_channels = envs.shape[0]
         for i in range(n_channels):
             for j, amt in (
@@ -133,11 +225,114 @@ class StreamingVocoder:
 
         return x * (10.0 ** (smoothed / 20.0))
 
+    def process_samples(self, x: np.ndarray) -> np.ndarray:
+        n = x.size
+        cfg = self.config
+        sig = x + self.babble.process(n, cfg.noise_level)
+        noise = self.rng.uniform(-1.0, 1.0, n) if cfg.carrier == "noise" else None
+
+        envs = np.zeros((cfg.n_channels, n), dtype=np.float64)
+        carriers = np.zeros((cfg.n_channels, n), dtype=np.float64)
+        for i, channel in enumerate(self.channels):
+            band = channel.analysis_bp.process(sig)
+            rect = np.abs(band)
+            env = channel.envelope_lp.process(rect)
+            envs[i] = env * ENV_AMP
+            carriers[i] = channel.carrier_signal(noise, n, self.sample_rate)
+
+        gains = self._apply_spread(envs)
+
+        wet = np.zeros(n, dtype=np.float64)
+        for i, channel in enumerate(self.channels):
+            modulated = carriers[i] * gains[i]
+            wet += channel.output_bp.process(modulated)
+
+        y = wet * WET
+        y = self._compress(y)
+        return y * OUTPUT_GAIN
+
     @staticmethod
     def _float_to_pcm16_le(y: np.ndarray) -> bytes:
         clipped = np.clip(np.asarray(y, dtype=np.float64), -1.0, 1.0)
         pcm = np.where(clipped < 0, clipped * 0x8000, clipped * 0x7FFF).astype("<i2")
         return pcm.tobytes()
+
+
+class _CrossfadeTransition:
+    def __init__(self, old_engine: StreamingVocoder, new_engine: StreamingVocoder):
+        self.old_engine = old_engine
+        self.new_engine = new_engine
+        self.frames_done = 0
+
+
+class RealtimeVocoderSession:
+    def __init__(self, seed: int | None = None):
+        self.rng = np.random.default_rng(seed)
+        self.config = RealtimeConfig()
+        self.engine = StreamingVocoder(self.config, self.rng)
+        self.warmed_up = False
+        self.frame_count = 0
+        self._crossfade: _CrossfadeTransition | None = None
+
+    def warmup(self) -> None:
+        silent = b"\x00\x00" * (5292 // 2)
+        self.process_pcm(silent)
+        self.warmed_up = True
+
+    def handle_control_message(self, raw: bytes) -> bytes:
+        try:
+            msg = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            return self._error_response(f"invalid JSON: {exc}")
+
+        if msg.get("type") != "PARAM_UPDATE":
+            return self._error_response("unsupported control type")
+
+        params = msg.get("params")
+        if not isinstance(params, dict):
+            return self._error_response("params must be an object")
+
+        try:
+            new_config = RealtimeConfig.from_params(params)
+            self._apply_config(new_config)
+        except ValueError as exc:
+            return self._error_response(str(exc))
+
+        print(
+            "[realtime-vocoder] params applied "
+            f"n={new_config.n_channels} "
+            f"{new_config.f_lo:.0f}-{new_config.f_hi:.0f}Hz "
+            f"carrier={new_config.carrier} "
+            f"spread={new_config.spread:.2f} "
+            f"noise={new_config.noise_level:.2f}",
+            file=sys.stderr,
+        )
+        return json.dumps({"type": "PARAM_APPLIED", "version": 1}, separators=(",", ":")).encode("utf-8")
+
+    def _apply_config(self, new_config: RealtimeConfig) -> None:
+        if new_config.structural_key() != self.config.structural_key():
+            new_engine = StreamingVocoder(
+                new_config,
+                self.rng,
+                compressor_gain_db=self.engine.compressor_gain_db,
+            )
+            self._crossfade = _CrossfadeTransition(self.engine, new_engine)
+            self.config = new_config.copy()
+            return
+
+        self.config.spread = new_config.spread
+        self.config.noise_level = new_config.noise_level
+        self.engine.config.spread = new_config.spread
+        self.engine.config.noise_level = new_config.noise_level
+
+    @staticmethod
+    def _error_response(message: str) -> bytes:
+        payload = {
+            "type": "PARAM_ERROR",
+            "version": 1,
+            "message": message,
+        }
+        return json.dumps(payload, separators=(",", ":")).encode("utf-8")
 
     def process_pcm(self, pcm_bytes: bytes) -> tuple[bytes, float, float, float, float, float]:
         if len(pcm_bytes) % 2 != 0:
@@ -148,42 +343,26 @@ class StreamingVocoder:
 
         started = time.perf_counter()
         x = np.frombuffer(pcm_bytes, dtype="<i2").astype(np.float64) / 32768.0
-        n = x.size
         in_rms = float(np.sqrt(np.mean(x * x)))
 
-        sig = x
-        if self.noise_level > 0:
-            # Reserved for later scenario presets; fixed to 0 for B1.
-            sig = x
-
-        noise = self.rng.uniform(-1.0, 1.0, n) if CARRIER == "noise" else None
-
-        envs = np.zeros((self.n_channels, n), dtype=np.float64)
-        carriers = np.zeros((self.n_channels, n), dtype=np.float64)
-        for i, channel in enumerate(self.channels):
-            band = channel.analysis_bp.process(sig)
-            rect = np.abs(band)
-            env = channel.envelope_lp.process(rect)
-            envs[i] = env * self.env_amp
-            carriers[i] = channel.carrier_signal(noise, n, self.sample_rate)
-
-        gains = self._apply_spread(envs)
-
-        wet = np.zeros(n, dtype=np.float64)
-        for i, channel in enumerate(self.channels):
-            modulated = carriers[i] * gains[i]
-            wet += channel.output_bp.process(modulated)
-
-        y = wet * self.wet
-        y = self._compress(y)
-        y = y * OUTPUT_GAIN
+        if self._crossfade is not None:
+            old_y = self._crossfade.old_engine.process_samples(x)
+            new_y = self._crossfade.new_engine.process_samples(x)
+            alpha = (self._crossfade.frames_done + 1) / CROSSFADE_FRAMES
+            y = (1.0 - alpha) * old_y + alpha * new_y
+            self._crossfade.frames_done += 1
+            if self._crossfade.frames_done >= CROSSFADE_FRAMES:
+                self.engine = self._crossfade.new_engine
+                self._crossfade = None
+        else:
+            y = self.engine.process_samples(x)
 
         out_rms = float(np.sqrt(np.mean(y * y)))
         peak = float(np.max(np.abs(y)))
         clip_ratio = float(np.mean(np.abs(y) > 1.0))
         processing_ms = (time.perf_counter() - started) * 1000.0
 
-        out_bytes = self._float_to_pcm16_le(y)
+        out_bytes = StreamingVocoder._float_to_pcm16_le(y)
         if len(out_bytes) != len(pcm_bytes):
             raise RuntimeError(
                 f"output byte length mismatch: in={len(pcm_bytes)} out={len(out_bytes)}"
@@ -192,14 +371,8 @@ class StreamingVocoder:
         self.frame_count += 1
         return out_bytes, in_rms, out_rms, processing_ms, peak, clip_ratio
 
-    def warmup(self) -> None:
-        """Prime scipy/filter path so the first realtime chunk is not cold-started."""
-        silent = b"\x00\x00" * (5292 // 2)
-        self.process_pcm(silent)
-
 
 def read_exact(stream, nbytes: int) -> bytes | None:
-    """Read exactly nbytes from stream, or None on clean EOF before any data."""
     buf = bytearray()
     while len(buf) < nbytes:
         chunk = stream.read(nbytes - len(buf))
@@ -214,7 +387,7 @@ def read_exact(stream, nbytes: int) -> bytes | None:
 def main() -> None:
     stdin = sys.stdin.buffer
     stdout = sys.stdout.buffer
-    vocoder = StreamingVocoder()
+    session = RealtimeVocoderSession()
 
     print("realtime vocoder started", file=sys.stderr)
 
@@ -229,11 +402,20 @@ def main() -> None:
             sys.exit(1)
 
         if seq == 0 and pcm_length == 0:
-            if not vocoder.warmed_up:
-                vocoder.warmup()
-                vocoder.warmed_up = True
+            if not session.warmed_up:
+                session.warmup()
                 print("realtime vocoder ready", file=sys.stderr)
             stdout.write(struct.pack(HEADER_FORMAT, 0, 0))
+            stdout.flush()
+            continue
+
+        if seq == 0 and pcm_length > 0:
+            control_raw = read_exact(stdin, pcm_length)
+            if control_raw is None:
+                break
+            response = session.handle_control_message(control_raw)
+            stdout.write(struct.pack(HEADER_FORMAT, 0, len(response)))
+            stdout.write(response)
             stdout.flush()
             continue
 
@@ -242,15 +424,15 @@ def main() -> None:
             break
 
         try:
-            out_pcm, in_rms, out_rms, processing_ms, peak, clip_ratio = vocoder.process_pcm(pcm)
+            out_pcm, in_rms, out_rms, processing_ms, peak, clip_ratio = session.process_pcm(pcm)
         except Exception as exc:
             print(f"frame processing failed seq={seq}: {exc}", file=sys.stderr)
             sys.exit(1)
 
-        if vocoder.frame_count % 100 == 0:
+        if session.frame_count % 100 == 0:
             print(
                 "[realtime-vocoder]\n"
-                f"frame={vocoder.frame_count}\n"
+                f"frame={session.frame_count}\n"
                 f"inRms={in_rms:.6f}\n"
                 f"outRms={out_rms:.6f}\n"
                 f"peak={peak:.6f}\n"

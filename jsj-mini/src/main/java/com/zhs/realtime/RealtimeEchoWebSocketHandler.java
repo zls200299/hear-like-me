@@ -1,5 +1,7 @@
 package com.zhs.realtime;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhs.config.EngineProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +28,10 @@ public class RealtimeEchoWebSocketHandler extends AbstractWebSocketHandler {
     private static final Logger log = LoggerFactory.getLogger(RealtimeEchoWebSocketHandler.class);
     private static final int SEQ_BYTES = 4;
     private static final String READY_MESSAGE = "{\"type\":\"READY\"}";
+    private static final String PARAM_ERROR_NOT_READY = "{\"type\":\"PARAM_ERROR\",\"version\":1,\"message\":\"python not ready\"}";
     private static final CloseStatus PYTHON_UNAVAILABLE = new CloseStatus(1011, "realtime python unavailable");
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final EngineProperties engineProperties;
     private final Map<String, RealtimePythonSession> pythonSessions = new ConcurrentHashMap<>();
@@ -80,6 +85,43 @@ public class RealtimeEchoWebSocketHandler extends AbstractWebSocketHandler {
                         closeWithPythonUnavailable(session, exception.getMessage());
                     }
                 });
+    }
+
+    @Override
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+        RealtimePythonSession pythonSession = pythonSessions.get(session.getId());
+        if (pythonSession == null || !pythonSession.isReady()) {
+            session.sendMessage(new TextMessage(PARAM_ERROR_NOT_READY));
+            return;
+        }
+
+        String payload = message.getPayload();
+        try {
+            JsonNode root = objectMapper.readTree(payload);
+            if (!"PARAM_UPDATE".equals(root.path("type").asText())) {
+                log.warn("[realtime-ws] ignore unsupported text message session={}", session.getId());
+                return;
+            }
+
+            String response = pythonSession.updateParams(payload);
+            if (!session.isOpen()) {
+                return;
+            }
+            session.sendMessage(new TextMessage(response));
+            log.info("[realtime-ws] param update session={} response={}", session.getId(), response);
+        } catch (IOException exception) {
+            log.error("[realtime-ws] param update failed session={}", session.getId(), exception);
+            String errorResponse = objectMapper.writeValueAsString(
+                    java.util.Map.of(
+                            "type", "PARAM_ERROR",
+                            "version", 1,
+                            "message", exception.getMessage() == null ? "param update failed" : exception.getMessage()
+                    )
+            );
+            if (session.isOpen()) {
+                session.sendMessage(new TextMessage(errorResponse));
+            }
+        }
     }
 
     @Override

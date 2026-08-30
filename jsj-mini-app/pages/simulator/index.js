@@ -195,6 +195,8 @@ Page({
   _realtimePendingSweepTimer: null,
   _realtimePcmPlayer: null,
   _realtimeReadyTimeoutTimer: null,
+  _realtimeParamPromise: null,
+  _realtimeParamTimeoutTimer: null,
 
   onLoad() {
     this._audioPlayer = createSeamlessAudioPlayer()
@@ -997,6 +999,88 @@ Page({
     })
   },
 
+  _buildRealtimeParams() {
+    const params = this._getRuntimeParams()
+    const { fLo, fHi } = this._parseFrequencyRange(params.frequencyRange)
+    return {
+      nChannels: params.nChannels,
+      carrier: params.carrier,
+      fLo,
+      fHi,
+      envCut: params.envCut,
+      spread: params.spread / 100,
+      noiseLevel: params.noiseLevel / 100
+    }
+  },
+
+  _clearRealtimeParamPromise(error) {
+    if (this._realtimeParamTimeoutTimer) {
+      clearTimeout(this._realtimeParamTimeoutTimer)
+      this._realtimeParamTimeoutTimer = null
+    }
+    if (!this._realtimeParamPromise) return
+    const pending = this._realtimeParamPromise
+    this._realtimeParamPromise = null
+    if (error) {
+      pending.reject(error)
+    }
+  },
+
+  _resolveRealtimeParamPromise(msg) {
+    if (this._realtimeParamTimeoutTimer) {
+      clearTimeout(this._realtimeParamTimeoutTimer)
+      this._realtimeParamTimeoutTimer = null
+    }
+    if (!this._realtimeParamPromise) return
+    const pending = this._realtimeParamPromise
+    this._realtimeParamPromise = null
+    pending.resolve(msg)
+  },
+
+  _sendRealtimeParams() {
+    return new Promise((resolve, reject) => {
+      if (!this._realtimeSocketReady || !this._realtimeSocket) {
+        reject(new Error('实时连接未就绪'))
+        return
+      }
+
+      this._clearRealtimeParamPromise(new Error('参数更新被新的请求取代'))
+      this._realtimeParamPromise = { resolve, reject }
+      this._realtimeParamTimeoutTimer = setTimeout(() => {
+        if (!this._realtimeParamPromise) return
+        this._clearRealtimeParamPromise(new Error('参数同步超时'))
+      }, 8000)
+
+      const payload = JSON.stringify({
+        type: 'PARAM_UPDATE',
+        version: 1,
+        params: this._buildRealtimeParams()
+      })
+
+      this._realtimeSocket.send({
+        data: payload,
+        fail: (err) => {
+          this._clearRealtimeParamPromise(err || new Error('参数发送失败'))
+        }
+      })
+    })
+  },
+
+  _maybeSendRealtimeParams() {
+    if (this.data.sourceType !== 'realtime') return
+    if (!this._realtimeSocketReady) return
+    if (!this.data.realtimeRecording && !this._realtimeStarting) return
+
+    this._sendRealtimeParams().catch((err) => {
+      console.warn('[realtime-ws] param update failed', err)
+      if (!this._unloaded) {
+        this.setData({
+          realtimeError: (err && err.message) ? err.message : '实时参数更新失败'
+        })
+      }
+    })
+  },
+
   async _initRealtimePcmPlayer() {
     this._destroyRealtimePcmPlayer()
 
@@ -1096,6 +1180,15 @@ Page({
         this._onRealtimeSocketReady()
         return true
       }
+      if (msg && msg.type === 'PARAM_APPLIED') {
+        this._resolveRealtimeParamPromise(msg)
+        return true
+      }
+      if (msg && msg.type === 'PARAM_ERROR') {
+        const err = new Error((msg && msg.message) ? msg.message : '参数更新失败')
+        this._clearRealtimeParamPromise(err)
+        return true
+      }
     } catch (e) {
       console.warn('[realtime-ws] ignore invalid control message', text)
     }
@@ -1188,6 +1281,7 @@ Page({
     this._realtimeConnectSettled = false
     this._realtimeConnectResolve = null
     this._realtimeConnectReject = null
+    this._clearRealtimeParamPromise(new Error('实时连接已关闭'))
 
     if (this._realtimeSocket) {
       try {
@@ -1222,6 +1316,7 @@ Page({
 
     try {
       await this._connectRealtimeSocket()
+      await this._sendRealtimeParams()
       await this._initRealtimePcmPlayer()
       this._startRealtimeRecorder()
     } catch (err) {
@@ -1615,6 +1710,7 @@ Page({
       statusText: `已切换至${scenarioName}场景`
     }, () => {
       this._invalidateProcessedResult()
+      this._maybeSendRealtimeParams()
     })
   },
 
@@ -1641,6 +1737,7 @@ Page({
       statusText: `已设置 ${value} 通道`
     }, () => {
       this._invalidateProcessedResult()
+      this._maybeSendRealtimeParams()
     })
   },
 
@@ -1655,6 +1752,7 @@ Page({
       statusText: `已设置 ${value} 通道`
     }, () => {
       this._invalidateProcessedResult()
+      this._maybeSendRealtimeParams()
     })
   },
 
@@ -1667,6 +1765,7 @@ Page({
       statusText: value === 'noise' ? '已选择噪声载体' : '已选择正弦载体'
     }, () => {
       this._invalidateProcessedResult()
+      this._maybeSendRealtimeParams()
     })
   },
 
@@ -1692,6 +1791,7 @@ Page({
       statusText: `包络细节已设为 ${value} Hz`
     }, () => {
       this._invalidateProcessedResult()
+      this._maybeSendRealtimeParams()
     })
   },
 
@@ -1718,6 +1818,7 @@ Page({
       statusText: `环境噪声已设为 ${value}%`
     }, () => {
       this._invalidateProcessedResult()
+      this._maybeSendRealtimeParams()
     })
   },
 
