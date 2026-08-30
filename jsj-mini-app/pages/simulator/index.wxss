@@ -378,6 +378,12 @@
   background: #f2895e;
 }
 
+.listen-hint {
+  font-size: 26rpx;
+  line-height: 1.55;
+  color: #74859f;
+}
+
 .listen-hint--top {
   margin-top: 20rpx;
 }
@@ -1038,68 +1044,45 @@
   box-shadow: 0 0 0 1px rgba(53, 208, 186, 0.45), 0 0 18rpx rgba(53, 208, 186, 0.22);
 }
 
-/* 试听控制台 */
-.console-card {
-  border-color: rgba(53, 208, 186, 0.18);
-}
-
-.console-card .feedback-card {
-  margin-top: 0;
-}
-
-.listen-hint {
-  margin-top: 16rpx;
-  font-size: 24rpx;
-  line-height: 1.5;
-  color: #6C7CA3;
-}
-
+/* 底部反馈区 */
 .feedback-card {
-  margin-top: 24rpx;
-  padding: 24rpx;
-  border-radius: 16rpx;
-  background: rgba(0, 0, 0, 0.18);
-  border: 1rpx solid rgba(53, 208, 186, 0.28);
+  padding: 32rpx;
+  border-radius: 28rpx;
+  background: rgba(6, 17, 29, 0.42);
+  border: 1rpx solid rgba(91, 119, 151, 0.25);
 }
 
 .feedback-card--processing {
-  border-color: rgba(53, 208, 186, 0.35);
+  border-color: rgba(47, 224, 195, 0.28);
 }
 
 .feedback-card--success {
-  border-color: rgba(53, 208, 186, 0.42);
-  box-shadow: 0 4rpx 20rpx rgba(53, 208, 186, 0.06);
+  border-color: rgba(47, 224, 195, 0.38);
+  box-shadow: 0 0 40rpx rgba(47, 224, 195, 0.06);
 }
 
 .feedback-card--failed {
   border-color: rgba(242, 137, 94, 0.35);
 }
 
-.feedback-card__title {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: #EAF2FF;
-  margin-bottom: 20rpx;
-}
-
 .param-chips--compact {
-  margin-top: 20rpx;
+  margin-top: 24rpx;
   margin-bottom: 0;
 }
 
 .param-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 12rpx;
+  gap: 16rpx;
 }
 
 .param-chip {
-  padding: 10rpx 20rpx;
-  border-radius: 24rpx;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1rpx solid rgba(255, 255, 255, 0.1);
-  font-size: 22rpx;
-  color: #8FA3C1;
+  padding: 12rpx 24rpx;
+  border-radius: 28rpx;
+  background: rgba(15, 27, 44, 0.75);
+  border: 1rpx solid #43536a;
+  font-size: 24rpx;
+  color: #93a4bf;
   line-height: 1.4;
 }
 
@@ -1159,18 +1142,18 @@
 }
 
 .loading-bar {
-  margin-top: 20rpx;
+  margin-top: 24rpx;
   height: 8rpx;
-  border-radius: 4rpx;
-  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999rpx;
+  background: #313e52;
   overflow: hidden;
 }
 
 .loading-bar-inner {
   width: 40%;
   height: 100%;
-  border-radius: 4rpx;
-  background: linear-gradient(90deg, #35D0BA, #1E7CC2);
+  border-radius: 999rpx;
+  background: linear-gradient(90deg, #39e4c8, #23cbb2);
   animation: loading-slide 1.2s ease-in-out infinite;
 }
 
@@ -1181,11 +1164,11 @@
 
 /* 视觉化反馈 */
 .visual-card-desc {
-  margin-top: 8rpx;
-  margin-bottom: 16rpx;
-  font-size: 24rpx;
-  line-height: 1.6;
-  color: #6C7CA3;
+  margin-top: -8rpx;
+  margin-bottom: 8rpx;
+  font-size: 26rpx;
+  line-height: 1.55;
+  color: #74859f;
 }
 
 .visual-block {
@@ -1227,7 +1210,7 @@
 }
 
 .clarity-meter--compact {
-  padding: 16rpx 0 0;
+  padding: 0;
   background: transparent;
   border: none;
 }
@@ -1235,8 +1218,8 @@
 .clarity-meter-main {
   display: flex;
   align-items: flex-start;
-  gap: 20rpx;
-  margin-bottom: 16rpx;
+  gap: 24rpx;
+  margin-bottom: 20rpx;
 }
 
 .clarity-meter-score {
@@ -1246,15 +1229,15 @@
 }
 
 .clarity-meter-num {
-  font-size: 60rpx;
-  font-weight: 700;
+  font-size: 68rpx;
+  font-weight: 800;
   line-height: 1;
 }
 
 .clarity-meter-total {
-  font-size: 26rpx;
-  color: #6C7CA3;
-  margin-left: 4rpx;
+  font-size: 28rpx;
+  color: #7f91aa;
+  margin-left: 6rpx;
 }
 
 .clarity-meter-info {
@@ -1263,29 +1246,29 @@
 }
 
 .clarity-meter-grade {
-  font-size: 30rpx;
-  font-weight: 600;
-  color: #EAF2FF;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #f4f7fb;
   line-height: 1.4;
 }
 
 .clarity-meter-desc {
-  margin-top: 8rpx;
-  font-size: 24rpx;
-  line-height: 1.6;
-  color: #8FA3C1;
+  margin-top: 10rpx;
+  font-size: 26rpx;
+  line-height: 1.55;
+  color: #8fa0ba;
 }
 
 .clarity-meter-track {
-  height: 12rpx;
-  border-radius: 6rpx;
-  background: rgba(255, 255, 255, 0.08);
+  height: 8rpx;
+  border-radius: 999rpx;
+  background: #313e52;
   overflow: hidden;
 }
 
 .clarity-meter-fill {
   height: 100%;
-  border-radius: 6rpx;
+  border-radius: 999rpx;
   transition: width 0.35s ease;
 }
 
@@ -1314,20 +1297,20 @@
 }
 
 .clarity-meter.level-good .clarity-meter-num {
-  color: #5ECFC0;
+  color: #2fe0c3;
 }
 
 .clarity-meter.level-good .clarity-meter-fill {
-  background: linear-gradient(90deg, #2A9E8F, #5ECFC0);
+  background: linear-gradient(90deg, #39e4c8, #23cbb2);
 }
 
 .clarity-meter.level-best .clarity-meter-num {
-  color: #6EFFC8;
+  color: #2fe0c3;
 }
 
 .clarity-meter.level-best .clarity-meter-fill {
-  background: linear-gradient(90deg, #35D0BA, #6EFFC8);
-  box-shadow: 0 0 16rpx rgba(53, 208, 186, 0.35);
+  background: linear-gradient(90deg, #39e4c8, #17cbb1);
+  box-shadow: 0 0 16rpx rgba(47, 224, 195, 0.28);
 }
 
 /* 电极条阵列 */
