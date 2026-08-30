@@ -293,7 +293,7 @@
       isAudioPlaying="{{isAudioPlaying}}"
       playingKind="{{playingKind}}"
       audioSeekSec="{{audioSeekSec}}"
-      realtimeActive="{{(sourceType === 'realtime' && realtimeRecording) || sampleStreamingActive}}"
+      realtimeActive="{{(sourceType === 'realtime' && realtimeRecording) || fileStreamingActive}}"
     />
   </view>
 </view>

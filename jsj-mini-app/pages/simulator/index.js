@@ -176,7 +176,7 @@ Page({
     realtimePlaybackPendingFrames: 0,
     realtimePlaybackDroppedFrames: 0,
     realtimePlaybackRecoveryCount: 0,
-    sampleStreamingActive: false
+    fileStreamingActive: false
   },
 
   _scenarioPresets: null,
@@ -213,12 +213,12 @@ Page({
   _realtimeParamLastSentAt: 0,
   _realtimeParamPending: false,
   _streamingMode: null,
-  _sampleStreamActive: false,
-  _sampleStreamStarting: false,
+  _fileStreamActive: false,
+  _fileStreamStarting: false,
   _filePcmSource: null,
   _fileStreamTimer: null,
   _fileStreamBootstrapRemaining: 0,
-  _sampleStreamGeneration: 0,
+  _fileStreamGeneration: 0,
 
   onLoad() {
     this._audioPlayer = createSeamlessAudioPlayer()
@@ -250,7 +250,7 @@ Page({
 
   onUnload() {
     this._unloaded = true
-    this._stopSampleStreamingProcessed({ silent: true })
+    this._stopFileStreamingProcessed({ silent: true })
     this._clearRealtimeParamThrottle()
     this._cancelPrefetch()
     this._cancelAutoRefresh()
@@ -523,11 +523,11 @@ Page({
   },
 
   _invalidateProcessedResult(options = {}) {
-    const wasSampleStreamingProcessed = this._sampleStreamActive
+    const wasFileStreamingProcessed = this._fileStreamActive
       && this.data.isAudioPlaying
       && this.data.playingKind === 'processed'
     const wasPlayingProcessed = this.data.isAudioPlaying && this.data.playingKind === 'processed'
-    const wasPlayingProcessedOffline = wasPlayingProcessed && !wasSampleStreamingProcessed
+    const wasPlayingProcessedOffline = wasPlayingProcessed && !wasFileStreamingProcessed
     const cacheApplied = wasPlayingProcessedOffline && options.autoRefresh !== false
       ? this._tryApplyCachedCurrentResult()
       : false
@@ -570,7 +570,7 @@ Page({
       if (
         options.schedulePrefetch !== false
         && !wasPlayingProcessed
-        && !wasSampleStreamingProcessed
+        && !wasFileStreamingProcessed
         && this.data.sourceType !== 'realtime'
       ) {
         this._invalidateInFlightPrefetch()
@@ -1027,8 +1027,8 @@ Page({
       socketTask.onClose(() => {
         if (!isCurrentSocket()) return
         this._realtimeSocketReady = false
-        if (this._sampleStreamActive || this._sampleStreamStarting) {
-          this._stopSampleStreamingProcessed({ silent: true })
+        if (this._fileStreamActive || this._fileStreamStarting) {
+          this._stopFileStreamingProcessed({ silent: true })
         }
         if (!this._realtimeConnectSettled) {
           failConnect(new Error('WebSocket closed before READY'))
@@ -1068,7 +1068,9 @@ Page({
     if (this._unloaded) return
     const statusText = this._streamingMode === 'sample'
       ? '声码器已就绪，正在流式播放示例模拟声'
-      : '声码器已就绪，正在采集麦克风音频'
+      : (this._streamingMode === 'upload'
+        ? '声码器已就绪，正在流式播放上传模拟声'
+        : '声码器已就绪，正在采集麦克风音频')
     this.setData({
       realtimeSocketConnected: true,
       realtimeSentFrames: 0,
@@ -1127,18 +1129,30 @@ Page({
       && (this.data.realtimeRecording || this._realtimeStarting)) {
       return true
     }
-    if (this._sampleStreamActive || this._sampleStreamStarting) {
+    if (this._fileStreamActive || this._fileStreamStarting) {
       return true
     }
     return false
   },
 
-  _isCurrentSampleStream(generation) {
+  _isFileStreamingMode() {
+    return this._streamingMode === 'sample' || this._streamingMode === 'upload'
+  },
+
+  _isCurrentFileStream(generation, mode) {
     return !this._unloaded
-      && generation === this._sampleStreamGeneration
-      && this._sampleStreamStarting
-      && this._streamingMode === 'sample'
-      && this.data.sourceType === 'sample'
+      && generation === this._fileStreamGeneration
+      && this._fileStreamStarting
+      && this._streamingMode === mode
+      && this.data.sourceType === mode
+  },
+
+  _isFileDecodeError(err) {
+    if (!err) return false
+    const msg = String(err.message || err.errMsg || err).toLowerCase()
+    return msg.includes('解码')
+      || msg.includes('decodeaudiodata')
+      || msg.includes('decode')
   },
 
   _destroyFilePcmSource() {
@@ -1154,7 +1168,7 @@ Page({
   },
 
   _scheduleNextFileStreamFrame(delayMs = FILE_STREAM_FRAME_MS) {
-    if (!this._sampleStreamActive || this._unloaded) return
+    if (!this._fileStreamActive || this._unloaded) return
     this._stopFileStreamPump()
     this._fileStreamTimer = setTimeout(() => {
       this._fileStreamTimer = null
@@ -1163,7 +1177,7 @@ Page({
   },
 
   _pumpFileStreamFrame() {
-    if (!this._sampleStreamActive || this._unloaded) return
+    if (!this._fileStreamActive || this._unloaded) return
     if (!this._realtimeSocketReady || !this._filePcmSource || !this._filePcmSource.isReady()) {
       this._scheduleNextFileStreamFrame()
       return
@@ -1179,8 +1193,8 @@ Page({
       const frame = this._filePcmSource.readFrame()
       this._sendRealtimeFrame(frame, frame.byteLength)
     } catch (err) {
-      console.warn('[sample-stream] readFrame failed', err)
-      this._stopSampleStreamingProcessed()
+      console.warn('[file-stream] readFrame failed', err)
+      this._stopFileStreamingProcessed()
       return
     }
 
@@ -1203,10 +1217,10 @@ Page({
     this._pumpFileStreamFrame()
   },
 
-  _stopSampleStreamingProcessed(options = {}) {
+  _stopFileStreamingProcessed(options = {}) {
     const { silent = false, keepStatus = false } = options
-    this._sampleStreamGeneration += 1
-    const wasActive = this._sampleStreamActive || this._sampleStreamStarting
+    this._fileStreamGeneration += 1
+    const wasActive = this._fileStreamActive || this._fileStreamStarting
 
     this._stopFileStreamPump()
     this._destroyFilePcmSource()
@@ -1214,18 +1228,18 @@ Page({
     this._clearRealtimeVisualLevels()
     this._destroyRealtimePcmPlayer()
 
-    this._sampleStreamActive = false
-    this._sampleStreamStarting = false
+    this._fileStreamActive = false
+    this._fileStreamStarting = false
     this._fileStreamBootstrapRemaining = 0
 
-    if (this._streamingMode === 'sample') {
+    if (this._isFileStreamingMode()) {
       this._streamingMode = null
       this._closeRealtimeSocket({ silent: true })
     }
 
     if (!this._unloaded && wasActive) {
       const patch = {
-        sampleStreamingActive: false,
+        fileStreamingActive: false,
         realtimeSocketConnected: false
       }
       if (!keepStatus) {
@@ -1240,33 +1254,48 @@ Page({
     }
   },
 
-  async _startSampleStreamingProcessed() {
-    if (this._sampleStreamStarting) return
+  async _startFileStreamingProcessed(options = {}) {
+    const {
+      mode,
+      url,
+      prepareUrl,
+      startingStatusText = '正在启动流式模拟...',
+      playingStatusText = '正在循环播放人工耳蜗模拟声音',
+      realtimeStatusText = '流式模拟播放中'
+    } = options
 
-    if (this._sampleStreamActive
+    if (!mode || (mode !== 'sample' && mode !== 'upload')) {
+      return
+    }
+    if (this._fileStreamStarting) return
+
+    if (this._fileStreamActive
       && this.data.isAudioPlaying
       && this.data.playingKind === 'processed') {
-      this._stopSampleStreamingProcessed()
+      this._stopFileStreamingProcessed()
       return
     }
 
     this._stopAudio('')
     this._cancelAutoRefresh()
-    const generation = ++this._sampleStreamGeneration
-    this._sampleStreamStarting = true
-    this._streamingMode = 'sample'
+    const generation = ++this._fileStreamGeneration
+    this._fileStreamStarting = true
+    this._streamingMode = mode
 
     if (!this._unloaded) {
       this.setData({
         realtimeError: '',
         isProcessing: false,
-        statusText: '正在启动示例流式模拟...'
+        statusText: startingStatusText
       })
     }
 
     try {
-      const sampleSource = await this._ensureSampleSource()
-      if (!this._isCurrentSampleStream(generation)) return
+      const audioUrl = url || (prepareUrl ? await prepareUrl() : '')
+      if (!this._isCurrentFileStream(generation, mode)) return
+      if (!audioUrl) {
+        throw new Error(mode === 'upload' ? '请先上传音频' : '示例声音不可用')
+      }
 
       this._destroyFilePcmSource()
       const fileSource = createFilePcmSource({
@@ -1275,8 +1304,8 @@ Page({
         loop: true
       })
       this._filePcmSource = fileSource
-      await fileSource.load(sampleSource.url)
-      if (!this._isCurrentSampleStream(generation)) {
+      await fileSource.load(audioUrl)
+      if (!this._isCurrentFileStream(generation, mode)) {
         if (this._filePcmSource === fileSource) {
           fileSource.destroy()
           this._filePcmSource = null
@@ -1285,13 +1314,13 @@ Page({
       }
 
       await this._connectRealtimeSocket()
-      if (!this._isCurrentSampleStream(generation)) return
+      if (!this._isCurrentFileStream(generation, mode)) return
 
       await this._sendRealtimeParams()
-      if (!this._isCurrentSampleStream(generation)) return
+      if (!this._isCurrentFileStream(generation, mode)) return
 
       const pcmPlayer = await this._initRealtimePcmPlayer()
-      if (!this._isCurrentSampleStream(generation)) {
+      if (!this._isCurrentFileStream(generation, mode)) {
         if (this._realtimePcmPlayer === pcmPlayer) {
           pcmPlayer.destroy()
           this._realtimePcmPlayer = null
@@ -1299,17 +1328,17 @@ Page({
         return
       }
 
-      this._sampleStreamActive = true
-      this._sampleStreamStarting = false
+      this._fileStreamActive = true
+      this._fileStreamStarting = false
       this._fileStreamBootstrapRemaining = FILE_STREAM_BOOTSTRAP_FRAMES
 
       this.setData({
         isAudioPlaying: true,
         playingKind: 'processed',
-        sampleStreamingActive: true,
+        fileStreamingActive: true,
         realtimeSocketConnected: true,
-        statusText: '正在循环播放人工耳蜗模拟声音',
-        realtimeStatusText: '示例流式模拟播放中'
+        statusText: playingStatusText,
+        realtimeStatusText
       }, () => {
         this._syncVisualPlaybackState()
         this._refreshVisualFeedback()
@@ -1317,22 +1346,60 @@ Page({
 
       this._startFileStreamPump()
     } catch (err) {
-      console.error('[sample-stream] start failed', err)
-      if (generation !== this._sampleStreamGeneration || this._streamingMode !== 'sample') {
+      console.error('[file-stream] start failed', err)
+      if (generation !== this._fileStreamGeneration
+        || !this._isFileStreamingMode()
+        || this._streamingMode !== mode) {
         return
       }
-      this._stopSampleStreamingProcessed({ silent: true })
+      this._stopFileStreamingProcessed({ silent: true })
       if (!this._unloaded) {
+        const decodeError = this._isFileDecodeError(err)
         this.setData({
-          realtimeError: (err && err.message) ? err.message : '示例流式模拟启动失败',
-          statusText: '示例流式模拟启动失败'
+          realtimeError: decodeError
+            ? '该音频格式暂不支持实时模拟'
+            : ((err && err.message) ? err.message : '流式模拟启动失败'),
+          statusText: decodeError ? '音频格式不支持实时模拟' : '流式模拟启动失败'
         })
         wx.showToast({
-          title: '模拟声播放失败',
+          title: decodeError
+            ? '该音频格式暂不支持实时模拟，请尝试 MP3 或 WAV'
+            : '模拟声播放失败',
           icon: 'none'
         })
       }
     }
+  },
+
+  async _startSampleStreamingProcessed() {
+    await this._startFileStreamingProcessed({
+      mode: 'sample',
+      prepareUrl: async () => {
+        const sampleSource = await this._ensureSampleSource()
+        return sampleSource.url
+      },
+      startingStatusText: '正在启动示例流式模拟...',
+      playingStatusText: '正在循环播放人工耳蜗模拟声音',
+      realtimeStatusText: '示例流式模拟播放中'
+    })
+  },
+
+  async _startUploadStreamingProcessed() {
+    if (!this.data.originalAudioUrl) {
+      wx.showToast({
+        title: '请先上传音频',
+        icon: 'none'
+      })
+      return
+    }
+
+    await this._startFileStreamingProcessed({
+      mode: 'upload',
+      url: this.data.originalAudioUrl,
+      startingStatusText: '正在启动上传流式模拟...',
+      playingStatusText: '正在循环播放人工耳蜗模拟声音',
+      realtimeStatusText: '上传流式模拟播放中'
+    })
   },
 
   _clearRealtimeParamThrottle() {
@@ -1742,7 +1809,7 @@ Page({
 
     if (this.data.realtimeRecording || this._realtimeStarting) return
 
-    this._stopSampleStreamingProcessed({ silent: true })
+    this._stopFileStreamingProcessed({ silent: true })
     this.setData({ realtimeError: '' })
     this._realtimeStarting = true
     this._streamingMode = 'mic'
@@ -1854,8 +1921,8 @@ Page({
   },
 
   _playAudio(url, kind, onPlayText, onStopText, onErrorText, options = {}) {
-    if (this._sampleStreamActive || this._sampleStreamStarting) {
-      this._stopSampleStreamingProcessed({ silent: true })
+    if (this._fileStreamActive || this._fileStreamStarting) {
+      this._stopFileStreamingProcessed({ silent: true })
     }
 
     if (!url) {
@@ -1938,8 +2005,8 @@ Page({
     this._ensurePageState()
     const type = e.currentTarget.dataset.type
 
-    if (this._sampleStreamActive || this._sampleStreamStarting) {
-      this._stopSampleStreamingProcessed({ silent: true })
+    if (this._fileStreamActive || this._fileStreamStarting) {
+      this._stopFileStreamingProcessed({ silent: true })
     }
 
     if (this.data.sourceType === 'realtime' && type !== 'realtime') {
@@ -2078,19 +2145,19 @@ Page({
 
     const cache = this._sampleSourceCache[code]
     const label = this._getSampleLabel(code)
-    const wasSampleStreaming = this._sampleStreamActive
+    const wasFileStreaming = this._fileStreamActive
       && this.data.isAudioPlaying
       && this.data.playingKind === 'processed'
     const wasPlayingOriginal = this.data.isAudioPlaying && this.data.playingKind === 'original'
     const wasPlayingProcessedOffline = this.data.isAudioPlaying
       && this.data.playingKind === 'processed'
-      && !wasSampleStreaming
+      && !wasFileStreaming
 
-    if (wasSampleStreaming || this._sampleStreamStarting) {
-      this._stopSampleStreamingProcessed({ silent: true, keepStatus: wasSampleStreaming })
+    if (wasFileStreaming || this._fileStreamStarting) {
+      this._stopFileStreamingProcessed({ silent: true, keepStatus: wasFileStreaming })
     }
 
-    if (!wasPlayingOriginal && !wasPlayingProcessedOffline && !wasSampleStreaming) {
+    if (!wasPlayingOriginal && !wasPlayingProcessedOffline && !wasFileStreaming) {
       this._cancelAutoRefresh()
     }
 
@@ -2111,7 +2178,7 @@ Page({
       taskStatus: cache ? 'ready' : 'idle',
       statusText: wasPlayingOriginal
         ? `正在切换${label}...`
-        : (wasSampleStreaming || wasPlayingProcessedOffline)
+        : (wasFileStreaming || wasPlayingProcessedOffline)
           ? '正在切换示例并更新模拟声...'
           : `已选择${label}`,
       selectedScenario: ''
@@ -2121,7 +2188,7 @@ Page({
         keepStatus: true,
         autoRefresh: wasPlayingProcessedOffline
       })
-      if (wasSampleStreaming) {
+      if (wasFileStreaming) {
         this._startSampleStreamingProcessed()
       } else if (wasPlayingOriginal) {
         this._continueOriginalAfterSampleSwitch(cache, label)
@@ -2339,6 +2406,9 @@ Page({
   },
 
   async _doUpload(filePath, fileName) {
+    if (this._fileStreamActive || this._fileStreamStarting) {
+      this._stopFileStreamingProcessed({ silent: true })
+    }
     this._stopAudio('已停止播放')
     this._cancelAutoRefresh()
     this.setData({
@@ -2386,8 +2456,8 @@ Page({
   },
 
   async playOriginal() {
-    if (this._sampleStreamActive || this._sampleStreamStarting) {
-      this._stopSampleStreamingProcessed()
+    if (this._fileStreamActive || this._fileStreamStarting) {
+      this._stopFileStreamingProcessed()
     }
 
     if (this.data.sourceType === 'sample') {
@@ -2465,6 +2535,7 @@ Page({
   _schedulePrefetchProcessed(delayMs = 800) {
     if (this._unloaded) return
     if (this.data.sourceType === 'realtime') return
+    if (this._fileStreamActive || this._fileStreamStarting) return
     if (this.data.isProcessing) return
 
     if (this._prefetchTimer) {
@@ -2480,6 +2551,7 @@ Page({
   async _prefetchProcessedAudio() {
     if (this._unloaded || this.data.isProcessing) return
     if (this.data.sourceType === 'realtime') return
+    if (this._fileStreamActive || this._fileStreamStarting) return
 
     const key = this._buildProcessKey()
     if (this.data.processedKey === key && this.data.processedAudioUrl) {
@@ -2699,8 +2771,14 @@ Page({
 
   async playProcessedAuto() {
     if (this.data.sourceType === 'sample') {
-      if (this._sampleStreamStarting) return
+      if (this._fileStreamStarting) return
       await this._startSampleStreamingProcessed()
+      return
+    }
+
+    if (this.data.sourceType === 'upload') {
+      if (this._fileStreamStarting) return
+      await this._startUploadStreamingProcessed()
       return
     }
 
