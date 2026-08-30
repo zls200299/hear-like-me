@@ -158,6 +158,7 @@ Page({
   _shouldAutoPlayProcessed: false,
   _runtimeParams: null,
   _audioPlayer: null,
+  _processedResultCache: null,
 
   onLoad() {
     this._audioPlayer = createSeamlessAudioPlayer()
@@ -192,6 +193,10 @@ Page({
     if (this._audioPlayer) {
       this._audioPlayer.destroy()
       this._audioPlayer = null
+    }
+    if (this._processedResultCache) {
+      this._processedResultCache.clear()
+      this._processedResultCache = null
     }
   },
 
@@ -594,6 +599,81 @@ Page({
     }
     if (this._unloaded == null) {
       this._unloaded = false
+    }
+    if (!this._processedResultCache) {
+      this._processedResultCache = new Map()
+    }
+  },
+
+  _getCachedProcessedResult(key) {
+    const cache = this._processedResultCache
+    if (!cache || !cache.has(key)) return null
+
+    const value = cache.get(key)
+    cache.delete(key)
+    cache.set(key, value)
+    return value
+  },
+
+  _setCachedProcessedResult(key, value) {
+    if (!this._processedResultCache) {
+      this._processedResultCache = new Map()
+    }
+
+    const cache = this._processedResultCache
+
+    if (cache.has(key)) {
+      cache.delete(key)
+    }
+
+    cache.set(key, value)
+
+    while (cache.size > 12) {
+      const oldestKey = cache.keys().next().value
+      cache.delete(oldestKey)
+    }
+  },
+
+  _applyProcessedResult(key, result, options = {}) {
+    const { autoPlay = false, replacePlaying = false, fromCache = false } = options
+
+    const statusText = fromCache
+      ? '已使用缓存的模拟结果'
+      : replacePlaying
+        ? '模拟声已按新参数更新'
+        : '模拟声音已生成'
+
+    this.setData({
+      taskNo: result.taskNo || '',
+      outputAssetId: result.outputAssetId || null,
+      processedAudioUrl: result.processedAudioUrl,
+      processedKey: key,
+      clarityScore: result.clarityScore,
+      clarityGrade: result.clarityGrade,
+      clarityDesc: result.clarityDesc,
+      taskStatus: 'success',
+      isProcessing: false,
+      errorMessage: '',
+      statusText
+    }, () => {
+      this._refreshVisualFeedback()
+      if (!autoPlay && !(this.data.isAudioPlaying && this.data.playingKind === 'processed')) {
+        this._applyVisualizationData(result.visualizationData)
+      }
+    })
+
+    if (autoPlay) {
+      this._playAudio(
+        result.processedAudioUrl,
+        'processed',
+        '正在循环播放人工耳蜗模拟声音',
+        '已停止模拟声音播放',
+        '模拟声音播放失败，请检查文件地址',
+        {
+          forceRestart: true,
+          visualizationData: result.visualizationData
+        }
+      )
     }
   },
 
@@ -1204,16 +1284,43 @@ Page({
 
     if (this.data.processedAudioUrl && this.data.processedKey === key) {
       if (autoPlay) {
-        this._playAudio(
-          this.data.processedAudioUrl,
-          'processed',
-          '正在循环播放人工耳蜗模拟声音',
-          '已停止模拟声音播放',
-          '模拟声音播放失败，请检查文件地址'
-        )
+        const cached = this._getCachedProcessedResult(key)
+        if (cached) {
+          this._setCachedProcessedResult(key, cached)
+          this._applyProcessedResult(key, cached, {
+            autoPlay: true,
+            replacePlaying,
+            fromCache: true
+          })
+        } else {
+          this._playAudio(
+            this.data.processedAudioUrl,
+            'processed',
+            '正在循环播放人工耳蜗模拟声音',
+            '已停止模拟声音播放',
+            '模拟声音播放失败，请检查文件地址'
+          )
+        }
       }
       return
     }
+
+    const cached = this._getCachedProcessedResult(key)
+    if (cached) {
+      if (requestSeq !== this._autoRefreshSeq) {
+        return
+      }
+      console.log('[processed-cache] hit', key)
+      this._setCachedProcessedResult(key, cached)
+      this._applyProcessedResult(key, cached, {
+        autoPlay,
+        replacePlaying,
+        fromCache: true
+      })
+      return
+    }
+
+    console.log('[processed-cache] miss', key)
 
     this.setData({
       isProcessing: true,
@@ -1262,38 +1369,23 @@ Page({
       const clarityGrade = result.clarityGrade || this.data.clarityGrade || '模拟完成'
       const clarityDesc = this._getClarityDesc(clarityScore, clarityGrade)
 
-      this.setData({
+      const cachedResult = {
         taskNo: result.taskNo,
         outputAssetId: result.outputAssetId,
         processedAudioUrl: result.processedAudioUrl,
-        processedKey: key,
         clarityScore,
         clarityGrade,
         clarityDesc,
-        taskStatus: 'success',
-        isProcessing: false,
-        errorMessage: '',
-        statusText: replacePlaying ? '模拟声已按新参数更新' : '正在循环播放人工耳蜗模拟声音'
-      }, () => {
-        this._refreshVisualFeedback()
-        if (!autoPlay && !(this.data.isAudioPlaying && this.data.playingKind === 'processed')) {
-          this._applyVisualizationData(result.visualizationData)
-        }
-      })
-
-      if (autoPlay) {
-        this._playAudio(
-          result.processedAudioUrl,
-          'processed',
-          '正在循环播放人工耳蜗模拟声音',
-          '已停止模拟声音播放',
-          '模拟声音播放失败，请检查文件地址',
-          {
-            forceRestart: true,
-            visualizationData: result.visualizationData
-          }
-        )
+        visualizationData: result.visualizationData || null
       }
+
+      console.log('[processed-cache] save', key)
+      this._setCachedProcessedResult(key, cachedResult)
+      this._applyProcessedResult(key, cachedResult, {
+        autoPlay,
+        replacePlaying,
+        fromCache: false
+      })
     } catch (err) {
       if (requestSeq !== this._autoRefreshSeq) {
         return
