@@ -409,50 +409,39 @@ Component({
     _updateMeta() {
       const { lo, hi } = parseFreqRange(this.properties.frequencyRange)
       const carrierLabel = this.properties.carrier === 'sine' ? '正弦载波' : '噪声载波'
-      const baseMeta = `${this.properties.nChannels} 个通道 · ${carrierLabel}`
       this.setData({
-        vizMeta: this._resolveVizMeta(baseMeta),
+        vizMeta: `${this.properties.nChannels} 个通道 · ${carrierLabel}`,
         freqLo: String(lo),
         freqHiLabel: formatFreqHi(hi)
       })
-      this._updateAxisLabels(baseMeta)
+      this._updateAxisLabels()
     },
 
-    _resolveVizMeta(baseMeta) {
-      const view = this.data.activeView
-      if (view === 'wave') return '模拟声波形 · 时间域'
-      if (view === 'cochlea') return '耳蜗映射 · 基底膜位置'
-      return baseMeta
-    },
-
-    _updateAxisLabels(baseMeta) {
+    _updateAxisLabels() {
       const { lo, hi } = parseFreqRange(this.properties.frequencyRange)
       const fHiLabel = formatFreqHi(hi)
       const view = this.data.activeView
       let axisLeft = `${lo} Hz`
       let axisCenter = '频率通道（低频 → 高频）'
       let axisRight = fHiLabel
-      let vizMeta = baseMeta || this._resolveVizMeta(`${this.properties.nChannels} 个通道 · ${this.properties.carrier === 'sine' ? '正弦载波' : '噪声载波'}`)
 
       if (view === 'cochlea') {
-        vizMeta = '耳蜗映射 · 基底膜位置'
-        axisCenter = '频率通道（耳顶 → 耳底）'
+        axisCenter = '耳顶（低频） → 耳底（高频）'
       } else if (view === 'spec') {
         axisLeft = '0 Hz'
         axisCenter = '频率'
         axisRight = fHiLabel
       } else if (view === 'wave') {
-        vizMeta = '模拟声波形 · 时间域'
-        axisLeft = '0 ms'
-        axisCenter = '时间轴'
-        axisRight = '120 ms'
+        axisLeft = '-1'
+        axisCenter = '振幅 / 当前约 60 ms PCM'
+        axisRight = '+1'
       } else if (view === 'neuro') {
         axisCenter = '通道位置（低频 → 高频）'
       } else if (view === 'bars') {
         axisCenter = '频率通道（低频 → 高频）'
       }
 
-      this.setData({ axisLeft, axisCenter, axisRight, vizMeta })
+      this.setData({ axisLeft, axisCenter, axisRight })
     },
 
     _getDisplayHiHz() {

@@ -4,46 +4,37 @@ const VISUAL_GAIN = 1.2
 const MIN_BUCKETS = 160
 const MAX_BUCKETS = 240
 
-function createWaveStrokeGradient(ctx, W) {
-  const g = ctx.createLinearGradient(0, 0, W, 0)
-  g.addColorStop(0, '#34E2C9')
-  g.addColorStop(1, '#4E8CFF')
-  return g
-}
-
 function drawWaveBackground(ctx, canvas, dpr) {
   const W = canvas.width
   const H = canvas.height
   const mid = H / 2
-  const padX = 18 * dpr
 
   ctx.clearRect(0, 0, W, H)
 
-  const bg = ctx.createLinearGradient(0, 0, 0, H)
-  bg.addColorStop(0, '#07142a')
-  bg.addColorStop(1, '#0a1425')
-  ctx.fillStyle = bg
-  ctx.fillRect(0, 0, W, H)
-
-  const gridColor = '#203553'
   ctx.lineWidth = 1 * dpr
-  ctx.strokeStyle = gridColor
-  ctx.globalAlpha = 0.35
-  ;[0.24, 0.38, 0.62, 0.76].forEach((ratio) => {
-    const y = H * ratio
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)'
+  for (let gx = 1; gx < 8; gx++) {
+    const x = (W * gx) / 8
     ctx.beginPath()
-    ctx.moveTo(padX, y)
-    ctx.lineTo(W - padX, y)
+    ctx.moveTo(x, 0)
+    ctx.lineTo(x, H)
     ctx.stroke()
-  })
-  ctx.globalAlpha = 1
+  }
+  for (let gy = 1; gy < 4; gy++) {
+    const y = (H * gy) / 4
+    ctx.beginPath()
+    ctx.moveTo(0, y)
+    ctx.lineTo(W, y)
+    ctx.stroke()
+  }
 
+  ctx.strokeStyle = 'rgba(255,255,255,0.14)'
   ctx.beginPath()
-  ctx.moveTo(padX, mid)
-  ctx.lineTo(W - padX, mid)
+  ctx.moveTo(0, mid)
+  ctx.lineTo(W, mid)
   ctx.stroke()
 
-  return { W, H, mid, padX }
+  return { W, H, mid }
 }
 
 function getBucketCount(W, dpr) {
@@ -51,35 +42,15 @@ function getBucketCount(W, dpr) {
   return Math.min(MAX_BUCKETS, Math.max(MIN_BUCKETS, Math.round(logicalW * 0.55)))
 }
 
-function applyWaveStrokeStyle(ctx, W, dpr, isPlaying, playingKind) {
-  if (isPlaying) {
-    ctx.strokeStyle = playingKind === 'original'
-      ? '#F0C24B'
-      : createWaveStrokeGradient(ctx, W)
-    ctx.shadowColor = playingKind === 'original'
-      ? 'rgba(240, 194, 75, 0.35)'
-      : 'rgba(52, 226, 201, 0.42)'
-    ctx.shadowBlur = 7 * dpr
-  } else {
-    ctx.strokeStyle = 'rgba(142, 160, 187, 0.45)'
-    ctx.shadowColor = 'transparent'
-    ctx.shadowBlur = 0
-  }
-  ctx.lineWidth = 4.5 * dpr
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-}
-
-function drawRealPcmEnvelope(ctx, canvas, dpr, samples, opts) {
-  const { isPlaying = true, playingKind = 'processed' } = opts || {}
+function drawRealPcmEnvelope(ctx, canvas, dpr, samples, col) {
   const { W, H, mid } = drawWaveBackground(ctx, canvas, dpr)
   const bucketCount = getBucketCount(W, dpr)
   const ampScale = H * 0.42 * VISUAL_GAIN
 
-  applyWaveStrokeStyle(ctx, W, dpr, isPlaying, playingKind)
+  ctx.lineWidth = 1.6 * dpr
+  ctx.strokeStyle = col
+  ctx.lineCap = 'round'
 
-  ctx.beginPath()
-  let started = false
   for (let bi = 0; bi < bucketCount; bi++) {
     const start = Math.floor(bi * samples.length / bucketCount)
     const end = Math.floor((bi + 1) * samples.length / bucketCount)
@@ -94,17 +65,14 @@ function drawRealPcmEnvelope(ctx, canvas, dpr, samples, opts) {
     }
 
     const x = (W * (bi + 0.5)) / bucketCount
-    const y = mid - clamp((min + max) * 0.5, -1, 1) * ampScale
-    if (!started) {
-      ctx.moveTo(x, y)
-      started = true
-    } else {
-      ctx.lineTo(x, y)
-    }
+    const yMin = mid - clamp(min, -1, 1) * ampScale
+    const yMax = mid - clamp(max, -1, 1) * ampScale
+
+    ctx.beginPath()
+    ctx.moveTo(x, yMin)
+    ctx.lineTo(x, yMax)
+    ctx.stroke()
   }
-  ctx.stroke()
-  ctx.shadowColor = 'transparent'
-  ctx.shadowBlur = 0
 }
 
 function drawFallbackWave(ctx, canvas, dpr, opts) {
@@ -118,12 +86,17 @@ function drawFallbackWave(ctx, canvas, dpr, opts) {
 
   const { W, H, mid } = drawWaveBackground(ctx, canvas, dpr)
   const now = Date.now() / 1000
+
+  const col = isPlaying
+    ? (playingKind === 'original' ? '#F2C14E' : '#16B9A6')
+    : 'rgba(108,124,163,0.55)'
+
   const n = 128
   const ampBase = isPlaying ? 0.34 : 0.12
   const speed = 2.4 + nChannels * 0.08
 
-  applyWaveStrokeStyle(ctx, W, dpr, isPlaying, playingKind)
-
+  ctx.lineWidth = 2.2 * dpr
+  ctx.strokeStyle = col
   ctx.beginPath()
   for (let i = 0; i < n; i++) {
     const x = (W * i) / (n - 1)
@@ -140,8 +113,23 @@ function drawFallbackWave(ctx, canvas, dpr, opts) {
     else ctx.lineTo(x, y)
   }
   ctx.stroke()
-  ctx.shadowColor = 'transparent'
-  ctx.shadowBlur = 0
+
+  const t = (Date.now() / 2600) % 1
+  const sx = t * W
+  const si = Math.min(n - 1, Math.floor(t * (n - 1)))
+  const phase = now * speed + si * 0.18
+  let sv = Math.sin(phase) * 0.45
+  if (carrier === 'noise') {
+    sv += (pseudoRandom(si * 1.3 + Math.floor(now * 10)) - 0.5) * 0.35 * (1 + noiseLevel / 100)
+  }
+  const sy = mid - clamp(sv, -1, 1) * H * ampBase
+
+  ctx.fillStyle = isPlaying ? col : 'rgba(108,124,163,0.5)'
+  ctx.globalAlpha = 0.9
+  ctx.beginPath()
+  ctx.arc(sx, sy, 3.2 * dpr, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.globalAlpha = 1
 }
 
 function drawWave(ctx, canvas, dpr, opts) {
@@ -155,7 +143,8 @@ function drawWave(ctx, canvas, dpr, opts) {
   } = opts || {}
 
   if (useRealPcm && pcmSamples && pcmSamples.length) {
-    drawRealPcmEnvelope(ctx, canvas, dpr, pcmSamples, { isPlaying, playingKind })
+    const col = playingKind === 'original' ? '#F2C14E' : '#16B9A6'
+    drawRealPcmEnvelope(ctx, canvas, dpr, pcmSamples, col)
     return
   }
 
