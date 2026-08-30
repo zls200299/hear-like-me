@@ -66,11 +66,6 @@
   box-sizing: border-box;
 }
 
-.sv-pane--cochlea {
-  position: relative;
-  padding: 0;
-}
-
 .sv-canvas {
   display: block;
   width: 100%;
@@ -138,52 +133,3 @@
 .sv-bar-fill-5 { background: linear-gradient(90deg, #9BB82E, #C4D43A); }
 .sv-bar-fill-6 { background: linear-gradient(90deg, #D9A82E, #F2C14E); }
 .sv-bar-fill-7 { background: linear-gradient(90deg, #E89B4A, #F2A65A); }
-
-.sv-cochlea-spiral {
-  position: absolute;
-  left: 8%;
-  top: 12%;
-  width: 84%;
-  height: 76%;
-  border: 8rpx solid rgba(30, 124, 194, 0.35);
-  border-radius: 58% 42% 55% 45% / 48% 52% 48% 52%;
-  opacity: 0.45;
-  transform: rotate(-8deg);
-}
-
-.sv-cochlea-dot {
-  position: absolute;
-  transform: translate(-50%, -50%);
-}
-
-.sv-cochlea-halo {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  opacity: 0.35;
-}
-
-.sv-cochlea-core {
-  position: relative;
-  border-radius: 50%;
-}
-
-.sv-cochlea-dot-0 .sv-cochlea-halo, .sv-cochlea-dot-0 .sv-cochlea-core { background: #2B2E83; }
-.sv-cochlea-dot-1 .sv-cochlea-halo, .sv-cochlea-dot-1 .sv-cochlea-core { background: #1E7CC2; }
-.sv-cochlea-dot-2 .sv-cochlea-halo, .sv-cochlea-dot-2 .sv-cochlea-core { background: #16B9A6; }
-.sv-cochlea-dot-3 .sv-cochlea-halo, .sv-cochlea-dot-3 .sv-cochlea-core { background: #35D0BA; }
-.sv-cochlea-dot-4 .sv-cochlea-halo, .sv-cochlea-dot-4 .sv-cochlea-core { background: #7DC93F; }
-.sv-cochlea-dot-5 .sv-cochlea-halo, .sv-cochlea-dot-5 .sv-cochlea-core { background: #C4D43A; }
-.sv-cochlea-dot-6 .sv-cochlea-halo, .sv-cochlea-dot-6 .sv-cochlea-core { background: #F2C14E; }
-.sv-cochlea-dot-7 .sv-cochlea-halo, .sv-cochlea-dot-7 .sv-cochlea-core { background: #F2A65A; }
-
-.sv-cochlea-dot--pulse .sv-cochlea-halo {
-  animation: svCochleaPulse 0.8s ease-out infinite;
-}
-
-@keyframes svCochleaPulse {
-  0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.5; }
-  100% { transform: translate(-50%, -50%) scale(1.4); opacity: 0.08; }
-}

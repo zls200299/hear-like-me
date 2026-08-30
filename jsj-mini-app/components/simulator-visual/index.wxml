@@ -27,18 +27,12 @@
       </view>
     </view>
 
-    <view wx:elif="{{activeView === 'cochlea'}}" class="sv-pane sv-pane--cochlea">
-      <view class="sv-cochlea-spiral"></view>
-      <view
-        wx:for="{{cochleaElectrodes}}"
-        wx:key="index"
-        class="sv-cochlea-dot sv-cochlea-dot-{{item.colorIndex}} {{item.pulse ? 'sv-cochlea-dot--pulse' : ''}}"
-        style="left: {{item.x}}%; top: {{item.y}}%; opacity: {{item.opacity}};"
-      >
-        <view class="sv-cochlea-halo" style="width: {{item.haloR}}rpx; height: {{item.haloR}}rpx;"></view>
-        <view class="sv-cochlea-core" style="width: {{item.dotR}}rpx; height: {{item.dotR}}rpx;"></view>
-      </view>
-    </view>
+    <canvas
+      wx:elif="{{activeView === 'cochlea'}}"
+      type="2d"
+      id="cochleaCanvas"
+      class="sv-canvas"
+    ></canvas>
 
     <canvas
       wx:elif="{{activeView === 'wave' || activeView === 'neuro'}}"

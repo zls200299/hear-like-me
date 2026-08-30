@@ -3,12 +3,12 @@ const {
   getFrameAtCurrentTime,
   buildFallbackFrame,
   buildElectrodeBars,
-  buildCochleaElectrodes,
   normalizeChannelFrame
 } = require('../../utils/simulator/visual/frames.js')
 const { drawNeuroColumn, clearNeuroCanvas } = require('../../utils/simulator/visual/draw-neuro.js')
 const { drawWave } = require('../../utils/simulator/visual/draw-wave.js')
 const { drawSpecColumn, clearSpecCanvas } = require('../../utils/simulator/visual/draw-spec.js')
+const { drawCochlea } = require('../../utils/simulator/visual/draw-cochlea.js')
 
 const IDLE_FPS = 20
 const IDLE_INTERVAL_MS = Math.round(1000 / IDLE_FPS)
@@ -32,7 +32,7 @@ function formatFreqHi(hi) {
 }
 
 function isCanvasView(view) {
-  return view === 'wave' || view === 'neuro' || view === 'spec'
+  return view === 'wave' || view === 'neuro' || view === 'spec' || view === 'cochlea'
 }
 
 Component({
@@ -59,8 +59,7 @@ Component({
     vizMeta: '',
     freqLo: '150',
     freqHiLabel: '7 kHz',
-    electrodeBarLevels: [],
-    cochleaElectrodes: []
+    electrodeBarLevels: []
   },
 
   lifetimes: {
@@ -69,6 +68,8 @@ Component({
       this._vizCtx = null
       this._specCanvas = null
       this._specCtx = null
+      this._cochleaCanvas = null
+      this._cochleaCtx = null
       this._dpr = 2
       this._neuroChannelCount = 0
       this._playbackTimer = null
@@ -106,6 +107,9 @@ Component({
       if (this.data.activeView === 'neuro' || this.data.activeView === 'spec') {
         this._resetScrollViews()
       }
+      if (this.data.activeView === 'cochlea' && this._hasCanvasForView('cochlea')) {
+        this._drawActiveCanvasFrame()
+      }
     },
     'isAudioPlaying, playingKind': function () {
       this.syncPlaybackState()
@@ -135,7 +139,7 @@ Component({
       this._clearCanvasRefs()
 
       this.setData({ activeView: view }, () => {
-        if (view === 'bars' || view === 'cochlea') {
+        if (view === 'bars') {
           this._refreshStaticViews()
           this.syncPlaybackState()
           return
@@ -230,17 +234,32 @@ Component({
       this._vizCtx = null
       this._specCanvas = null
       this._specCtx = null
+      this._cochleaCanvas = null
+      this._cochleaCtx = null
       this._neuroChannelCount = 0
     },
 
     _hasCanvasForView(view) {
       if (view === 'wave' || view === 'neuro') return !!(this._vizCtx && this._vizCanvas)
       if (view === 'spec') return !!(this._specCtx && this._specCanvas)
+      if (view === 'cochlea') return !!(this._cochleaCtx && this._cochleaCanvas)
       return false
     },
 
+    _getCanvasSelector(view) {
+      if (view === 'spec') return '#specCanvas'
+      if (view === 'cochlea') return '#cochleaCanvas'
+      return '#vizCanvas'
+    },
+
+    _getCanvasKind(view) {
+      if (view === 'spec') return 'spec'
+      if (view === 'cochlea') return 'cochlea'
+      return 'viz'
+    },
+
     _mountCanvasView(view) {
-      const selector = view === 'spec' ? '#specCanvas' : '#vizCanvas'
+      const selector = this._getCanvasSelector(view)
       const init = (retry = 0) => {
         this.createSelectorQuery()
           .in(this)
@@ -256,7 +275,7 @@ Component({
               }
               return
             }
-            this._setupCanvas(view === 'spec' ? 'spec' : 'viz', item)
+            this._setupCanvas(this._getCanvasKind(view), item)
             if (view === 'neuro' || view === 'spec') {
               this._resetScrollViews()
             } else {
@@ -357,14 +376,12 @@ Component({
       const flags = this._getRuntimeFlags()
       const isRealtime = !!this.properties.realtimeActive
       const isProcessed = flags.isProcessed || isRealtime
-      const isPlaying = flags.isPlaying || isRealtime
       this.setData({
-        electrodeBarLevels: buildElectrodeBars(levels, { isProcessed }),
-        cochleaElectrodes: buildCochleaElectrodes(levels, {
-          isProcessed,
-          isPlaying
-        })
+        electrodeBarLevels: buildElectrodeBars(levels, { isProcessed })
       })
+      if (this.data.activeView === 'cochlea' && this._hasCanvasForView('cochlea')) {
+        this._drawActiveCanvasFrame()
+      }
     },
 
     _setupCanvas(kind, item) {
@@ -376,9 +393,12 @@ Component({
       if (kind === 'viz') {
         this._vizCanvas = canvas
         this._vizCtx = ctx
-      } else {
+      } else if (kind === 'spec') {
         this._specCanvas = canvas
         this._specCtx = ctx
+      } else if (kind === 'cochlea') {
+        this._cochleaCanvas = canvas
+        this._cochleaCtx = ctx
       }
       this._dpr = dpr
     },
@@ -416,6 +436,16 @@ Component({
 
       if (view === 'spec' && this._specCtx && this._specCanvas) {
         drawSpecColumn(this._specCtx, this._specCanvas, this._dpr, opts)
+        return
+      }
+
+      if (view === 'cochlea' && this._cochleaCtx && this._cochleaCanvas) {
+        drawCochlea(this._cochleaCtx, this._cochleaCanvas, this._dpr, levels, {
+          ...opts,
+          spread: this.properties.spread,
+          noiseLevel: this.properties.noiseLevel,
+          isPlaying: flags.isPlaying || !!this.properties.realtimeActive
+        })
       }
     },
 
@@ -428,7 +458,7 @@ Component({
 
     _tickIdle() {
       const view = this.data.activeView
-      if (view === 'bars' || view === 'cochlea') {
+      if (view === 'bars') {
         this._refreshStaticViews()
         return
       }

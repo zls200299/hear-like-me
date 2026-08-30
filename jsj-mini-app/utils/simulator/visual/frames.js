@@ -114,34 +114,9 @@ function buildElectrodeBars(levels, opts) {
   return bars.reverse()
 }
 
-function buildCochleaElectrodes(levels, opts) {
-  const { isProcessed = false, isPlaying = false } = opts || {}
-  const n = levels.length
-  const now = Date.now()
-  return levels.map((level, i) => {
-    const t = n > 1 ? i / (n - 1) : 0
-    const x = 14 + t * 70 + Math.sin(t * 5.8) * 7
-    const y = 78 - t * 58 + Math.cos(t * 4.6) * 5
-    const breathe = 1 + 0.12 * Math.sin(now / 520 + i * 0.65)
-    const pulse = isPlaying && isProcessed && level > 0.42 && Math.sin(now / 240 + i) > 0.55
-    const haloR = (8 + level * 18) * breathe + (pulse ? 6 : 0)
-    return {
-      x: x.toFixed(1),
-      y: y.toFixed(1),
-      colorIndex: i % 8,
-      level: level.toFixed(2),
-      opacity: (0.35 + level * 0.65).toFixed(2),
-      haloR: haloR.toFixed(1),
-      dotR: (3 + level * 4).toFixed(1),
-      pulse
-    }
-  })
-}
-
 module.exports = {
   normalizeChannelFrame,
   getFrameAtCurrentTime,
   buildFallbackFrame,
-  buildElectrodeBars,
-  buildCochleaElectrodes
+  buildElectrodeBars
 }
