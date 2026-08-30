@@ -18,6 +18,7 @@ const TARGET_BUFFER_SEC = TARGET_BUFFER_MS / 1000
 
 function createRealtimePcmPlayer(options = {}) {
   const onState = typeof options.onState === 'function' ? options.onState : () => {}
+  const onFramePlay = typeof options.onFramePlay === 'function' ? options.onFramePlay : null
 
   let audioCtx = null
   let pendingQueue = []
@@ -118,6 +119,24 @@ function createRealtimePcmPlayer(options = {}) {
     schedulerTimer = null
   }
 
+  function cancelFramePlayTimer(entry) {
+    if (!entry || entry.framePlayTimer == null) return
+    clearTimeout(entry.framePlayTimer)
+    entry.framePlayTimer = null
+  }
+
+  function scheduleFramePlayTimer(entry, meta) {
+    if (!onFramePlay || !meta || !audioCtx || destroyed) return
+
+    const delayMs = Math.max(0, (entry.startAt - audioCtx.currentTime) * 1000)
+    entry.framePlayTimer = setTimeout(() => {
+      entry.framePlayTimer = null
+      if (!destroyed) {
+        onFramePlay(meta)
+      }
+    }, delayMs)
+  }
+
   function startScheduler() {
     stopScheduler()
     schedulerTimer = setInterval(() => {
@@ -125,9 +144,11 @@ function createRealtimePcmPlayer(options = {}) {
     }, SCHEDULER_INTERVAL_MS)
   }
 
-  function scheduleOneChunk(samples) {
-    if (destroyed || !audioCtx || !samples || !samples.length) return false
+  function scheduleOneChunk(item) {
+    if (destroyed || !audioCtx || !item || !item.samples || !item.samples.length) return false
 
+    const samples = item.samples
+    const meta = item.meta || null
     const now = audioCtx.currentTime
     const bufferAheadSec = nextPlayTime - now
     if (bufferAheadSec >= TARGET_BUFFER_SEC) {
@@ -161,10 +182,13 @@ function createRealtimePcmPlayer(options = {}) {
     const entry = {
       source,
       startAt,
-      endAt
+      endAt,
+      framePlayTimer: null
     }
     scheduledSources.push(entry)
+    scheduleFramePlayTimer(entry, meta)
     source.onended = () => {
+      cancelFramePlayTimer(entry)
       const index = scheduledSources.indexOf(entry)
       if (index >= 0) {
         scheduledSources.splice(index, 1)
@@ -182,6 +206,7 @@ function createRealtimePcmPlayer(options = {}) {
 
     scheduledSources = scheduledSources.filter((entry) => {
       if (entry.startAt > stopThreshold) {
+        cancelFramePlayTimer(entry)
         try {
           entry.source.stop()
         } catch (err) {
@@ -250,14 +275,15 @@ function createRealtimePcmPlayer(options = {}) {
     emitState(true)
   }
 
-  function enqueue(pcmBuffer) {
+  function enqueue(pcmBuffer, meta) {
     if (destroyed || !audioCtx) return
     if (!pcmBuffer || pcmBuffer.byteLength < 2) return
 
     const samples = pcm16ToFloat32(pcmBuffer)
     pendingQueue.push({
       samples,
-      sampleCount: samples.length
+      sampleCount: samples.length,
+      meta: meta || null
     })
     trimPendingQueue()
 
@@ -295,6 +321,7 @@ function createRealtimePcmPlayer(options = {}) {
     stopScheduler()
 
     scheduledSources.forEach((entry) => {
+      cancelFramePlayTimer(entry)
       try {
         entry.source.stop()
       } catch (err) {

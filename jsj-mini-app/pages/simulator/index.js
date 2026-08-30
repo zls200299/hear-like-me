@@ -1125,6 +1125,16 @@ Page({
           realtimePlaybackDroppedFrames: state.droppedFrames || 0,
           realtimePlaybackRecoveryCount: state.recoveryCount || 0
         })
+      },
+      onFramePlay: (meta) => {
+        if (this._unloaded || !meta || !Array.isArray(meta.levels) || !meta.levels.length) return
+        const panel = this._getVisualPanel()
+        if (panel && panel.applyRealtimeLevels) {
+          panel.applyRealtimeLevels(meta.levels, {
+            levelScale: 255,
+            channelCount: meta.channelCount
+          })
+        }
       }
     })
 
@@ -1137,6 +1147,7 @@ Page({
       this._realtimePcmPlayer.destroy()
       this._realtimePcmPlayer = null
     }
+    this._clearRealtimeVisualLevels()
 
     if (!this._unloaded) {
       this.setData({
@@ -1259,28 +1270,18 @@ Page({
       })
     }
 
-    if (pcmLength > 0 && this._realtimePcmPlayer) {
-      const pcmBuffer = data.slice(offset, offset + pcmLength)
-      this._realtimePcmPlayer.enqueue(pcmBuffer)
-    }
-    offset += pcmLength
-
-    if (offset < data.byteLength) {
-      const channelCount = view.getUint8(offset)
-      offset += 1
-      const levelsAvailable = data.byteLength - offset
+    let frameMeta = null
+    const pcmEndOffset = offset + pcmLength
+    if (pcmEndOffset < data.byteLength) {
+      const channelCount = view.getUint8(pcmEndOffset)
+      const levelsOffset = pcmEndOffset + 1
+      const levelsAvailable = data.byteLength - levelsOffset
       if (channelCount > 0 && levelsAvailable >= channelCount) {
         const levels = []
         for (let i = 0; i < channelCount; i++) {
-          levels.push(view.getUint8(offset + i))
+          levels.push(view.getUint8(levelsOffset + i))
         }
-        const panel = this._getVisualPanel()
-        if (panel && panel.applyRealtimeLevels) {
-          panel.applyRealtimeLevels(levels, {
-            levelScale: 255,
-            channelCount
-          })
-        }
+        frameMeta = { levels, channelCount }
       } else if (channelCount > 0) {
         console.warn('[realtime-ws] invalid levels payload', {
           seq,
@@ -1288,6 +1289,11 @@ Page({
           levelsAvailable
         })
       }
+    }
+
+    if (pcmLength > 0 && this._realtimePcmPlayer) {
+      const pcmBuffer = data.slice(offset, pcmEndOffset)
+      this._realtimePcmPlayer.enqueue(pcmBuffer, frameMeta)
     }
 
     const receivedBytes = data.byteLength - 4
