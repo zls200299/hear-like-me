@@ -180,6 +180,8 @@ Page({
   _autoRefreshTimer: null,
   _autoRefreshSeq: 0,
   _shouldAutoPlayProcessed: false,
+  _prefetchTimer: null,
+  _prefetchSeq: 0,
   _runtimeParams: null,
   _audioPlayer: null,
   _processedResultCache: null,
@@ -211,6 +213,7 @@ Page({
     this._loadRemoteData().then(() => {
       this._syncRuntimeParamsFromData()
       this._refreshVisualFeedback()
+      this._schedulePrefetchProcessed(400)
     })
     this._refreshVisualFeedback()
   },
@@ -230,6 +233,7 @@ Page({
 
   onUnload() {
     this._unloaded = true
+    this._cancelPrefetch()
     this._cancelAutoRefresh()
     this._stopAudio('已退出页面')
     if ((this.data.realtimeRecording || this._realtimeStarting) && this._recorderManager) {
@@ -540,6 +544,14 @@ Page({
         this._clearVisualizationData()
       }
       this._refreshVisualFeedback()
+      if (
+        options.schedulePrefetch !== false
+        && !wasPlayingProcessed
+        && this.data.sourceType !== 'realtime'
+        && this.data.sourceType !== 'record'
+      ) {
+        this._schedulePrefetchProcessed()
+      }
     })
   },
 
@@ -726,7 +738,32 @@ Page({
   },
 
   _applyProcessedResult(key, result, options = {}) {
-    const { autoPlay = false, replacePlaying = false, fromCache = false } = options
+    const {
+      autoPlay = false,
+      replacePlaying = false,
+      fromCache = false,
+      background = false
+    } = options
+
+    if (background) {
+      this._setCachedProcessedResult(key, { ...result })
+      this.setData({
+        taskNo: result.taskNo || '',
+        outputAssetId: result.outputAssetId || null,
+        processedAudioUrl: result.processedAudioUrl,
+        processedKey: key,
+        clarityScore: result.clarityScore,
+        clarityGrade: result.clarityGrade,
+        clarityDesc: result.clarityDesc,
+        taskStatus: 'success',
+        isProcessing: false,
+        errorMessage: ''
+      }, () => {
+        this._refreshVisualFeedback()
+      })
+      this._preloadProcessedAudio(result.processedAudioUrl)
+      return
+    }
 
     const statusText = fromCache
       ? '已使用缓存的模拟结果'
@@ -2025,17 +2062,96 @@ Page({
     }
   },
 
+  _preloadProcessedAudio(url) {
+    if (!url || !this._audioPlayer || typeof this._audioPlayer.preload !== 'function') {
+      return
+    }
+    this._audioPlayer.preload(url).catch((err) => {
+      console.warn('[processed-prefetch] audio preload failed', err)
+    })
+  },
+
+  _cancelPrefetch() {
+    if (this._prefetchTimer) {
+      clearTimeout(this._prefetchTimer)
+      this._prefetchTimer = null
+    }
+    this._prefetchSeq += 1
+  },
+
+  _schedulePrefetchProcessed(delayMs = 800) {
+    if (this._unloaded) return
+    if (this.data.sourceType === 'realtime' || this.data.sourceType === 'record') return
+    if (this.data.isProcessing) return
+
+    if (this._prefetchTimer) {
+      clearTimeout(this._prefetchTimer)
+    }
+
+    this._prefetchTimer = setTimeout(() => {
+      this._prefetchTimer = null
+      this._prefetchProcessedAudio()
+    }, delayMs)
+  },
+
+  async _prefetchProcessedAudio() {
+    if (this._unloaded || this.data.isProcessing) return
+    if (this.data.sourceType === 'realtime' || this.data.sourceType === 'record') return
+
+    const key = this._buildProcessKey()
+    if (this.data.processedKey === key && this.data.processedAudioUrl) {
+      this._preloadProcessedAudio(this.data.processedAudioUrl)
+      return
+    }
+
+    if (this._processedResultCache && this._processedResultCache.has(key)) {
+      const cached = this._processedResultCache.get(key)
+      if (cached && cached.processedAudioUrl) {
+        this._preloadProcessedAudio(cached.processedAudioUrl)
+      }
+      return
+    }
+
+    const prefetchSeq = ++this._prefetchSeq
+    try {
+      await this._generateProcessedAudio({
+        autoPlay: false,
+        background: true,
+        prefetchSeq
+      })
+    } catch (err) {
+      console.warn('[processed-prefetch] generate failed', err)
+    }
+  },
+
+  _isGenerateRequestStale(background, requestSeq) {
+    if (background) {
+      return requestSeq !== this._prefetchSeq
+    }
+    return requestSeq !== this._autoRefreshSeq
+  },
+
   async _generateProcessedAudio(options = {}) {
-    const { autoPlay = false, replacePlaying = false } = options
-    const requestSeq = options.seq != null ? options.seq : (++this._autoRefreshSeq)
+    const { autoPlay = false, replacePlaying = false, background = false } = options
+    const requestSeq = background
+      ? (options.prefetchSeq != null ? options.prefetchSeq : (++this._prefetchSeq))
+      : (options.seq != null ? options.seq : (++this._autoRefreshSeq))
+
+    if (!background) {
+      this._cancelPrefetch()
+    }
 
     if (this.data.sourceType === 'record') {
-      wx.showToast({ title: '录制功能后续接入', icon: 'none' })
+      if (!background) {
+        wx.showToast({ title: '录制功能后续接入', icon: 'none' })
+      }
       return
     }
 
     if (this.data.sourceType === 'realtime') {
-      wx.showToast({ title: '实时麦克风模式下请使用实时体验', icon: 'none' })
+      if (!background) {
+        wx.showToast({ title: '实时麦克风模式下请使用实时体验', icon: 'none' })
+      }
       return
     }
 
@@ -2048,7 +2164,9 @@ Page({
       } else if (this.data.sourceType === 'upload') {
         sourceAssetId = this._resolveSourceAssetId()
         if (!sourceAssetId) {
-          wx.showToast({ title: '请先上传音频', icon: 'none' })
+          if (!background) {
+            wx.showToast({ title: '请先上传音频', icon: 'none' })
+          }
           return
         }
       } else {
@@ -2056,6 +2174,10 @@ Page({
       }
     } catch (err) {
       console.error(err)
+      if (background) {
+        console.warn('[processed-prefetch] source prepare failed', err)
+        return
+      }
       const errorMessage = this._formatErrorMessage(err)
       this.setData({
         taskStatus: 'failed',
@@ -2086,34 +2208,39 @@ Page({
             '模拟声音播放失败，请检查文件地址'
           )
         }
+      } else if (background) {
+        this._preloadProcessedAudio(this.data.processedAudioUrl)
       }
       return
     }
 
     const cached = this._getCachedProcessedResult(key)
     if (cached) {
-      if (requestSeq !== this._autoRefreshSeq) {
+      if (this._isGenerateRequestStale(background, requestSeq)) {
         return
       }
       console.log('[processed-cache] hit', key)
       this._applyProcessedResult(key, cached, {
         autoPlay,
         replacePlaying,
-        fromCache: true
+        fromCache: true,
+        background
       })
       return
     }
 
     console.log('[processed-cache] miss', key)
 
-    this.setData({
-      isProcessing: true,
-      taskStatus: 'processing',
-      statusText: replacePlaying ? '正在按新参数更新模拟声...' : '正在生成模拟声音...',
-      errorMessage: ''
-    }, () => {
-      this._refreshVisualFeedback()
-    })
+    if (!background) {
+      this.setData({
+        isProcessing: true,
+        taskStatus: 'processing',
+        statusText: replacePlaying ? '正在按新参数更新模拟声...' : '正在生成模拟声音...',
+        errorMessage: ''
+      }, () => {
+        this._refreshVisualFeedback()
+      })
+    }
 
     try {
       if (this._runtimeParams && this._runtimeParams.sourceType !== this.data.sourceType) {
@@ -2141,7 +2268,7 @@ Page({
       }
       const result = await createTask(taskPayload)
 
-      if (requestSeq !== this._autoRefreshSeq) {
+      if (this._isGenerateRequestStale(background, requestSeq)) {
         return
       }
 
@@ -2168,13 +2295,18 @@ Page({
       this._applyProcessedResult(key, cachedResult, {
         autoPlay,
         replacePlaying,
-        fromCache: false
+        fromCache: false,
+        background
       })
     } catch (err) {
-      if (requestSeq !== this._autoRefreshSeq) {
+      if (this._isGenerateRequestStale(background, requestSeq)) {
         return
       }
       console.error(err)
+      if (background) {
+        console.warn('[processed-prefetch] generate failed', err)
+        return
+      }
       const errorMessage = this._formatErrorMessage(err)
       this.setData({
         taskStatus: 'failed',

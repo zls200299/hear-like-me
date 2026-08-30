@@ -157,6 +157,12 @@ function createSeamlessAudioPlayer() {
     inner.play()
   }
 
+  async function preload(url) {
+    if (!url || destroyed) return
+    if (!state.useWebAudio) return
+    await loadBuffer(url)
+  }
+
   async function play(url, callbacks = {}) {
     stop({ silent: true })
     state.callbacks = callbacks || {}
@@ -229,6 +235,7 @@ function createSeamlessAudioPlayer() {
 
   return {
     play,
+    preload,
     switchSrc,
     stop,
     destroy,
