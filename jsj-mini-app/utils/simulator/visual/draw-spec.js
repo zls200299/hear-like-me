@@ -48,6 +48,39 @@ function drawSpecColumn(ctx, canvas, dpr, opts) {
   ctx.globalAlpha = 1
 }
 
+function drawRealSpecColumn(ctx, canvas, dpr, spectrum, options) {
+  if (!ctx || !canvas || !spectrum) return
+
+  const {
+    displayHiHz = 7000,
+    sampleRate = 44100,
+    fftSize = 1024
+  } = options || {}
+
+  const normalizedBins = spectrum.normalizedBins || spectrum
+  if (!normalizedBins || !normalizedBins.length) return
+
+  const W = canvas.width
+  const H = canvas.height
+  const step = Math.max(1, Math.round(2 * dpr))
+  const hiHz = Math.max(1, displayHiHz)
+
+  ctx.globalAlpha = 1
+  shiftCanvasLeft(ctx, canvas, step)
+
+  for (let y = 0; y < H; y++) {
+    const freq = (1 - y / H) * hiHz
+    const binIndex = Math.round((freq / sampleRate) * fftSize)
+    if (binIndex < 0 || binIndex >= normalizedBins.length) continue
+    const v = normalizedBins[binIndex]
+    if (v < 0.03) continue
+    ctx.fillStyle = lerpColor(v)
+    ctx.globalAlpha = 0.25 + 0.75 * v
+    ctx.fillRect(W - step, y, step, 1)
+  }
+  ctx.globalAlpha = 1
+}
+
 function clearSpecCanvas(ctx, canvas) {
   if (!ctx || !canvas) return
   ctx.fillStyle = 'rgba(12, 18, 32, 1)'
@@ -56,5 +89,6 @@ function clearSpecCanvas(ctx, canvas) {
 
 module.exports = {
   drawSpecColumn,
+  drawRealSpecColumn,
   clearSpecCanvas
 }

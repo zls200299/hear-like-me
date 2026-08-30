@@ -126,13 +126,13 @@ function createRealtimePcmPlayer(options = {}) {
   }
 
   function scheduleFramePlayTimer(entry, meta, samples) {
-    if (!onFramePlay || !meta || !audioCtx || destroyed) return
+    if (!onFramePlay || !audioCtx || destroyed) return
 
     const delayMs = Math.max(0, (entry.startAt - audioCtx.currentTime) * 1000)
     entry.framePlayTimer = setTimeout(() => {
       entry.framePlayTimer = null
       if (!destroyed) {
-        onFramePlay(meta, {
+        onFramePlay(meta || null, {
           samples,
           sampleRate: SAMPLE_RATE
         })

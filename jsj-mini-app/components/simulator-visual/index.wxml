@@ -50,8 +50,8 @@
   </view>
 
   <view class="sv-axis">
-    <text>{{freqLo}} Hz</text>
-    <text>频率通道（耳顶 → 耳底）</text>
-    <text>{{freqHiLabel}}</text>
+    <text>{{axisLeft}}</text>
+    <text>{{axisCenter}}</text>
+    <text>{{axisRight}}</text>
   </view>
 </view>
