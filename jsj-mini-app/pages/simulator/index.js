@@ -169,6 +169,7 @@ Page({
   _recorderManager: null,
   _realtimeRecorderBound: false,
   _realtimeStats: null,
+  _realtimeStarting: false,
 
   onLoad() {
     this._audioPlayer = createSeamlessAudioPlayer()
@@ -201,10 +202,11 @@ Page({
     this._unloaded = true
     this._cancelAutoRefresh()
     this._stopAudio('已退出页面')
-    if (this.data.realtimeRecording && this._recorderManager) {
+    if ((this.data.realtimeRecording || this._realtimeStarting) && this._recorderManager) {
       try {
         this._recorderManager.stop()
       } catch (e) {}
+      this._realtimeStarting = false
     }
     if (this._audioPlayer) {
       this._audioPlayer.destroy()
@@ -734,6 +736,7 @@ Page({
     const recorder = this._recorderManager
 
     recorder.onStart(() => {
+      this._realtimeStarting = false
       this._realtimeStats = { frameCount: 0, totalBytes: 0 }
       if (this._unloaded) return
       this.setData({
@@ -774,6 +777,7 @@ Page({
     })
 
     recorder.onStop(() => {
+      this._realtimeStarting = false
       if (this._unloaded) return
       this.setData({
         realtimeRecording: false,
@@ -782,6 +786,7 @@ Page({
     })
 
     recorder.onError((err) => {
+      this._realtimeStarting = false
       console.error('[realtime-recorder] error', err)
       if (this._unloaded) return
       this.setData({
@@ -856,23 +861,27 @@ Page({
   },
 
   async startRealtimeMic() {
-    if (this.data.realtimeRecording) return
+    if (this.data.realtimeRecording || this._realtimeStarting) return
 
     const granted = await this._ensureRecordPermission()
     if (!granted) return
 
+    if (this.data.realtimeRecording || this._realtimeStarting) return
+
     this.setData({ realtimeError: '' })
+    this._realtimeStarting = true
     this._startRealtimeRecorder()
   },
 
   stopRealtimeMic() {
     if (!this._recorderManager) return
-    if (!this.data.realtimeRecording) return
+    if (!this.data.realtimeRecording && !this._realtimeStarting) return
     try {
       this._recorderManager.stop()
     } catch (e) {
       console.warn('[realtime-recorder] stop failed', e)
     }
+    this._realtimeStarting = false
   },
 
   async _ensureSampleSource() {
@@ -1030,7 +1039,9 @@ Page({
     const type = e.currentTarget.dataset.type
 
     if (this.data.sourceType === 'realtime' && type !== 'realtime') {
-      this.stopRealtimeMic()
+      if (this.data.realtimeRecording || this._realtimeStarting) {
+        this.stopRealtimeMic()
+      }
     }
 
     if (type === 'upload') {
