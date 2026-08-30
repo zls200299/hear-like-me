@@ -5,6 +5,12 @@ const { createTask } = require('../../services/audioTask.js')
 const { createSeamlessAudioPlayer } = require('../../utils/simulator/seamlessAudioPlayer.js')
 const { createRealtimePcmPlayer } = require('../../utils/simulator/realtimePcmPlayer.js')
 const { createFilePcmSource } = require('../../utils/simulator/filePcmSource.js')
+const {
+  computePcm16Rms,
+  smoothMicLevel,
+  drawMicLevelBars,
+  DRAW_INTERVAL_MS
+} = require('../../utils/simulator/micLevelCanvas.js')
 const config = require('../../config.js')
 
 const REALTIME_PARAM_THROTTLE_MS = 120
@@ -155,6 +161,7 @@ Page({
     playingKind: '',
     listenHint: '播放模拟声时会按当前参数生成。',
     realtimeRecording: false,
+    realtimeConnecting: false,
     realtimeRecorderReady: false,
     realtimeFrameCount: 0,
     realtimeLastFrameBytes: 0,
@@ -176,7 +183,15 @@ Page({
     realtimePlaybackPendingFrames: 0,
     realtimePlaybackDroppedFrames: 0,
     realtimePlaybackRecoveryCount: 0,
-    fileStreamingActive: false
+    fileStreamingActive: false,
+    sourceDetailIcon: 'music',
+    sourceDetailTitle: '示例声音',
+    sourceDetailHint: '可直接试听原声与模拟声',
+    sourceDetailShowAction: false,
+    sourceDetailActionLabel: '',
+    sourceDetailActionTone: 'neutral',
+    sourceDetailActionDisabled: false,
+    realtimeMicStatusLabel: '等待开始'
   },
 
   _scenarioPresets: null,
@@ -219,6 +234,14 @@ Page({
   _fileStreamTimer: null,
   _fileStreamBootstrapRemaining: 0,
   _fileStreamGeneration: 0,
+  _micLevelCanvas: null,
+  _micLevelCtx: null,
+  _micLevelCssWidth: 0,
+  _micLevelCssHeight: 0,
+  _micLevelSmoothed: 0,
+  _micLevelActive: false,
+  _micLevelDrawTimer: null,
+  _micLevelDecayTimer: null,
 
   onLoad() {
     this._audioPlayer = createSeamlessAudioPlayer()
@@ -231,13 +254,16 @@ Page({
       this._syncRuntimeParamsFromData()
       this._refreshVisualFeedback()
       this._schedulePrefetchProcessed(400)
+      this._syncSourceDetailUI()
     })
     this._refreshVisualFeedback()
+    this._syncSourceDetailUI()
   },
 
   onShow() {
     if (this._unloaded) return
     this._syncVisualPlaybackState()
+    this._syncSourceDetailUI()
   },
 
   onReady() {
@@ -250,6 +276,7 @@ Page({
 
   onUnload() {
     this._unloaded = true
+    this._destroyMicLevelCanvas()
     this._stopFileStreamingProcessed({ silent: true })
     this._clearRealtimeParamThrottle()
     this._cancelPrefetch()
@@ -320,6 +347,240 @@ Page({
       return this._sampleLabels[code]
     }
     return SAMPLE_LABELS[code] || code
+  },
+
+  _syncSourceDetailUI() {
+    if (this._unloaded) return
+
+    const {
+      sourceType,
+      uploadedFileName,
+      realtimeRecording,
+      realtimeConnecting
+    } = this.data
+    const realtimeStarting = !!this._realtimeStarting
+
+    let icon = 'music'
+    let title = '示例声音'
+    let hint = '可直接试听原声与模拟声'
+    let showAction = false
+    let actionLabel = ''
+    let actionTone = 'neutral'
+    let actionDisabled = false
+    let micStatusLabel = '等待开始'
+
+    if (sourceType === 'sample') {
+      icon = 'music'
+      title = '示例声音'
+      hint = '可直接试听原声与模拟声'
+    } else if (sourceType === 'upload') {
+      icon = 'upload'
+      title = '上传音频'
+      hint = '支持 MP3 / WAV 等常见格式'
+      showAction = true
+      actionLabel = uploadedFileName ? '重新选择' : '选择文件'
+      actionTone = 'neutral'
+    } else if (sourceType === 'realtime') {
+      icon = 'microphone-sm'
+      title = '实时麦克风'
+      hint = '建议佩戴耳机，避免回声'
+      showAction = true
+      if (realtimeRecording) {
+        actionLabel = '停止采集'
+        actionTone = 'stop'
+        micStatusLabel = '正在采集麦克风音频'
+      } else if (realtimeConnecting || realtimeStarting) {
+        actionLabel = '连接中…'
+        actionTone = 'connecting'
+        actionDisabled = true
+        micStatusLabel = '连接中…'
+      } else {
+        actionLabel = '开始采集'
+        actionTone = 'start'
+        micStatusLabel = '等待开始'
+      }
+    }
+
+    this.setData({
+      sourceDetailIcon: icon,
+      sourceDetailTitle: title,
+      sourceDetailHint: hint,
+      sourceDetailShowAction: showAction,
+      sourceDetailActionLabel: actionLabel,
+      sourceDetailActionTone: actionTone,
+      sourceDetailActionDisabled: actionDisabled,
+      realtimeMicStatusLabel: micStatusLabel
+    })
+  },
+
+  _ensureMicLevelCanvas(callback) {
+    if (this._unloaded || this.data.sourceType !== 'realtime') return
+
+    if (this._micLevelCtx && this._micLevelCanvas && this._micLevelCssWidth > 0) {
+      if (typeof callback === 'function') callback()
+      return
+    }
+
+    this.createSelectorQuery()
+      .select('#micLevelCanvas')
+      .fields({ node: true, size: true })
+      .exec((res) => {
+        if (this._unloaded || this.data.sourceType !== 'realtime') return
+        const item = res && res[0]
+        if (!item || !item.node || !item.width || !item.height) return
+
+        const canvas = item.node
+        const ctx = canvas.getContext('2d')
+        const dpr = wx.getWindowInfo ? wx.getWindowInfo().pixelRatio : (wx.getSystemInfoSync().pixelRatio || 2)
+        canvas.width = Math.floor(item.width * dpr)
+        canvas.height = Math.floor(item.height * dpr)
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+
+        this._micLevelCanvas = canvas
+        this._micLevelCtx = ctx
+        this._micLevelCssWidth = item.width
+        this._micLevelCssHeight = item.height
+        if (typeof callback === 'function') callback()
+      })
+  },
+
+  _drawMicLevelFrame(isLiveOverride) {
+    if (!this._micLevelCtx || this._micLevelCssWidth <= 0 || this._micLevelCssHeight <= 0) return
+
+    const isLive = typeof isLiveOverride === 'boolean'
+      ? isLiveOverride
+      : !!(this._micLevelActive && (this.data.realtimeRecording || this._micLevelSmoothed > 0.02))
+
+    drawMicLevelBars(
+      this._micLevelCtx,
+      this._micLevelCssWidth,
+      this._micLevelCssHeight,
+      this._micLevelSmoothed || 0,
+      { isLive }
+    )
+  },
+
+  _stopMicLevelDrawLoop() {
+    if (!this._micLevelDrawTimer) return
+    clearInterval(this._micLevelDrawTimer)
+    this._micLevelDrawTimer = null
+  },
+
+  _stopMicLevelDecay() {
+    if (!this._micLevelDecayTimer) return
+    clearInterval(this._micLevelDecayTimer)
+    this._micLevelDecayTimer = null
+  },
+
+  _startMicLevelDrawLoop() {
+    this._stopMicLevelDrawLoop()
+    this._micLevelDrawTimer = setInterval(() => {
+      if (this._unloaded || this.data.sourceType !== 'realtime') {
+        this._stopMicLevelDrawLoop()
+        return
+      }
+      this._drawMicLevelFrame()
+    }, DRAW_INTERVAL_MS)
+    this._drawMicLevelFrame(true)
+  },
+
+  _startMicLevelDecay() {
+    this._stopMicLevelDecay()
+    this._micLevelDecayTimer = setInterval(() => {
+      if (this._unloaded || this.data.sourceType !== 'realtime') {
+        this._stopMicLevelDecay()
+        return
+      }
+
+      this._micLevelSmoothed = smoothMicLevel(this._micLevelSmoothed, 0)
+      this._drawMicLevelFrame(this._micLevelSmoothed > 0.02)
+
+      if (this._micLevelSmoothed <= 0.02) {
+        this._micLevelSmoothed = 0
+        this._stopMicLevelDecay()
+        this._drawMicLevelFrame(false)
+      }
+    }, DRAW_INTERVAL_MS)
+  },
+
+  _startMicLevelVisualizer() {
+    this._micLevelActive = true
+    this._micLevelSmoothed = 0
+    this._stopMicLevelDecay()
+    this._ensureMicLevelCanvas(() => {
+      this._startMicLevelDrawLoop()
+    })
+  },
+
+  _stopMicLevelVisualizer(options) {
+    const opts = options || {}
+    this._micLevelActive = false
+    this._stopMicLevelDrawLoop()
+
+    if (opts.decay) {
+      this._startMicLevelDecay()
+      return
+    }
+
+    this._stopMicLevelDecay()
+    this._micLevelSmoothed = 0
+    this._ensureMicLevelCanvas(() => {
+      this._drawMicLevelFrame(false)
+    })
+  },
+
+  _destroyMicLevelCanvas() {
+    this._stopMicLevelDrawLoop()
+    this._stopMicLevelDecay()
+    this._micLevelActive = false
+    this._micLevelSmoothed = 0
+    this._micLevelCanvas = null
+    this._micLevelCtx = null
+    this._micLevelCssWidth = 0
+    this._micLevelCssHeight = 0
+  },
+
+  _feedMicLevelFromFrame(frameBuffer) {
+    if (!this._micLevelActive || this._unloaded || this.data.sourceType !== 'realtime') return
+
+    try {
+      const current = computePcm16Rms(frameBuffer)
+      this._micLevelSmoothed = smoothMicLevel(this._micLevelSmoothed, current)
+    } catch (err) {
+      console.warn('[mic-level] rms failed', err)
+    }
+  },
+
+  _mountMicLevelCanvasIdle() {
+    if (this._unloaded || this.data.sourceType !== 'realtime') return
+    wx.nextTick(() => {
+      this._ensureMicLevelCanvas(() => {
+        this._drawMicLevelFrame(false)
+      })
+    })
+  },
+
+  onSourceDetailAction() {
+    const { sourceType, sourceDetailActionDisabled } = this.data
+    if (sourceDetailActionDisabled) return
+
+    if (sourceType === 'upload') {
+      this._chooseAndUpload()
+      return
+    }
+    if (sourceType === 'realtime') {
+      if (this.data.realtimeRecording || this._realtimeStarting || this.data.realtimeConnecting) {
+        this.stopRealtimeMic()
+        return
+      }
+      this.setData({
+        realtimeConnecting: true,
+        realtimeError: ''
+      }, () => {
+        this._syncSourceDetailUI()
+      })
+      this.startRealtimeMic()
+    }
   },
 
   _getScenarioPreset(code) {
@@ -687,6 +948,7 @@ Page({
       statusText: '示例声音已准备好'
     }, () => {
       this._refreshVisualFeedback()
+      this._syncSourceDetailUI()
     })
   },
 
@@ -840,6 +1102,7 @@ Page({
       this._realtimeStats = { frameCount: 0, totalBytes: 0 }
       if (this._unloaded) return
       this.setData({
+        realtimeConnecting: false,
         realtimeRecording: true,
         realtimeRecorderReady: true,
         realtimeFrameCount: 0,
@@ -847,6 +1110,9 @@ Page({
         realtimeTotalBytes: 0,
         realtimeError: '',
         realtimeStatusText: '正在采集麦克风音频'
+      }, () => {
+        this._syncSourceDetailUI()
+        this._startMicLevelVisualizer()
       })
     })
 
@@ -868,6 +1134,8 @@ Page({
         'last=', !!(res && res.isLastFrame)
       )
 
+      this._feedMicLevelFromFrame(frameBuffer)
+
       if (this._unloaded) return
       this.setData({
         realtimeFrameCount: this._realtimeStats.frameCount,
@@ -881,10 +1149,14 @@ Page({
     recorder.onStop(() => {
       this._realtimeStarting = false
       this._clearRealtimeVisualLevels()
+      this._stopMicLevelVisualizer({ decay: true })
       if (this._unloaded) return
       this.setData({
+        realtimeConnecting: false,
         realtimeRecording: false,
         realtimeStatusText: '实时麦克风已停止'
+      }, () => {
+        this._syncSourceDetailUI()
       })
     })
 
@@ -893,19 +1165,26 @@ Page({
       console.error('[realtime-recorder] error', err)
       this._clearRealtimeVisualLevels()
       this._closeRealtimeSocket()
+      this._stopMicLevelVisualizer({ decay: true })
       if (this._unloaded) return
       this.setData({
+        realtimeConnecting: false,
         realtimeRecording: false,
         realtimeError: (err && err.errMsg) ? err.errMsg : '录音失败',
         realtimeStatusText: '麦克风录音失败'
+      }, () => {
+        this._syncSourceDetailUI()
       })
     })
 
     recorder.onInterruptionBegin(() => {
       if (this._unloaded) return
+      this._stopMicLevelVisualizer({ decay: true })
       this.setData({
         realtimeRecording: false,
         realtimeStatusText: '麦克风被系统音频任务中断'
+      }, () => {
+        this._syncSourceDetailUI()
       })
     })
 
@@ -913,6 +1192,8 @@ Page({
       if (this._unloaded) return
       this.setData({
         realtimeStatusText: '系统音频中断已结束，请重新开始实时体验'
+      }, () => {
+        this._syncSourceDetailUI()
       })
     })
 
@@ -1808,15 +2089,22 @@ Page({
   },
 
   async startRealtimeMic() {
-    if (this.data.realtimeRecording || this._realtimeStarting) return
+    if (this.data.realtimeRecording) return
 
     const granted = await this._ensureRecordPermission()
-    if (!granted) return
+    if (!granted) {
+      this._realtimeStarting = false
+      if (!this._unloaded) {
+        this.setData({ realtimeConnecting: false }, () => {
+          this._syncSourceDetailUI()
+        })
+      }
+      return
+    }
 
-    if (this.data.realtimeRecording || this._realtimeStarting) return
+    if (this.data.realtimeRecording) return
 
     this._stopFileStreamingProcessed({ silent: true })
-    this.setData({ realtimeError: '' })
     this._realtimeStarting = true
     this._streamingMode = 'mic'
     this._stopAudio('已停止播放')
@@ -1830,17 +2118,22 @@ Page({
       this._realtimeStarting = false
       this._destroyRealtimePcmPlayer()
       this._closeRealtimeSocket({ silent: true })
+      this._stopMicLevelVisualizer({ decay: false })
       console.error('[realtime-ws] connect failed', err)
       if (!this._unloaded) {
         this.setData({
+          realtimeConnecting: false,
           realtimeError: (err && err.errMsg) ? err.errMsg : '实时连接失败',
           realtimeStatusText: '实时连接失败，请检查网络或服务端'
+        }, () => {
+          this._syncSourceDetailUI()
         })
       }
     }
   },
 
   stopRealtimeMic() {
+    const wasRecording = this.data.realtimeRecording
     if (this._recorderManager && (this.data.realtimeRecording || this._realtimeStarting)) {
       try {
         this._recorderManager.stop()
@@ -1851,6 +2144,17 @@ Page({
     this._realtimeStarting = false
     this._destroyRealtimePcmPlayer()
     this._closeRealtimeSocket()
+    if (!wasRecording) {
+      this._stopMicLevelVisualizer({ decay: false })
+    }
+    if (!this._unloaded && (this.data.realtimeConnecting || this.data.realtimeRecording)) {
+      this.setData({
+        realtimeConnecting: false,
+        realtimeRecording: false
+      }, () => {
+        this._syncSourceDetailUI()
+      })
+    }
   },
 
   async _ensureSampleSource() {
@@ -1873,6 +2177,8 @@ Page({
           sourceType: 'sample',
           taskStatus: 'uploading',
           statusText: '正在准备示例声音...'
+        }, () => {
+          this._syncSourceDetailUI()
         })
       }
 
@@ -2019,6 +2325,7 @@ Page({
       if (this.data.realtimeRecording || this._realtimeStarting) {
         this.stopRealtimeMic()
       }
+      this._destroyMicLevelCanvas()
     }
 
     if (type === 'upload') {
@@ -2034,6 +2341,8 @@ Page({
         sourceAssetId: '',
         selectedScenario: '',
         sourceHint: ''
+      }, () => {
+        this._syncSourceDetailUI()
       })
       this._chooseAndUpload()
       return
@@ -2066,6 +2375,7 @@ Page({
         selectedScenario: ''
       }, () => {
         this._invalidateProcessedResult({ autoRefresh: false })
+        this._syncSourceDetailUI()
       })
       return
     }
@@ -2100,6 +2410,9 @@ Page({
         realtimePlaybackPendingFrames: 0,
         realtimePlaybackDroppedFrames: 0,
         realtimePlaybackRecoveryCount: 0
+      }, () => {
+        this._syncSourceDetailUI()
+        this._mountMicLevelCanvasIdle()
       })
       return
     }
@@ -2194,6 +2507,7 @@ Page({
         keepStatus: true,
         autoRefresh: wasPlayingProcessedOffline
       })
+      this._syncSourceDetailUI()
       if (wasFileStreaming) {
         this._startSampleStreamingProcessed()
       } else if (wasPlayingOriginal) {
@@ -2426,6 +2740,8 @@ Page({
       isProcessing: false,
       errorMessage: '',
       clarityDesc: ''
+    }, () => {
+      this._syncSourceDetailUI()
     })
 
     try {
@@ -2445,6 +2761,7 @@ Page({
       }, () => {
         this._syncRuntimeParamsFromData()
         this._invalidateProcessedResult({ keepStatus: true, autoRefresh: false })
+        this._syncSourceDetailUI()
       })
     } catch (err) {
       console.error(err)
@@ -2453,6 +2770,8 @@ Page({
         statusText: '音频上传失败，请重试',
         sourceHint: '',
         errorMessage: ''
+      }, () => {
+        this._syncSourceDetailUI()
       })
       wx.showToast({
         title: '上传失败',

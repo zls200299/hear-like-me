@@ -1,78 +1,121 @@
-<view class="page safe-bottom simulator-page">
-  <!-- 品牌介绍区 -->
-  <view class="brand-section">
-    <view class="page-title">hear like me</view>
-    <view class="page-subtitle">人工耳蜗听觉模拟</view>
-    <view class="page-desc">选择声音，调整通道数和场景参数，体验人工耳蜗声音模拟效果。</view>
-    <view class="brand-tip">本工具仅用于科普体验，不代表任何个体真实听觉效果。</view>
+<view class="page safe-bottom simulator-page top-ui">
+  <view class="top-header">
+    <view class="top-header__brand">hear like me</view>
+    <view class="top-header__desc">选择声音，调整参数，体验人工耳蜗的听觉呈现效果。</view>
+    <view class="top-notice">
+      <hlm-icon name="warning" size="40" color="#f7b329" />
+      <text class="top-notice__text">本工具仅用于科普体验，不代表真实医疗效果。</text>
+    </view>
   </view>
 
-  <!-- 音频来源 -->
-  <view class="card">
-    <view class="card-title">音频来源</view>
-    <view class="option-grid option-grid--2">
+  <view class="top-card">
+    <view class="top-card__title">音频来源</view>
+    <view class="source-grid">
       <view
         wx:for="{{sourceOptions}}"
         wx:key="type"
-        class="option-btn {{sourceType === item.type ? 'option-btn--active' : ''}}"
+        class="source-btn {{sourceType === item.type ? 'source-btn--active' : ''}}"
         data-type="{{item.type}}"
         bindtap="selectSource"
       >
-        {{item.label}}
+        <hlm-icon
+          name="{{item.type === 'sample' ? 'music' : (item.type === 'upload' ? 'upload' : 'microphone')}}"
+          size="56"
+          color="{{sourceType === item.type ? '#28e0c2' : '#aab7ca'}}"
+        />
+        <text class="source-btn__label">{{item.label}}</text>
       </view>
     </view>
 
-    <view wx:if="{{sourceHint && sourceType !== 'upload'}}" class="source-hint">{{sourceHint}}</view>
+    <view class="source-detail">
+      <view class="source-detail__head">
+        <hlm-icon name="{{sourceDetailIcon}}" size="42" color="#a4b2c7" />
+        <text>{{sourceDetailTitle}}</text>
+      </view>
 
-    <view wx:if="{{sourceType === 'sample'}}" class="sub-options">
-      <view class="sub-options__label">选择示例</view>
-      <view class="option-row">
+      <view wx:if="{{realtimeError && sourceType === 'realtime'}}" class="source-detail__error">{{realtimeError}}</view>
+
+      <view wx:if="{{sourceType === 'sample'}}" class="source-detail__samples">
+        <view class="source-detail__samples-row">
+          <view
+            wx:for="{{sampleOptions}}"
+            wx:key="code"
+            class="source-chip {{selectedSample === item.code ? 'source-chip--active' : ''}}"
+            data-code="{{item.code}}"
+            bindtap="selectSample"
+          >
+            {{item.label}}
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{sourceType === 'realtime'}}" class="source-detail__mic">
+        <view class="source-detail__mic-status">
+          <view class="source-detail__dot {{realtimeRecording ? 'source-detail__dot--live' : ''}}"></view>
+          <text>{{realtimeMicStatusLabel}}</text>
+        </view>
+        <canvas
+          type="2d"
+          id="micLevelCanvas"
+          class="mic-level-canvas"
+        ></canvas>
+      </view>
+
+      <view class="source-detail__footer">
+        <view class="source-detail__hint">
+          <hlm-icon name="headphones" size="36" color="#71819a" />
+          <text>{{sourceDetailHint}}</text>
+        </view>
         <view
-          wx:for="{{sampleOptions}}"
-          wx:key="code"
-          class="chip-btn {{selectedSample === item.code ? 'chip-btn--active' : ''}}"
-          data-code="{{item.code}}"
-          bindtap="selectSample"
+          wx:if="{{sourceDetailShowAction}}"
+          class="source-detail__action source-detail__action--{{sourceDetailActionTone}} {{sourceDetailActionDisabled ? 'source-detail__action--disabled' : ''}}"
+          hover-class="{{sourceDetailActionDisabled ? '' : 'source-detail__action--pressed'}}"
+          hover-stay-time="80"
+          bindtap="onSourceDetailAction"
         >
-          {{item.label}}
+          <view wx:if="{{sourceDetailActionTone === 'connecting'}}" class="source-detail__action-spinner"></view>
+          <text>{{sourceDetailActionLabel}}</text>
         </view>
       </view>
-    </view>
 
-    <view wx:if="{{sourceType === 'upload'}}" class="sub-options">
-      <view wx:if="{{taskStatus === 'uploading'}}" class="source-hint">正在上传...</view>
-      <view wx:elif="{{taskStatus === 'ready' && uploadedFileName}}" class="source-hint">已上传：{{uploadedFileName}}</view>
-      <view wx:else class="source-hint">请选择一个 MP3/WAV/M4A/AAC 音频文件</view>
-    </view>
-
-    <view wx:if="{{sourceType === 'realtime'}}" class="sub-options realtime-card">
-      <view class="realtime-card__title">🎙 实时麦克风</view>
-      <view class="realtime-card__status">状态：{{realtimeStatusText}}</view>
-      <view class="realtime-card__tip">🎧 建议佩戴耳机，避免后续实时播放时产生回声或啸叫。</view>
-
-      <view wx:if="{{realtimeError}}" class="realtime-card__error">{{realtimeError}}</view>
-
-      <view wx:if="{{!realtimeRecording}}">
-        <view class="realtime-card__btn" bindtap="startRealtimeMic">开始实时体验</view>
-      </view>
-
-      <view wx:else class="realtime-card__active">
-        <view class="realtime-card__live">● 实时体验中</view>
-        <view wx:if="{{showRealtimeDebug}}">
-          <view class="realtime-card__stats">已接收帧：{{realtimeFrameCount}}</view>
-          <view class="realtime-card__stats">最近一帧：{{realtimeLastFrameBytes}} bytes</view>
-          <view class="realtime-card__stats">实时连接：{{realtimeSocketConnected ? '正常' : '未连接'}}</view>
-          <view class="realtime-card__stats">发送帧：{{realtimeSentFrames}} · 返回帧：{{realtimeReceivedFrames}}</view>
-          <view class="realtime-card__stats" wx:if="{{realtimeLastRttMs != null}}">往返延迟：{{realtimeLastRttMs}} ms（平均 {{realtimeAvgRttMs}} ms）</view>
-          <view class="realtime-card__stats" wx:if="{{realtimeLostFrames > 0}}">丢帧：{{realtimeLostFrames}}</view>
-          <view class="realtime-card__stats realtime-card__stats--dev" wx:if="{{realtimePlaybackStarted}}">实时播放：已启动</view>
-          <view class="realtime-card__stats realtime-card__stats--dev" wx:if="{{realtimePlaybackStarted}}">播放缓冲：{{realtimeBufferedMs}} ms</view>
-          <view class="realtime-card__stats realtime-card__stats--dev" wx:if="{{realtimePlaybackStarted}}">待排程：{{realtimePlaybackPendingFrames}} 帧 · 丢弃：{{realtimePlaybackDroppedFrames}} · 恢复：{{realtimePlaybackRecoveryCount}}</view>
-          <view class="realtime-card__stats realtime-card__stats--dev" wx:if="{{realtimePlaybackStarted}}">断流次数：{{realtimePlaybackUnderruns}}</view>
-        </view>
-        <view class="realtime-card__btn realtime-card__btn--stop" bindtap="stopRealtimeMic">停止实时体验</view>
+      <view wx:if="{{showRealtimeDebug && sourceType === 'realtime'}}" class="source-detail__debug">
+        <view class="source-detail__debug-line">已接收帧：{{realtimeFrameCount}}</view>
+        <view class="source-detail__debug-line">最近一帧：{{realtimeLastFrameBytes}} bytes</view>
+        <view class="source-detail__debug-line">实时连接：{{realtimeSocketConnected ? '正常' : '未连接'}}</view>
+        <view class="source-detail__debug-line">发送帧：{{realtimeSentFrames}} · 返回帧：{{realtimeReceivedFrames}}</view>
+        <view class="source-detail__debug-line" wx:if="{{realtimeLastRttMs != null}}">往返延迟：{{realtimeLastRttMs}} ms（平均 {{realtimeAvgRttMs}} ms）</view>
+        <view class="source-detail__debug-line" wx:if="{{realtimeLostFrames > 0}}">丢帧：{{realtimeLostFrames}}</view>
       </view>
     </view>
+  </view>
+
+  <view class="top-card listen-card">
+    <view class="top-card__title">试听</view>
+    <view class="listen-actions">
+      <view
+        class="play-btn {{isAudioPlaying && playingKind === 'original' ? 'play-btn--active' : ''}}"
+        bindtap="playOriginal"
+      >
+        <hlm-icon
+          name="waveform"
+          size="48"
+          color="{{isAudioPlaying && playingKind === 'original' ? '#28e0c2' : '#f7f9fc'}}"
+        />
+        <text>{{isAudioPlaying && playingKind === 'original' ? '停止原声' : '播放原声'}}</text>
+      </view>
+      <view
+        class="play-btn play-btn--primary {{isProcessing ? 'play-btn--disabled' : ''}} {{isAudioPlaying && playingKind === 'processed' ? 'play-btn--active' : ''}}"
+        bindtap="playProcessedAuto"
+      >
+        <hlm-icon
+          name="waveform"
+          size="48"
+          color="{{isAudioPlaying && playingKind === 'processed' ? '#28e0c2' : '#06141c'}}"
+        />
+        <text>{{isProcessing ? (isAudioPlaying && playingKind === 'processed' ? '更新中...' : '正在生成...') : (isAudioPlaying && playingKind === 'processed' ? '停止模拟声' : '播放模拟声')}}</text>
+      </view>
+    </view>
+    <view wx:if="{{listenHint}}" class="listen-hint listen-hint--top">{{listenHint}}</view>
   </view>
 
   <!-- 模拟场景 -->
@@ -220,23 +263,11 @@
     </view>
   </view>
 
-  <!-- 试听 + 当前模拟反馈 -->
+  <!-- 当前模拟反馈 -->
   <view class="card console-card">
-    <view class="card-title">试听</view>
-    <view class="action-row">
-      <view
-        class="action-btn action-btn--secondary {{isAudioPlaying && playingKind === 'original' ? 'action-btn--playing' : ''}}"
-        bindtap="playOriginal"
-      >{{isAudioPlaying && playingKind === 'original' ? '停止原声' : '播放原声'}}</view>
-      <view
-        class="action-btn action-btn--primary {{isProcessing ? 'action-btn--disabled' : ''}} {{isAudioPlaying && playingKind === 'processed' ? 'action-btn--playing' : ''}}"
-        bindtap="playProcessedAuto"
-      >{{isProcessing ? (isAudioPlaying && playingKind === 'processed' ? '更新中...' : '正在生成...') : (isAudioPlaying && playingKind === 'processed' ? '停止模拟声' : '播放模拟声')}}</view>
-    </view>
-    <view class="listen-hint">{{listenHint}}</view>
+    <view class="card-title">当前模拟反馈</view>
 
     <view class="feedback-card {{clarityLevelClass}} {{taskStatus === 'failed' ? 'feedback-card--failed' : ''}} {{taskStatus === 'success' ? 'feedback-card--success' : ''}} {{taskStatus === 'processing' ? 'feedback-card--processing' : ''}}">
-      <view class="feedback-card__title">当前模拟反馈</view>
 
       <view class="clarity-meter clarity-meter--compact {{clarityLevelClass}}">
         <view class="clarity-meter-main">
