@@ -282,11 +282,15 @@ Page({
     panel.syncPlaybackState()
   },
 
-  _applyVisualizationFromResult(result) {
+  _applyVisualizationData(visualizationData) {
     const panel = this._getVisualPanel()
     if (panel) {
-      panel.applyVisualizationData(result && result.visualizationData)
+      panel.applyVisualizationData(visualizationData)
     }
+  },
+
+  _applyVisualizationFromResult(result) {
+    this._applyVisualizationData(result && result.visualizationData)
   },
 
   _clearVisualizationData() {
@@ -686,6 +690,10 @@ Page({
       }
     } else {
       this._stopAudio('')
+    }
+
+    if (kind === 'processed' && options.visualizationData !== undefined) {
+      this._applyVisualizationData(options.visualizationData)
     }
 
     const audioCtx = wx.createInnerAudioContext()
@@ -1268,7 +1276,6 @@ Page({
       const clarityScore = result.clarityScore != null ? result.clarityScore : this.data.clarityScore
       const clarityGrade = result.clarityGrade || this.data.clarityGrade || '模拟完成'
       const clarityDesc = this._getClarityDesc(clarityScore, clarityGrade)
-      this._applyVisualizationFromResult(result)
 
       this.setData({
         taskNo: result.taskNo,
@@ -1284,8 +1291,8 @@ Page({
         statusText: replacePlaying ? '模拟声已按新参数更新' : '正在循环播放人工耳蜗模拟声音'
       }, () => {
         this._refreshVisualFeedback()
-        if (this.data.isAudioPlaying && this.data.playingKind === 'processed') {
-          this._syncVisualPlaybackState()
+        if (!autoPlay && !(this.data.isAudioPlaying && this.data.playingKind === 'processed')) {
+          this._applyVisualizationData(result.visualizationData)
         }
       })
 
@@ -1296,7 +1303,10 @@ Page({
           '正在循环播放人工耳蜗模拟声音',
           '已停止模拟声音播放',
           '模拟声音播放失败，请检查文件地址',
-          { forceRestart: true }
+          {
+            forceRestart: true,
+            visualizationData: result.visualizationData
+          }
         )
       }
     } catch (err) {
