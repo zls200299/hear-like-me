@@ -2,9 +2,53 @@
   <view class="page-title">我的</view>
   <view class="page-desc">管理账号、查看处理历史，了解项目与隐私说明。</view>
 
-  <view class="card">
-    <view class="card-title">我的</view>
-    <view class="card-desc">这里后续会放置个人中心相关功能入口。</view>
-    <view class="placeholder">页面框架已创建，业务功能后续接入。后续将支持：微信登录、处理历史、隐私说明、关于 hear like me。</view>
+  <view class="card profile-card" wx:if="{{loggedIn}}">
+    <view class="profile-header">
+      <image class="profile-avatar" src="{{avatarUrl || defaultAvatar}}" mode="aspectFill" />
+      <view class="profile-meta">
+        <view class="profile-name">{{nickname || '微信用户'}}</view>
+        <view class="profile-id">ID {{userId}}</view>
+      </view>
+    </view>
+    <button class="btn-outline" bindtap="onLogout" loading="{{loggingOut}}" disabled="{{loggingOut}}">
+      退出登录
+    </button>
+  </view>
+
+  <view class="card login-card" wx:else>
+    <view class="card-title">微信登录</view>
+    <view class="card-desc">选择头像、填写昵称后登录，用于保存你的模拟记录。</view>
+
+    <view class="login-form">
+      <button class="avatar-picker" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+        <image
+          class="avatar-picker__image"
+          src="{{avatarUrl || defaultAvatar}}"
+          mode="aspectFill"
+        />
+        <view class="avatar-picker__hint">点击选择头像</view>
+      </button>
+
+      <view class="nickname-field">
+        <view class="field-label">昵称</view>
+        <input
+          class="nickname-input"
+          type="nickname"
+          placeholder="请输入昵称"
+          value="{{nickname}}"
+          bindinput="onNicknameInput"
+          maxlength="32"
+        />
+      </view>
+
+      <button
+        class="btn-primary"
+        bindtap="onLogin"
+        loading="{{loggingIn}}"
+        disabled="{{loggingIn}}"
+      >
+        微信授权登录
+      </button>
+    </view>
   </view>
 </view>
