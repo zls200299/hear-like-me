@@ -1,6 +1,7 @@
 // 配置文件
 // 真机调试时请把 baseUrl 改为电脑局域网 IP，例如 http://192.168.1.100:8081
-const baseUrl = 'http://192.168.1.4:8081'
+// const baseUrl = 'http://192.168.1.4:8081'
+const baseUrl = 'https://43.143.30.134'
 
 module.exports = {
   baseUrl,
