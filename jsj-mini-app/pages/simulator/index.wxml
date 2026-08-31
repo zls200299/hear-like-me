@@ -315,34 +315,50 @@
 
   <!-- 当前模拟反馈 -->
   <view class="mid-card mid-card--feedback {{taskStatus === 'failed' ? 'mid-card--feedback-failed' : ''}}">
-    <view class="mid-card__title">当前模拟反馈</view>
-    <view class="bot-card-desc">根据当前参数，对听感清晰度进行科普性估计，帮助理解不同设置带来的变化。</view>
+    <view class="feedback-card-head">
+      <view class="feedback-title-wrap">
+        <view class="feedback-title-icon">
+          <image class="feedback-title-icon__img" src="/assets/feedback/title-wave.svg" mode="aspectFit" />
+        </view>
+        <text class="feedback-card-title">当前模拟反馈</text>
+      </view>
+      <view wx:if="{{feedbackLiveActive}}" class="feedback-live-pill">
+        <view class="feedback-live-dot"></view>
+        <text>实时分析中</text>
+      </view>
+    </view>
 
     <view class="feedback-main">
-      <view class="feedback-score-wrap">
-        <text class="feedback-score">{{clarityScore != null ? clarityScore : '--'}}</text>
-        <text class="feedback-outof">/100</text>
+      <view class="feedback-score-gauge">
+        <image class="feedback-score-gauge__svg" src="{{feedbackGaugeSrc}}" mode="aspectFit" />
+        <view class="feedback-score-center">
+          <text class="feedback-score-num">{{clarityScore != null ? clarityScore : '--'}}</text>
+          <text class="feedback-score-total">/ 100</text>
+        </view>
       </view>
-      <view class="feedback-info">
-        <view class="feedback-grade">{{clarityGrade || '参数估算'}}</view>
+
+      <view class="feedback-summary">
+        <view class="feedback-grade">
+          <image class="feedback-grade-icon" src="/assets/feedback/grade-bars.svg" mode="aspectFit" />
+          <text>{{clarityGrade || '参数估算'}}</text>
+        </view>
         <view class="feedback-text">{{clarityDesc}}</view>
+
+        <view class="feedback-chips feedback-chips--grid">
+          <view class="feedback-chip">
+            <image class="feedback-chip-icon" src="/assets/feedback/chip-channels.svg" mode="aspectFit" />
+            <text>通道 {{nChannels}}</text>
+          </view>
+          <view class="feedback-chip">
+            <image class="feedback-chip-icon" src="/assets/feedback/chip-carrier.svg" mode="aspectFit" />
+            <text>{{feedbackCarrierLabel}}</text>
+          </view>
+          <view class="feedback-chip">
+            <image class="feedback-chip-icon" src="/assets/feedback/chip-freq.svg" mode="aspectFit" />
+            <text>{{frequencyRange}} Hz</text>
+          </view>
+        </view>
       </view>
-    </view>
-
-    <view class="feedback-progress">
-      <view
-        class="feedback-progress-fill {{clarityLevelClass}}"
-        style="width: {{clarityScore != null ? clarityScore : 0}}%;"
-      ></view>
-    </view>
-
-    <view class="feedback-chips">
-      <view class="feedback-chip">通道 {{nChannels}}</view>
-      <view class="feedback-chip">{{carrier === 'noise' ? '噪声载体' : '正弦载体'}}</view>
-      <view class="feedback-chip">{{frequencyRange}} Hz</view>
-      <view class="feedback-chip">包络 {{envCut}} Hz</view>
-      <view class="feedback-chip">扩散 {{spread}}%</view>
-      <view class="feedback-chip">噪声 {{noiseLevel}}%</view>
     </view>
 
     <view wx:if="{{taskStatus === 'processing'}}" class="feedback-loading">
@@ -353,6 +369,19 @@
       <view class="feedback-error__title">模拟声音生成失败</view>
       <view wx:if="{{errorMessage}}" class="feedback-error__detail">失败原因：{{errorMessage}}</view>
     </view>
+
+    <view class="feedback-divider"></view>
+
+    <view
+      class="feedback-export-btn {{exportAudioDisabled ? 'feedback-export-btn--disabled' : ''}}"
+      hover-class="{{exportAudioDisabled ? '' : 'feedback-export-btn--pressed'}}"
+      hover-stay-time="80"
+      bindtap="onExportAudio"
+    >
+      <image class="feedback-export-icon" src="/assets/feedback/export-download.svg" mode="aspectFit" />
+      <text class="feedback-export-label">导出当前音频（WAV）</text>
+    </view>
+    <view class="feedback-export-helper">生成后可保存到手机</view>
   </view>
 
   <!-- 视觉化反馈 -->

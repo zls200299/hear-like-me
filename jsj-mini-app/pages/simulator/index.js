@@ -11,6 +11,7 @@ const {
   drawMicLevelBars,
   DRAW_INTERVAL_MS
 } = require('../../utils/simulator/micLevelCanvas.js')
+const { buildFeedbackGaugeDataUri } = require('../../utils/simulator/feedbackGauge.js')
 const config = require('../../config.js')
 
 const REALTIME_PARAM_THROTTLE_MS = 120
@@ -175,6 +176,10 @@ Page({
     clarityGrade: '',
     errorMessage: '',
     clarityDesc: '',
+    feedbackGaugeSrc: '',
+    feedbackLiveActive: false,
+    feedbackCarrierLabel: '噪声载体',
+    exportAudioDisabled: true,
     isAudioPlaying: false,
     playingKind: '',
     listenHint: '播放模拟声时会按当前参数生成。',
@@ -882,12 +887,22 @@ Page({
 
     const { score, grade, desc } = this._computeLocalClarity()
     const listenHint = this._resolveListenHint()
+    const params = this._getRuntimeParams()
     const patch = {
       clarityScore: score,
       clarityGrade: grade,
       clarityDesc: desc,
       clarityLevelClass: this._getClarityLevelClass(score),
-      listenHint
+      listenHint,
+      feedbackGaugeSrc: buildFeedbackGaugeDataUri(score),
+      feedbackLiveActive: !!(
+        this.data.isProcessing
+        || this.data.realtimeRecording
+        || this.data.fileStreamingActive
+        || (this.data.isAudioPlaying && (this.data.playingKind === 'processed' || this.data.playingKind === 'original'))
+      ),
+      feedbackCarrierLabel: params.carrier === 'sine' ? '正弦载体' : '噪声载体',
+      exportAudioDisabled: !this._resolveExportAudioUrl()
     }
     if (this.data.processedUiState === 'idle' || this.data.processedUiState === 'error') {
       if (this.data.isProcessing) {
@@ -924,6 +939,50 @@ Page({
       return '当前模拟声已生成，可循环试听。'
     }
     return '播放模拟声时会按当前参数生成。'
+  },
+
+  _resolveExportAudioUrl() {
+    if (this.data.processedAudioUrl) return this.data.processedAudioUrl
+    if (this.data.originalAudioUrl) return this.data.originalAudioUrl
+    return ''
+  },
+
+  onExportAudio() {
+    const url = this._resolveExportAudioUrl()
+    if (!url) {
+      wx.showToast({
+        title: '暂无可导出音频',
+        icon: 'none'
+      })
+      return
+    }
+
+    wx.showLoading({ title: '准备导出...', mask: true })
+    wx.downloadFile({
+      url,
+      success: (res) => {
+        if (!res || res.statusCode !== 200 || !res.tempFilePath) {
+          wx.hideLoading()
+          wx.showToast({ title: '导出失败', icon: 'none' })
+          return
+        }
+        wx.saveFile({
+          tempFilePath: res.tempFilePath,
+          success: () => {
+            wx.hideLoading()
+            wx.showToast({ title: '已保存到本地', icon: 'success' })
+          },
+          fail: () => {
+            wx.hideLoading()
+            wx.showToast({ title: '保存失败', icon: 'none' })
+          }
+        })
+      },
+      fail: () => {
+        wx.hideLoading()
+        wx.showToast({ title: '下载失败', icon: 'none' })
+      }
+    })
   },
 
   _resetConvertStatus() {
