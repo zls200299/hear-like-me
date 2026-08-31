@@ -1,9 +1,12 @@
 const {
   getSession,
   isLoggedIn,
+  wxLoginSilent,
   wxLoginWithProfile,
   getCurrentUser,
-  logout
+  logout,
+  readLastProfile,
+  saveSession
 } = require('../../services/auth.js')
 
 const { ICONS } = require('../../assets/icons/index.js')
@@ -26,6 +29,7 @@ Page({
     loggingIn: false,
     loggingOut: false,
     loginSheetVisible: false,
+    sheetNickname: '',
     menuItems: MENU_ITEMS
   },
 
@@ -33,6 +37,10 @@ Page({
     const { setTabBarSelected, TAB_INDEX } = require('../../utils/tabBar.js')
     setTabBarSelected(this, TAB_INDEX.PROFILE)
     this._syncLoginState()
+  },
+
+  onHide() {
+    this._setTabBarHidden(false)
   },
 
   _syncLoginState() {
@@ -70,45 +78,68 @@ Page({
   },
 
   onNicknameInput(e) {
+    this._updateSheetNickname(e.detail && e.detail.value)
+  },
+
+  onNicknameBlur(e) {
+    this._updateSheetNickname(e.detail && e.detail.value)
+  },
+
+  onNicknameReview(e) {
+    const detail = e.detail || {}
+    if (detail.pass) {
+      this._updateSheetNickname(detail.value)
+    }
+  },
+
+  _updateSheetNickname(value) {
     this.setData({
-      nickname: (e.detail && e.detail.value) || ''
+      sheetNickname: value == null ? '' : String(value)
     })
+  },
+
+  _readSheetNickname() {
+    return new Promise((resolve) => {
+      this.createSelectorQuery()
+        .select('#loginNicknameInput')
+        .fields({ properties: ['value'] })
+        .exec((res) => {
+          const fromDom = res && res[0] && res[0].value
+          const nickname = String(fromDom != null ? fromDom : (this.data.sheetNickname || '')).trim()
+          resolve(nickname)
+        })
+    })
+  },
+
+  _setTabBarHidden(hidden) {
+    if (typeof this.getTabBar === 'function') {
+      const tabBar = this.getTabBar()
+      if (tabBar) {
+        tabBar.setData({ hidden: !!hidden })
+      }
+    }
   },
 
   onWechatLoginTap() {
     if (this.data.loggedIn || this.data.loggingIn) return
-    this.setData({ loginSheetVisible: true })
-  },
-
-  onCloseLoginSheet() {
-    if (this.data.loggingIn) return
-    this.setData({ loginSheetVisible: false })
-  },
-
-  onLogin() {
-    if (this.data.loggingIn) return
-
-    const nickname = (this.data.nickname || '').trim()
-    if (!nickname) {
-      wx.showToast({ title: '请先填写昵称', icon: 'none' })
-      return
-    }
 
     this.setData({ loggingIn: true })
-    wxLoginWithProfile({
-      nickname,
-      avatarPath: this.data.avatarUrl
-    })
-      .then((userInfo) => {
+    wxLoginSilent()
+      .then(({ newUser, data }) => {
+        if (!newUser) {
+          const userInfo = saveSession(data)
+          this._finishLogin(userInfo)
+          return
+        }
+
+        const lastProfile = readLastProfile() || {}
+        this._setTabBarHidden(true)
         this.setData({
-          loggedIn: true,
-          userId: userInfo.userId || '',
-          nickname: userInfo.nickname || nickname,
-          avatarUrl: userInfo.avatar || this.data.avatarUrl,
           loggingIn: false,
-          loginSheetVisible: false
+          loginSheetVisible: true,
+          sheetNickname: lastProfile.nickname || '',
+          avatarUrl: lastProfile.avatar || ''
         })
-        wx.showToast({ title: '登录成功', icon: 'success' })
       })
       .catch((err) => {
         this.setData({ loggingIn: false })
@@ -117,6 +148,57 @@ Page({
           icon: 'none'
         })
       })
+  },
+
+  _finishLogin(userInfo) {
+    this.setData({
+      loggedIn: true,
+      userId: userInfo.userId || '',
+      nickname: userInfo.nickname || '',
+      avatarUrl: userInfo.avatar || '',
+      loggingIn: false,
+      loginSheetVisible: false,
+      sheetNickname: ''
+    })
+    this._setTabBarHidden(false)
+    wx.showToast({ title: '登录成功', icon: 'success' })
+  },
+
+  onCloseLoginSheet() {
+    if (this.data.loggingIn) return
+    this._setTabBarHidden(false)
+    this.setData({ loginSheetVisible: false })
+  },
+
+  onLogin() {
+    if (this.data.loggingIn) return
+
+    this._readSheetNickname().then((nickname) => {
+      if (!nickname) {
+        wx.showToast({ title: '请先填写昵称', icon: 'none' })
+        return
+      }
+
+      this.setData({ loggingIn: true, sheetNickname: nickname })
+      wxLoginWithProfile({
+        nickname,
+        avatarPath: this.data.avatarUrl
+      })
+        .then((userInfo) => {
+          this._finishLogin({
+            ...userInfo,
+            nickname: userInfo.nickname || nickname,
+            avatar: userInfo.avatar || this.data.avatarUrl
+          })
+        })
+        .catch((err) => {
+          this.setData({ loggingIn: false })
+          wx.showToast({
+            title: (err && err.message) ? err.message : '登录失败',
+            icon: 'none'
+          })
+        })
+    })
   },
 
   onLogout() {
@@ -131,6 +213,7 @@ Page({
           userId: '',
           nickname: '',
           avatarUrl: '',
+          sheetNickname: '',
           loggingOut: false,
           loginSheetVisible: false
         })

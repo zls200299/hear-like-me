@@ -17,6 +17,28 @@ function readStoredUserInfo() {
   }
 }
 
+function readLastProfile() {
+  try {
+    return wx.getStorageSync('lastUserProfile') || null
+  } catch (e) {
+    return null
+  }
+}
+
+function saveLastProfile(userInfo) {
+  if (!userInfo) return
+  const profile = {
+    nickname: userInfo.nickname || '',
+    avatar: userInfo.avatar || ''
+  }
+  if (!profile.nickname && !profile.avatar) return
+  try {
+    wx.setStorageSync('lastUserProfile', profile)
+  } catch (e) {
+    // ignore
+  }
+}
+
 function saveSession(data) {
   const app = getAppSafe()
   const token = data.token || ''
@@ -36,11 +58,16 @@ function saveSession(data) {
   wx.setStorageSync('token', token)
   wx.setStorageSync('userId', userId)
   wx.setStorageSync('userInfo', userInfo)
+  saveLastProfile(userInfo)
   return userInfo
 }
 
 function clearSession() {
   const app = getAppSafe()
+  const cached = readStoredUserInfo()
+  if (cached) {
+    saveLastProfile(cached)
+  }
   if (app) {
     app.globalData.token = ''
     app.globalData.userId = ''
@@ -89,6 +116,32 @@ function logout() {
   })
 }
 
+function wxLoginSilent() {
+  return new Promise((resolve, reject) => {
+    wx.login({
+      success: (loginRes) => resolve(loginRes),
+      fail: (err) => reject(new Error(err.errMsg || '微信登录失败'))
+    })
+  }).then(async (loginRes) => {
+    if (!loginRes.code) {
+      throw new Error('获取微信登录凭证失败')
+    }
+
+    const body = await request({
+      url: '/api/auth/wx-login',
+      method: 'POST',
+      data: { code: loginRes.code },
+      skipAuth: true
+    })
+
+    const data = body.data || {}
+    return {
+      newUser: !!data.newUser,
+      data
+    }
+  })
+}
+
 function wxLoginWithProfile({ nickname, avatarPath }) {
   return new Promise((resolve, reject) => {
     wx.login({
@@ -129,7 +182,9 @@ module.exports = {
   getSession,
   isLoggedIn,
   wxLogin,
+  wxLoginSilent,
   wxLoginWithProfile,
   getCurrentUser,
-  logout
+  logout,
+  readLastProfile
 }

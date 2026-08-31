@@ -19,4 +19,7 @@ public class WxLoginResp {
 
     /** 头像 */
     private String avatar;
+
+    /** 是否新用户（首次 openId 注册） */
+    private Boolean newUser;
 }

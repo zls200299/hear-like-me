@@ -2,6 +2,7 @@ const { TAB_LIST } = require('../utils/tabBar.js')
 
 Component({
   data: {
+    hidden: false,
     selected: 0,
     color: '#6f809c',
     selectedColor: '#29dbc7',

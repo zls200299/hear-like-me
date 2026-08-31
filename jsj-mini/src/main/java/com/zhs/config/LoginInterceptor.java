@@ -39,7 +39,7 @@ public class LoginInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        Long userId = miniRedisUtil.get(new TokenCacheKey(token));
+        Long userId = resolveUserId(miniRedisUtil.get(new TokenCacheKey(token)));
         if (userId == null) {
             writeUnauthorized(response, "登录已过期");
             return false;
@@ -47,6 +47,26 @@ public class LoginInterceptor implements HandlerInterceptor {
 
         UserContext.setUserId(userId);
         return true;
+    }
+
+    private Long resolveUserId(Object cached) {
+        if (cached == null) {
+            return null;
+        }
+        if (cached instanceof Long value) {
+            return value;
+        }
+        if (cached instanceof Integer value) {
+            return value.longValue();
+        }
+        if (cached instanceof String text && !text.isBlank()) {
+            try {
+                return Long.parseLong(text.trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 
     @Override

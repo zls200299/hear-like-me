@@ -60,7 +60,8 @@ public class AuthServiceImpl implements AuthService {
         );
 
         User user;
-        if (sensitiveInfo == null) {
+        boolean newUser = sensitiveInfo == null;
+        if (newUser) {
             // 3a. 新用户 → 创建用户 + 敏感信息
             log.info("[wx-login] 新用户，openId 首次出现，开始注册");
             user = createNewUser(req, openId, unionId);
@@ -80,8 +81,8 @@ public class AuthServiceImpl implements AuthService {
 
         // 4. 生成 token 写入 Redis（自动 30 天过期）
         String token = UUID.randomUUID().toString().replace("-", "");
-        miniRedisUtil.set(new TokenCacheKey(token), user.getId());
-        log.info("[wx-login] 登录成功 userId={} 新用户={}", user.getId(), sensitiveInfo == null);
+        miniRedisUtil.set(new TokenCacheKey(token), String.valueOf(user.getId()));
+        log.info("[wx-login] 登录成功 userId={} 新用户={}", user.getId(), newUser);
 
         // 5. 返回
         WxLoginResp resp = new WxLoginResp();
@@ -89,6 +90,7 @@ public class AuthServiceImpl implements AuthService {
         resp.setUserId(user.getId());
         resp.setNickname(user.getNickname());
         resp.setAvatar(user.getAvatar());
+        resp.setNewUser(newUser);
         return resp;
     }
 
