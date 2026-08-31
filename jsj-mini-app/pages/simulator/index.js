@@ -283,6 +283,7 @@ Page({
   _realtimeSocketClosingByUser: false,
   _realtimeSessionStopping: false,
   _realtimeUserStop: false,
+  _realtimeAudioLogAt: 0,
   _realtimeDebugUiTimer: null,
   _realtimeDebugStats: null,
   _processedUiGeneration: 0,
@@ -815,6 +816,8 @@ Page({
   _handleRealtimePcmPlayerState(state, generation) {
     if (this._unloaded || !this._isProcessedUiGeneration(generation)) return
 
+    this._logRealtimeAudioDiagnostics(state)
+
     const patch = {
       realtimePlaybackStarted: !!state.started,
       realtimePlaybackUnderruns: state.underruns || 0,
@@ -834,6 +837,18 @@ Page({
     }
 
     this.setData(patch)
+  },
+
+  _logRealtimeAudioDiagnostics(state) {
+    if (!state || !this._isStreamingVocoderActive()) return
+
+    const now = Date.now()
+    if (now - (this._realtimeAudioLogAt || 0) < 1000) return
+    this._realtimeAudioLogAt = now
+
+    console.log(
+      `[realtime-audio] buffer=${state.bufferedMs || 0}ms pending=${state.pendingFrames || 0} underruns=${state.underruns || 0} dropped=${state.droppedFrames || 0} recovery=${state.recoveryCount || 0}`
+    )
   },
 
   _getClarityLevelClass(score) {
@@ -2463,6 +2478,8 @@ Page({
     this._realtimeParamPending = false
   },
 
+  // light 参数（spread / noiseLevel）拖动时 latest-wins 节流发送；
+  // structural 参数（nChannels / envCut）仅在松手 change 时发送。
   _scheduleRealtimeParamUpdate() {
     if (!this._isStreamingVocoderActive()) return
     if (!this._realtimeSocketReady) return
@@ -3614,7 +3631,6 @@ Page({
     }, () => {
       this._refreshVisualFeedback()
     })
-    this._scheduleRealtimeParamUpdate()
   },
 
   changeChannels(e) {
@@ -3701,7 +3717,6 @@ Page({
     }, () => {
       this._refreshVisualFeedback()
     })
-    this._scheduleRealtimeParamUpdate()
   },
 
   changeSpread(e) {
