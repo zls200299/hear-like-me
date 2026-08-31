@@ -294,6 +294,9 @@ Page({
   _uploadSourceSnapshot: null,
   _channelTarget: null,
   _channelRampTimer: null,
+  _realtimeAppliedStructuralKey: null,
+  _realtimeStructuralTransitionActive: false,
+  _fileStreamParamHold: false,
 
   onLoad() {
     this._audioPlayer = createSeamlessAudioPlayer()
@@ -2179,6 +2182,72 @@ Page({
     }
   },
 
+  _buildRealtimeStructuralKey(params) {
+    const p = params || this._buildRealtimeParams()
+    return [
+      p.nChannels,
+      p.carrier,
+      p.fLo,
+      p.fHi,
+      p.envCut
+    ].join('|')
+  },
+
+  _beginStructuralParamTransition() {
+    this._realtimeStructuralTransitionActive = true
+    this._fileStreamParamHold = true
+    if (this._realtimePendingFrames) {
+      this._realtimePendingFrames.clear()
+    }
+    if (this._realtimePcmPlayer && this._realtimePcmPlayer.prepareStructuralRecovery) {
+      this._realtimePcmPlayer.prepareStructuralRecovery()
+    }
+  },
+
+  _completeStructuralParamTransition() {
+    this._realtimeStructuralTransitionActive = false
+    this._fileStreamParamHold = false
+
+    if (this._realtimePendingFrames) {
+      this._realtimePendingFrames.clear()
+    }
+
+    if (this._realtimePcmPlayer && this._realtimePcmPlayer.applyStructuralRecovery) {
+      this._realtimePcmPlayer.applyStructuralRecovery()
+    }
+
+    if (this._fileStreamActive) {
+      this._fileStreamBootstrapRemaining = FILE_STREAM_BOOTSTRAP_FRAMES
+      this._startFileStreamPump()
+    }
+  },
+
+  _abortStructuralParamTransition() {
+    this._realtimeStructuralTransitionActive = false
+    this._fileStreamParamHold = false
+  },
+
+  _sendRealtimeParamsForActiveStream() {
+    if (!this._isStreamingVocoderActive()) return Promise.resolve()
+    if (!this._realtimeSocketReady) return Promise.resolve()
+
+    const nextKey = this._buildRealtimeStructuralKey()
+    const isStructural = this._realtimeAppliedStructuralKey != null
+      && nextKey !== this._realtimeAppliedStructuralKey
+
+    if (isStructural) {
+      this._beginStructuralParamTransition()
+    }
+
+    return this._sendRealtimeParams()
+      .catch((err) => {
+        if (isStructural) {
+          this._abortStructuralParamTransition()
+        }
+        throw err
+      })
+  },
+
   _createParamSupersededError() {
     const err = new Error('参数更新被新的请求取代')
     err.code = REALTIME_PARAM_SUPERSEDED
@@ -2191,6 +2260,9 @@ Page({
 
   _handleRealtimeParamSendError(err) {
     if (this._isRealtimeParamSupersededError(err)) return
+    if (this._realtimeStructuralTransitionActive) {
+      this._abortStructuralParamTransition()
+    }
     console.warn('[realtime-ws] param update failed', err)
     if (!this._unloaded) {
       this.setData({
@@ -2253,6 +2325,10 @@ Page({
 
   _pumpFileStreamFrame() {
     if (!this._fileStreamActive || this._unloaded) return
+    if (this._fileStreamParamHold) {
+      this._scheduleNextFileStreamFrame()
+      return
+    }
     if (!this._realtimeSocketReady || !this._filePcmSource || !this._filePcmSource.isReady()) {
       this._scheduleNextFileStreamFrame()
       return
@@ -2306,6 +2382,9 @@ Page({
     this._fileStreamActive = false
     this._fileStreamStarting = false
     this._fileStreamBootstrapRemaining = 0
+    this._fileStreamParamHold = false
+    this._abortStructuralParamTransition()
+    this._realtimeAppliedStructuralKey = null
 
     if (this._isFileStreamingMode()) {
       this._streamingMode = null
@@ -2534,7 +2613,8 @@ Page({
   _flushRealtimeParamThrottlePending() {
     if (!this._realtimeParamPending) return
     this._realtimeParamPending = false
-    this._sendRealtimeParams().catch((err) => this._handleRealtimeParamSendError(err))
+    this._sendRealtimeParamsForActiveStream()
+      .catch((err) => this._handleRealtimeParamSendError(err))
   },
 
   _flushRealtimeParamUpdate() {
@@ -2542,7 +2622,8 @@ Page({
     if (!this._realtimeSocketReady) return
 
     this._clearRealtimeParamThrottle()
-    this._sendRealtimeParams().catch((err) => this._handleRealtimeParamSendError(err))
+    this._sendRealtimeParamsForActiveStream()
+      .catch((err) => this._handleRealtimeParamSendError(err))
   },
 
   _isPendingParamVersion(version) {
@@ -2574,11 +2655,21 @@ Page({
     const pending = this._realtimeParamPromise
     this._realtimeParamPromise = null
     this._realtimeAppliedParamVersion = pending.version
+
+    if (this._realtimeStructuralTransitionActive) {
+      this._completeStructuralParamTransition()
+    }
+    this._realtimeAppliedStructuralKey = this._buildRealtimeStructuralKey()
+
     pending.resolve(msg)
   },
 
   _rejectRealtimeParamPromise(msg) {
     if (!this._isPendingParamVersion(msg && msg.version)) return
+
+    if (this._realtimeStructuralTransitionActive) {
+      this._abortStructuralParamTransition()
+    }
 
     const err = new Error((msg && msg.message) ? msg.message : '参数更新失败')
     this._clearRealtimeParamPromise(err)
@@ -2596,6 +2687,9 @@ Page({
       this._realtimeParamPromise = { resolve, reject, version }
       this._realtimeParamTimeoutTimer = setTimeout(() => {
         if (!this._realtimeParamPromise || this._realtimeParamPromise.version !== version) return
+        if (this._realtimeStructuralTransitionActive) {
+          this._abortStructuralParamTransition()
+        }
         this._clearRealtimeParamPromise(new Error('参数同步超时'))
       }, 8000)
 
@@ -2844,8 +2938,10 @@ Page({
     }
 
     if (pcmLength > 0 && this._realtimePcmPlayer) {
-      const pcmBuffer = data.slice(offset, pcmEndOffset)
-      this._realtimePcmPlayer.enqueue(pcmBuffer, frameMeta)
+      if (!this._realtimeStructuralTransitionActive) {
+        const pcmBuffer = data.slice(offset, pcmEndOffset)
+        this._realtimePcmPlayer.enqueue(pcmBuffer, frameMeta)
+      }
     }
 
     const receivedBytes = data.byteLength - 4

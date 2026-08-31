@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.Date;
 import java.util.UUID;
 
 /**
@@ -74,6 +75,7 @@ public class AuthServiceImpl implements AuthService {
                 sensitiveInfo.setUnionId(unionId);
                 sensitiveInfoMapper.updateById(sensitiveInfo);
             }
+            applyProfileUpdate(user, req);
         }
 
         // 4. 生成 token 写入 Redis（自动 30 天过期）
@@ -114,10 +116,14 @@ public class AuthServiceImpl implements AuthService {
     // ==================== private ====================
 
     private User createNewUser(WxLoginReq req, String openId, String unionId) {
-        // 创建 user
+        Date now = new Date();
         User user = new User();
         user.setNickname(StringUtils.hasText(req.getNickname()) ? req.getNickname() : "用户" + System.currentTimeMillis());
         user.setAvatar(StringUtils.hasText(req.getAvatar()) ? req.getAvatar() : null);
+        user.setStatus(1);
+        user.setSourceType(3);
+        user.setRegisterTime(now);
+        user.setLastActiveTime(now);
         user.setIsDelete(0);
         userMapper.insert(user);
 
@@ -135,5 +141,21 @@ public class AuthServiceImpl implements AuthService {
 
         log.info("[wx-login] 新用户创建完成 userId={} openId={}", user.getId(), openId);
         return user;
+    }
+
+    private void applyProfileUpdate(User user, WxLoginReq req) {
+        boolean updated = false;
+        if (StringUtils.hasText(req.getNickname()) && !req.getNickname().equals(user.getNickname())) {
+            user.setNickname(req.getNickname());
+            updated = true;
+        }
+        if (StringUtils.hasText(req.getAvatar()) && !req.getAvatar().equals(user.getAvatar())) {
+            user.setAvatar(req.getAvatar());
+            updated = true;
+        }
+        if (updated) {
+            user.setLastActiveTime(new Date());
+            userMapper.updateById(user);
+        }
     }
 }

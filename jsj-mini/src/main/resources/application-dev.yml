@@ -33,6 +33,12 @@ mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
+# 微信小程序（登录 code2session，请填写真实 AppID / AppSecret）
+wx:
+  mini:
+    app-id: your-appid-here
+    app-secret: your-appsecret-here
+
 hear-like-me:
   storage:
     root-path: D:/hear-like-me/data

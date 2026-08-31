@@ -44,6 +44,7 @@ public class MiniApiController {
 
     private static final String DEFAULT_OWNER = "guest";
     private static final Set<String> ALLOWED_AUDIO_EXT = Set.of("mp3", "wav", "m4a", "aac");
+    private static final Set<String> ALLOWED_IMAGE_EXT = Set.of("jpg", "jpeg", "png", "webp");
 
     @Resource
     private IScenarioPresetService scenarioPresetService;
@@ -114,6 +115,41 @@ public class MiniApiController {
         FileAsset asset = new FileAsset();
         asset.setOwnerUserId(null);
         asset.setAssetType("AUDIO_SOURCE");
+        asset.setStorageProvider("LOCAL");
+        asset.setBucketName("");
+        asset.setObjectKey(objectKey);
+        asset.setOriginalFilename(originalFilename);
+        asset.setFileExt(ext);
+        asset.setMimeType(file.getContentType());
+        asset.setFileSize(file.getSize());
+        asset.setAccessMode("PRIVATE");
+        asset.setStatus("ACTIVE");
+        fileAssetService.save(asset);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("assetId", toStringId(asset.getId()));
+        result.put("fileName", originalFilename);
+        result.put("url", localFileStorageService.buildPreviewUrl(asset.getId()));
+        result.put("objectKey", objectKey);
+        return R.ok(result);
+    }
+
+    @PostMapping("/files/image")
+    public R<Map<String, Object>> uploadImage(@RequestParam("file") MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new ServiceException("文件不能为空");
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        String ext = normalizeExtension(StringUtils.getFilenameExtension(originalFilename));
+        validateImageExtension(ext);
+
+        String objectKey = localFileStorageService.buildImageObjectKey(DEFAULT_OWNER, ext);
+        localFileStorageService.saveMultipartFile(file, objectKey);
+
+        FileAsset asset = new FileAsset();
+        asset.setOwnerUserId(null);
+        asset.setAssetType("CONTENT_IMAGE");
         asset.setStorageProvider("LOCAL");
         asset.setBucketName("");
         asset.setObjectKey(objectKey);
@@ -213,6 +249,12 @@ public class MiniApiController {
     private void validateAudioExtension(String ext) {
         if (!ALLOWED_AUDIO_EXT.contains(ext)) {
             throw new ServiceException("仅支持 mp3、wav、m4a、aac 格式");
+        }
+    }
+
+    private void validateImageExtension(String ext) {
+        if (!ALLOWED_IMAGE_EXT.contains(ext)) {
+            throw new ServiceException("仅支持 jpg、jpeg、png、webp 格式");
         }
     }
 

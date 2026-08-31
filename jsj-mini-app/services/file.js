@@ -89,7 +89,45 @@ function uploadAudio(filePath) {
   })
 }
 
+/**
+ * 上传图片（头像等）
+ * @param {string} filePath 本地临时文件路径
+ * @returns {Promise<{ assetId, fileName, url, objectKey }>}
+ */
+function uploadImage(filePath) {
+  return new Promise((resolve, reject) => {
+    wx.uploadFile({
+      url: config.baseUrl + '/api/files/image',
+      filePath,
+      name: 'file',
+      success(res) {
+        if (res.statusCode !== 200) {
+          reject({
+            message: `HTTP ${res.statusCode}`,
+            statusCode: res.statusCode,
+            response: res
+          })
+          return
+        }
+
+        try {
+          resolve(parseUploadResponse(res.data))
+        } catch (err) {
+          reject(err)
+        }
+      },
+      fail(err) {
+        reject({
+          message: err.errMsg || '上传失败',
+          error: err
+        })
+      }
+    })
+  })
+}
+
 module.exports = {
   uploadAudio,
+  uploadImage,
   parseUploadResponse
 }

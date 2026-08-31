@@ -114,6 +114,10 @@ public class LocalFileStorageService {
         return buildObjectKey("audio/input", owner, ext);
     }
 
+    public String buildImageObjectKey(String owner, String ext) {
+        return buildObjectKey("image/avatar", owner, ext);
+    }
+
     public String buildAudioOutputObjectKey(String owner, String filename) {
         String datePath = LocalDate.now().format(DATE_PATH_FORMATTER);
         String safeOwner = sanitizeOwner(owner);

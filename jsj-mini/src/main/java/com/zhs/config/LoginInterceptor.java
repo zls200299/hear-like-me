@@ -1,11 +1,10 @@
 package com.zhs.config;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.zhs.common.NoLoginRequest;
 import com.zhs.common.TokenUtil;
 import com.zhs.common.UserContext;
-import com.zhs.model.UserLoginSession;
-import com.zhs.mapper.UserLoginSessionMapper;
+import com.zhs.common.cachekey.user.TokenCacheKey;
+import com.zhs.util.MiniRedisUtil;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -13,13 +12,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-import java.util.Date;
-
 @Component
 public class LoginInterceptor implements HandlerInterceptor {
 
     @Resource
-    private UserLoginSessionMapper loginSessionMapper;
+    private MiniRedisUtil miniRedisUtil;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -29,7 +26,6 @@ public class LoginInterceptor implements HandlerInterceptor {
 
         HandlerMethod handlerMethod = (HandlerMethod) handler;
 
-        // 检查是否有@NoLoginRequest注解
         NoLoginRequest methodAnnotation = handlerMethod.getMethodAnnotation(NoLoginRequest.class);
         NoLoginRequest classAnnotation = handlerMethod.getBeanType().getAnnotation(NoLoginRequest.class);
 
@@ -37,46 +33,30 @@ public class LoginInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        // 获取 token：Authorization（可带 Bearer）、或 header「token」（小程序等场景）
         String token = TokenUtil.resolveFrom(request);
         if (token == null || token.isEmpty()) {
-            response.setStatus(401);
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"code\":401,\"message\":\"未登录\"}");
+            writeUnauthorized(response, "未登录");
             return false;
         }
 
-        // 从数据库查询token
-        LambdaQueryWrapper<UserLoginSession> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(UserLoginSession::getToken, token);
-        wrapper.eq(UserLoginSession::getStatus, 1);
-        wrapper.eq(UserLoginSession::getIsDelete, 0);
-        UserLoginSession session = loginSessionMapper.selectOne(wrapper);
-
-        if (session == null) {
-            response.setStatus(401);
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"code\":401,\"message\":\"登录已过期\"}");
+        Long userId = miniRedisUtil.get(new TokenCacheKey(token));
+        if (userId == null) {
+            writeUnauthorized(response, "登录已过期");
             return false;
         }
 
-        // 检查是否过期
-        Date expireTime = session.getExpireTime();
-        if (expireTime == null || expireTime.before(new Date())) {
-            response.setStatus(401);
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"code\":401,\"message\":\"登录已过期\"}");
-            return false;
-        }
-
-        // 设置到上下文
-        UserContext.setUserId(session.getUserId());
+        UserContext.setUserId(userId);
         return true;
     }
 
     @Override
-    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
         UserContext.clear();
     }
 
+    private void writeUnauthorized(HttpServletResponse response, String message) throws Exception {
+        response.setStatus(401);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"code\":401,\"msg\":\"" + message + "\"}");
+    }
 }

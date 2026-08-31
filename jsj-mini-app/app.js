@@ -1,5 +1,6 @@
 // app.js
 const config = require('./config.js')
+const { getSession } = require('./services/auth.js')
 
 App({
   globalData: {
@@ -10,13 +11,15 @@ App({
   },
 
   onLaunch() {
-    const userId = wx.getStorageSync('userId')
-    const token = wx.getStorageSync('token')
+    const { token, userId, userInfo } = getSession()
     if (userId) {
       this.globalData.userId = userId
     }
     if (token) {
       this.globalData.token = token
+    }
+    if (userInfo) {
+      this.globalData.userInfo = userInfo
     }
   }
 })

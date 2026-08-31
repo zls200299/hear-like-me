@@ -4,6 +4,9 @@ const INITIAL_BUFFER_FRAMES = 4
 const MAX_PENDING_FRAMES = 5
 const TARGET_BUFFER_MS = 240
 const MAX_BUFFER_MS = 350
+const STRUCTURAL_RECOVERY_TARGET_MS = 360
+const STRUCTURAL_RECOVERY_DURATION_MS = 3000
+const STRUCTURAL_RECOVERY_OFFSET_SEC = 0.08
 const HARD_RESET_BUFFER_MS = 500
 const SCHEDULER_INTERVAL_MS = 20
 const INITIAL_SCHEDULE_OFFSET_SEC = 0.04
@@ -13,8 +16,6 @@ const HARD_RESET_KEEP_FRAMES = 3
 const HARD_RESET_NEXT_PLAY_OFFSET_SEC = 0.06
 const HARD_RESET_STOP_THRESHOLD_SEC = 0.05
 const STATE_EMIT_INTERVAL_MS = 220
-
-const TARGET_BUFFER_SEC = TARGET_BUFFER_MS / 1000
 
 function createRealtimePcmPlayer(options = {}) {
   const onState = typeof options.onState === 'function' ? options.onState : () => {}
@@ -35,6 +36,16 @@ function createRealtimePcmPlayer(options = {}) {
   let lastEmittedUnderruns = 0
   let lastEmittedDroppedFrames = 0
   let lastEmittedRecoveryCount = 0
+  let structuralRecoveryUntil = 0
+  let recoveryTargetMs = TARGET_BUFFER_MS
+
+  function getEffectiveTargetMs() {
+    return Date.now() < structuralRecoveryUntil ? recoveryTargetMs : TARGET_BUFFER_MS
+  }
+
+  function getEffectiveTargetSec() {
+    return getEffectiveTargetMs() / 1000
+  }
 
   function pcm16ToFloat32(pcmBuffer) {
     const view = new DataView(pcmBuffer)
@@ -154,14 +165,17 @@ function createRealtimePcmPlayer(options = {}) {
     const meta = item.meta || null
     const now = audioCtx.currentTime
     const bufferAheadSec = nextPlayTime - now
-    if (bufferAheadSec >= TARGET_BUFFER_SEC) {
+    if (bufferAheadSec >= getEffectiveTargetSec()) {
       return false
     }
 
     if (nextPlayTime <= now) {
       underrunCount += 1
       console.log(`[realtime-player] underrun count=${underrunCount}`)
-      nextPlayTime = now + UNDERRUN_RECOVERY_OFFSET_SEC
+      const recoveryOffset = Date.now() < structuralRecoveryUntil
+        ? STRUCTURAL_RECOVERY_OFFSET_SEC
+        : UNDERRUN_RECOVERY_OFFSET_SEC
+      nextPlayTime = now + recoveryOffset
       emitState(true)
     }
 
@@ -253,7 +267,7 @@ function createRealtimePcmPlayer(options = {}) {
     }
 
     while (pendingQueue.length > 0) {
-      if (getBufferAheadMs() >= TARGET_BUFFER_MS) {
+      if (getBufferAheadMs() >= getEffectiveTargetMs()) {
         break
       }
 
@@ -266,6 +280,24 @@ function createRealtimePcmPlayer(options = {}) {
     }
 
     emitState()
+  }
+
+  function prepareStructuralRecovery() {
+    structuralRecoveryUntil = Date.now() + STRUCTURAL_RECOVERY_DURATION_MS
+    recoveryTargetMs = STRUCTURAL_RECOVERY_TARGET_MS
+    pendingQueue = []
+    emitState(true)
+  }
+
+  function applyStructuralRecovery() {
+    structuralRecoveryUntil = Date.now() + STRUCTURAL_RECOVERY_DURATION_MS
+    recoveryTargetMs = STRUCTURAL_RECOVERY_TARGET_MS
+    pendingQueue = []
+    if (audioCtx && started) {
+      const now = audioCtx.currentTime
+      nextPlayTime = Math.max(nextPlayTime, now + STRUCTURAL_RECOVERY_OFFSET_SEC)
+    }
+    emitState(true)
   }
 
   function startPlayback() {
@@ -335,6 +367,8 @@ function createRealtimePcmPlayer(options = {}) {
     pendingQueue = []
     started = false
     nextPlayTime = 0
+    structuralRecoveryUntil = 0
+    recoveryTargetMs = TARGET_BUFFER_MS
 
     if (audioCtx) {
       try {
@@ -352,6 +386,8 @@ function createRealtimePcmPlayer(options = {}) {
     init,
     enqueue,
     destroy,
+    prepareStructuralRecovery,
+    applyStructuralRecovery,
     isStarted: () => started,
     getUnderrunCount: () => underrunCount,
     getDroppedFrames: () => droppedFrames,
