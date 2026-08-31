@@ -367,6 +367,7 @@
       <view wx:if="{{errorMessage}}" class="feedback-error__detail">失败原因：{{errorMessage}}</view>
     </view>
 
+    <view wx:if="{{sourceType !== 'realtime'}}" class="feedback-export-wrap">
     <view class="feedback-divider"></view>
 
     <view
@@ -376,9 +377,10 @@
       bindtap="onExportAudio"
     >
       <image class="feedback-export-icon" src="/assets/feedback/export-download.svg" mode="aspectFit" />
-      <text class="feedback-export-label">导出当前音频（WAV）</text>
+      <text class="feedback-export-label">{{exportAudioBtnLabel}}</text>
     </view>
-    <view class="feedback-export-helper">生成后可保存到手机</view>
+    <view class="feedback-export-helper">{{exportAudioHelperText}}</view>
+    </view>
   </view>
 
   <!-- 视觉化反馈 -->

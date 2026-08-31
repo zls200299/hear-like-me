@@ -179,6 +179,11 @@ Page({
     feedbackGaugeSrc: '',
     feedbackLiveActive: false,
     feedbackCarrierLabel: '噪声载体',
+    exportAudioState: 'idle',
+    exportAudioBtnLabel: '导出当前音频（WAV）',
+    exportAudioHelperText: '生成后可保存到手机',
+    exportAudioErrorText: '',
+    exportAudioSavedKey: '',
     exportAudioDisabled: true,
     isAudioPlaying: false,
     playingKind: '',
@@ -235,6 +240,7 @@ Page({
   _runtimeParams: null,
   _audioPlayer: null,
   _processedResultCache: null,
+  _exportGeneration: 0,
   _recorderManager: null,
   _realtimeRecorderBound: false,
   _realtimeStats: null,
@@ -335,6 +341,7 @@ Page({
 
   onUnload() {
     this._unloaded = true
+    this._exportGeneration += 1
     this._clearProcessedUiErrorTimer()
     this._stopRealtimeDebugUiTimer()
     this._clearRealtimeConnectTimeout()
@@ -902,7 +909,7 @@ Page({
         || (this.data.isAudioPlaying && (this.data.playingKind === 'processed' || this.data.playingKind === 'original'))
       ),
       feedbackCarrierLabel: params.carrier === 'sine' ? '正弦载体' : '噪声载体',
-      exportAudioDisabled: !this._resolveExportAudioUrl()
+      ...this._buildExportAudioUiPatch()
     }
     if (this.data.processedUiState === 'idle' || this.data.processedUiState === 'error') {
       if (this.data.isProcessing) {
@@ -941,15 +948,292 @@ Page({
     return '播放模拟声时会按当前参数生成。'
   },
 
-  _resolveExportAudioUrl() {
-    if (this.data.processedAudioUrl) return this.data.processedAudioUrl
-    if (this.data.originalAudioUrl) return this.data.originalAudioUrl
-    return ''
+  _canExportAudio(options = {}) {
+    const state = options.exportAudioState != null ? options.exportAudioState : this.data.exportAudioState
+    if (this.data.sourceType === 'realtime') return false
+    if (!options.ignoreExporting && state === 'exporting') return false
+    if (this.data.sourceType === 'upload') {
+      return !!(this.data.sourceAssetId || this._resolveSourceAssetId())
+    }
+    if (this.data.sourceType === 'sample') {
+      return !!this.data.selectedSample
+    }
+    return false
   },
 
-  onExportAudio() {
-    const url = this._resolveExportAudioUrl()
-    if (!url) {
+  _snapshotExportParams() {
+    const params = this._getRuntimeParams()
+    return {
+      sourceType: params.sourceType,
+      sourceAssetId: params.sourceAssetId || '',
+      selectedSample: params.selectedSample || '',
+      selectedScenario: params.selectedScenario || '',
+      nChannels: params.nChannels,
+      carrier: params.carrier,
+      frequencyRange: params.frequencyRange,
+      envCut: params.envCut,
+      spread: params.spread,
+      noiseLevel: params.noiseLevel
+    }
+  },
+
+  _getExportStaleResetPatch() {
+    if (this.data.exportAudioState !== 'success' && this.data.exportAudioState !== 'error') {
+      return {}
+    }
+    const currentKey = this._buildProcessKey()
+    if (!this.data.exportAudioSavedKey || this.data.exportAudioSavedKey === currentKey) {
+      return {}
+    }
+    return {
+      exportAudioState: 'idle',
+      exportAudioErrorText: '',
+      exportAudioSavedKey: ''
+    }
+  },
+
+  _buildExportAudioUiPatch(overrides = {}) {
+    const stalePatch = this._getExportStaleResetPatch()
+    const state = overrides.exportAudioState != null
+      ? overrides.exportAudioState
+      : (stalePatch.exportAudioState || this.data.exportAudioState)
+    const canExport = state !== 'exporting' && this._canExportAudio({
+      ignoreExporting: true,
+      exportAudioState: state
+    })
+    let btnLabel = '导出当前音频（WAV）'
+    let helperText = '生成后可保存到手机'
+    let disabled = !canExport
+
+    if (state === 'exporting') {
+      btnLabel = '正在生成 WAV…'
+      helperText = '正在按当前参数生成完整模拟音频…'
+      disabled = true
+    } else if (state === 'success') {
+      btnLabel = '已保存'
+      helperText = 'WAV 音频已保存到本地'
+    } else if (state === 'error') {
+      helperText = overrides.exportAudioErrorText || this.data.exportAudioErrorText || '导出失败，请重试'
+    }
+
+    return {
+      ...stalePatch,
+      exportAudioBtnLabel: btnLabel,
+      exportAudioHelperText: helperText,
+      exportAudioDisabled: disabled,
+      ...overrides
+    }
+  },
+
+  _invalidateExportTask() {
+    this._exportGeneration += 1
+    const patch = { ...this._getExportStaleResetPatch() }
+    if (this.data.exportAudioState === 'exporting') {
+      patch.exportAudioState = 'idle'
+      patch.exportAudioErrorText = ''
+    }
+    if (Object.keys(patch).length) {
+      this.setData(patch)
+    }
+  },
+
+  _resolveExportErrorMessage(stage) {
+    if (stage === 'generate') return '模拟音频生成失败，请重试'
+    if (stage === 'download') return '音频下载失败，请检查网络后重试'
+    if (stage === 'save') return '音频保存失败，请重试'
+    return '导出失败，请重试'
+  },
+
+  _buildTaskPayloadFromSnapshot(snapshot, sourceAssetId) {
+    const { fLo, fHi } = this._parseFrequencyRange(snapshot.frequencyRange)
+    const taskPayload = {
+      sourceType: snapshot.sourceType === 'sample' ? 'SAMPLE' : 'UPLOAD',
+      sourceAssetId,
+      sampleCode: snapshot.sourceType === 'sample' ? snapshot.selectedSample : '',
+      nChannels: Number(snapshot.nChannels),
+      carrier: snapshot.carrier,
+      fLo: Number(fLo),
+      fHi: Number(fHi),
+      envCut: Number(snapshot.envCut),
+      spread: Number(snapshot.spread) / 100,
+      noiseLevel: Number(snapshot.noiseLevel) / 100
+    }
+    if (snapshot.selectedScenario) {
+      taskPayload.scenarioCode = snapshot.selectedScenario
+    }
+    return taskPayload
+  },
+
+  async _ensureSampleSourceForExport(sampleCode, generation) {
+    this._ensurePageState()
+    const cached = this._sampleSourceCache[sampleCode]
+    if (cached) return cached
+
+    const pending = this._samplePreparePromises[sampleCode]
+    if (pending) {
+      const result = await pending
+      if (generation !== this._exportGeneration) {
+        throw new Error('EXPORT_CANCELLED')
+      }
+      return result
+    }
+
+    const preparePromise = (async () => {
+      const result = await prepareSampleSource(sampleCode)
+      this._sampleSourceCache[sampleCode] = result
+      return result
+    })()
+
+    this._samplePreparePromises[sampleCode] = preparePromise
+    try {
+      const result = await preparePromise
+      if (generation !== this._exportGeneration) {
+        throw new Error('EXPORT_CANCELLED')
+      }
+      return result
+    } finally {
+      delete this._samplePreparePromises[sampleCode]
+    }
+  },
+
+  async _resolveSnapshotSourceAssetId(snapshot, generation) {
+    if (snapshot.sourceType === 'upload') {
+      const sourceAssetId = snapshot.sourceAssetId || ''
+      if (!sourceAssetId) {
+        throw new Error('请先上传音频')
+      }
+      return sourceAssetId
+    }
+
+    if (snapshot.sourceType === 'sample') {
+      if (snapshot.sourceAssetId) {
+        return snapshot.sourceAssetId
+      }
+      const sampleSource = await this._ensureSampleSourceForExport(snapshot.selectedSample, generation)
+      return sampleSource.assetId
+    }
+
+    throw new Error('EXPORT_UNSUPPORTED')
+  },
+
+  _resolveExportProcessedUrl(snapshot) {
+    const processKey = this._buildProcessKey(snapshot)
+
+    if (this.data.processedAudioUrl && this.data.processedKey === processKey) {
+      return {
+        processKey,
+        processedAudioUrl: this.data.processedAudioUrl,
+        fromCache: true
+      }
+    }
+
+    if (this._processedResultCache && this._processedResultCache.has(processKey)) {
+      const cached = this._processedResultCache.get(processKey)
+      if (cached && cached.processedAudioUrl) {
+        return {
+          processKey,
+          processedAudioUrl: cached.processedAudioUrl,
+          fromCache: true
+        }
+      }
+    }
+
+    return null
+  },
+
+  async _getOrGenerateProcessedResultForExport(snapshot, generation) {
+    const cachedUrl = this._resolveExportProcessedUrl(snapshot)
+    if (cachedUrl) {
+      return cachedUrl
+    }
+
+    if (generation !== this._exportGeneration) {
+      return null
+    }
+
+    const sourceAssetId = await this._resolveSnapshotSourceAssetId(snapshot, generation)
+    if (generation !== this._exportGeneration) {
+      return null
+    }
+
+    const processKey = this._buildProcessKey(snapshot)
+    const taskPayload = this._buildTaskPayloadFromSnapshot(snapshot, sourceAssetId)
+    const result = await createTask(taskPayload)
+
+    if (generation !== this._exportGeneration) {
+      return null
+    }
+
+    if (!result || result.status !== 'SUCCESS' || !result.processedAudioUrl) {
+      throw new Error('EXPORT_GENERATE_FAILED')
+    }
+
+    const clarityScore = result.clarityScore != null ? result.clarityScore : this.data.clarityScore
+    const clarityGrade = result.clarityGrade || this.data.clarityGrade || '模拟完成'
+    const cachedResult = {
+      taskNo: result.taskNo,
+      outputAssetId: result.outputAssetId,
+      processedAudioUrl: result.processedAudioUrl,
+      clarityScore,
+      clarityGrade,
+      clarityDesc: this._getClarityDesc(clarityScore, clarityGrade),
+      visualizationData: result.visualizationData || null
+    }
+
+    if (this._buildProcessKey(this._getRuntimeParams()) === processKey) {
+      this._applyProcessedResult(processKey, cachedResult, {
+        autoPlay: false,
+        background: true
+      })
+    } else {
+      this._setCachedProcessedResult(processKey, cachedResult)
+    }
+
+    return {
+      processKey,
+      processedAudioUrl: result.processedAudioUrl,
+      fromCache: false
+    }
+  },
+
+  _downloadAndSaveExportFile(url, generation) {
+    return new Promise((resolve, reject) => {
+      wx.downloadFile({
+        url,
+        success: (res) => {
+          if (generation !== this._exportGeneration) {
+            reject(new Error('EXPORT_CANCELLED'))
+            return
+          }
+          if (!res || res.statusCode !== 200 || !res.tempFilePath) {
+            reject(new Error('EXPORT_DOWNLOAD_FAILED'))
+            return
+          }
+          wx.saveFile({
+            tempFilePath: res.tempFilePath,
+            success: (saveRes) => {
+              if (generation !== this._exportGeneration) {
+                reject(new Error('EXPORT_CANCELLED'))
+                return
+              }
+              resolve(saveRes)
+            },
+            fail: () => {
+              reject(new Error('EXPORT_SAVE_FAILED'))
+            }
+          })
+        },
+        fail: () => {
+          reject(new Error('EXPORT_DOWNLOAD_FAILED'))
+        }
+      })
+    })
+  },
+
+  async onExportAudio() {
+    if (this.data.exportAudioDisabled || this.data.exportAudioState === 'exporting') return
+    if (this.data.sourceType === 'realtime') return
+    if (!this._canExportAudio()) {
       wx.showToast({
         title: '暂无可导出音频',
         icon: 'none'
@@ -957,32 +1241,64 @@ Page({
       return
     }
 
-    wx.showLoading({ title: '准备导出...', mask: true })
-    wx.downloadFile({
-      url,
-      success: (res) => {
-        if (!res || res.statusCode !== 200 || !res.tempFilePath) {
-          wx.hideLoading()
-          wx.showToast({ title: '导出失败', icon: 'none' })
-          return
-        }
-        wx.saveFile({
-          tempFilePath: res.tempFilePath,
-          success: () => {
-            wx.hideLoading()
-            wx.showToast({ title: '已保存到本地', icon: 'success' })
-          },
-          fail: () => {
-            wx.hideLoading()
-            wx.showToast({ title: '保存失败', icon: 'none' })
-          }
-        })
-      },
-      fail: () => {
-        wx.hideLoading()
-        wx.showToast({ title: '下载失败', icon: 'none' })
-      }
+    const generation = ++this._exportGeneration
+    const snapshot = this._snapshotExportParams()
+    const processKey = this._buildProcessKey(snapshot)
+
+    this.setData({
+      exportAudioState: 'exporting',
+      exportAudioSavedKey: processKey,
+      exportAudioErrorText: '',
+      ...this._buildExportAudioUiPatch({ exportAudioState: 'exporting' })
     })
+
+    try {
+      const result = await this._getOrGenerateProcessedResultForExport(snapshot, generation)
+      if (generation !== this._exportGeneration) return
+      if (!result || !result.processedAudioUrl) {
+        throw new Error('EXPORT_GENERATE_FAILED')
+      }
+
+      await this._downloadAndSaveExportFile(result.processedAudioUrl, generation)
+      if (generation !== this._exportGeneration) return
+
+      this.setData({
+        exportAudioState: 'success',
+        exportAudioSavedKey: processKey,
+        exportAudioErrorText: '',
+        ...this._buildExportAudioUiPatch({ exportAudioState: 'success' })
+      })
+      wx.showToast({
+        title: '保存成功',
+        icon: 'success'
+      })
+    } catch (err) {
+      if (generation !== this._exportGeneration) return
+      if (err && err.message === 'EXPORT_CANCELLED') return
+
+      let stage = 'generate'
+      if (err && err.message === 'EXPORT_DOWNLOAD_FAILED') {
+        stage = 'download'
+      } else if (err && err.message === 'EXPORT_SAVE_FAILED') {
+        stage = 'save'
+      }
+
+      const errorText = this._resolveExportErrorMessage(stage)
+      this.setData({
+        exportAudioState: 'error',
+        exportAudioSavedKey: processKey,
+        exportAudioErrorText: errorText,
+        ...this._buildExportAudioUiPatch({
+          exportAudioState: 'error',
+          exportAudioErrorText: errorText
+        })
+      })
+      wx.showToast({
+        title: errorText,
+        icon: 'none'
+      })
+      console.error('[export-audio] failed', err)
+    }
   },
 
   _resetConvertStatus() {
@@ -1090,6 +1406,7 @@ Page({
   },
 
   _invalidateProcessedResult(options = {}) {
+    this._invalidateExportTask()
     const wasFileStreamingProcessed = this._fileStreamActive
       && this.data.isAudioPlaying
       && this.data.playingKind === 'processed'
@@ -3070,7 +3387,9 @@ Page({
         selectedScenario: ''
       })
       this.setData(nextData, () => {
+        this._invalidateExportTask()
         this._syncSourceDetailUI()
+        this._refreshVisualFeedback()
       })
       return
     }
