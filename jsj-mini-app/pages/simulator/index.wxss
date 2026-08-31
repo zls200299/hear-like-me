@@ -2,12 +2,9 @@
   padding-bottom: calc(108rpx + env(safe-area-inset-bottom));
 }
 
-/* 顶部 UI（asset/顶部.html） */
+/* 顶部 UI（asset/顶部.html + home-bg.png） */
 .top-ui {
-  background:
-    radial-gradient(circle at 18% 4%, rgba(19, 199, 173, 0.1), transparent 24%),
-    radial-gradient(circle at 92% 32%, rgba(42, 91, 142, 0.11), transparent 30%),
-    linear-gradient(180deg, #07111f 0%, #081321 100%);
+  background-color: #07111f;
 }
 
 .top-header {
