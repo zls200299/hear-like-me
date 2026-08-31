@@ -13,9 +13,10 @@
     "backgroundTextStyle": "dark"
   },
   "tabBar": {
-    "color": "#7A8CA8",
-    "selectedColor": "#35D0BA",
-    "backgroundColor": "#0B1020",
+    "custom": true,
+    "color": "#6f809c",
+    "selectedColor": "#29dbc7",
+    "backgroundColor": "#040c1a",
     "borderStyle": "black",
     "list": [
       {

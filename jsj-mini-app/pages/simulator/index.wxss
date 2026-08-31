@@ -1,5 +1,5 @@
 .simulator-page {
-  padding-bottom: calc(180rpx + env(safe-area-inset-bottom));
+  padding-bottom: calc(108rpx + env(safe-area-inset-bottom));
 }
 
 /* 顶部 UI（asset/顶部.html） */

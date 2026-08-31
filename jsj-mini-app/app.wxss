@@ -24,7 +24,7 @@ image {
 }
 
 .page.safe-bottom {
-  padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
+  padding-bottom: calc(108rpx + env(safe-area-inset-bottom));
 }
 
 .page-title {

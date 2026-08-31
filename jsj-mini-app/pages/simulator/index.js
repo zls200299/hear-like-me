@@ -319,6 +319,8 @@ Page({
 
   onShow() {
     if (this._unloaded) return
+    const { setTabBarSelected, TAB_INDEX } = require('../../utils/tabBar.js')
+    setTabBarSelected(this, TAB_INDEX.SIMULATOR)
     // 不自动恢复 realtime / file stream / 播放
     this._syncVisualPlaybackState()
     this._syncSourceDetailUI()

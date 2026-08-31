@@ -1,0 +1,20 @@
+<view class="tab-bar">
+  <view class="tab-bar-border"></view>
+  <view
+    wx:for="{{list}}"
+    wx:key="pagePath"
+    class="tab-bar-item {{selected === index ? 'active' : ''}}"
+    data-path="{{item.pagePath}}"
+    data-index="{{index}}"
+    bindtap="onSwitchTab"
+  >
+    <view class="icon-wrap">
+      <hlm-icon
+        name="{{item.icon}}"
+        size="48"
+        color="{{selected === index ? selectedColor : color}}"
+      />
+    </view>
+    <text class="tab-bar-label">{{item.text}}</text>
+  </view>
+</view>

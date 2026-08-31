@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "hlm-icon": "/components/hlm-icon/index"
+  }
+}

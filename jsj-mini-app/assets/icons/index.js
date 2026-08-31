@@ -19,7 +19,11 @@ const ICONS = {
   WAVEFORM_GRID: `${ICON_BASE}/waveform-grid.svg`,
   TROPHY: `${ICON_BASE}/trophy.svg`,
   BOOK_OPEN: `${ICON_BASE}/book-open.svg`,
-  USER: `${ICON_BASE}/user.svg`
+  USER: `${ICON_BASE}/user.svg`,
+  TAB_SIMULATOR: `${ICON_BASE}/tab-simulator.svg`,
+  TAB_CHALLENGE: `${ICON_BASE}/tab-challenge.svg`,
+  TAB_LEARN: `${ICON_BASE}/tab-learn.svg`,
+  TAB_PROFILE: `${ICON_BASE}/tab-profile.svg`
 }
 
 const ICON_NAMES = Object.freeze({
@@ -35,7 +39,11 @@ const ICON_NAMES = Object.freeze({
   'waveform-grid': ICONS.WAVEFORM_GRID,
   trophy: ICONS.TROPHY,
   'book-open': ICONS.BOOK_OPEN,
-  user: ICONS.USER
+  user: ICONS.USER,
+  'tab-simulator': ICONS.TAB_SIMULATOR,
+  'tab-challenge': ICONS.TAB_CHALLENGE,
+  'tab-learn': ICONS.TAB_LEARN,
+  'tab-profile': ICONS.TAB_PROFILE
 })
 
 function resolveIconPath(name) {
