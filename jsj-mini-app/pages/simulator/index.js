@@ -15,6 +15,7 @@ const config = require('../../config.js')
 
 const REALTIME_PARAM_THROTTLE_MS = 120
 const REALTIME_PARAM_SUPERSEDED = 'PARAM_SUPERSEDED'
+const DEBUG_UI_INTERVAL_MS = 300
 const FILE_STREAM_FRAME_MS = 60
 const FILE_STREAM_MAX_PENDING_FRAMES = 5
 const FILE_STREAM_BOOTSTRAP_FRAMES = 3
@@ -265,6 +266,11 @@ Page({
   _realtimeRecorderStartTimeoutTimer: null,
   _realtimePermissionRequesting: false,
   _realtimePermissionRequestId: 0,
+  _realtimeSocketClosingByUser: false,
+  _realtimeSessionStopping: false,
+  _realtimeUserStop: false,
+  _realtimeDebugUiTimer: null,
+  _realtimeDebugStats: null,
   _processedUiGeneration: 0,
   _processedUiErrorTimer: null,
 
@@ -289,8 +295,25 @@ Page({
 
   onShow() {
     if (this._unloaded) return
+    // 不自动恢复 realtime / file stream / 播放
     this._syncVisualPlaybackState()
     this._syncSourceDetailUI()
+  },
+
+  onHide() {
+    if (this._unloaded) return
+
+    if (this.data.realtimeRecording || this._realtimeStarting || this.data.realtimeConnecting) {
+      this.stopRealtimeMic()
+    }
+
+    if (this._fileStreamActive || this._fileStreamStarting) {
+      this._stopFileStreamingProcessed({ silent: true })
+    }
+
+    if (this.data.isAudioPlaying) {
+      this._stopAudio('已暂停页面播放')
+    }
   },
 
   onReady() {
@@ -304,6 +327,7 @@ Page({
   onUnload() {
     this._unloaded = true
     this._clearProcessedUiErrorTimer()
+    this._stopRealtimeDebugUiTimer()
     this._clearRealtimeConnectTimeout()
     this._clearRealtimeRecorderStartTimeout()
     this._destroyMicLevelCanvas()
@@ -312,14 +336,7 @@ Page({
     this._cancelPrefetch()
     this._cancelAutoRefresh()
     this._stopAudio('已退出页面')
-    if ((this.data.realtimeRecording || this._realtimeStarting) && this._recorderManager) {
-      try {
-        this._recorderManager.stop()
-      } catch (e) {}
-      this._realtimeStarting = false
-    }
-    this._closeRealtimeSocket({ silent: true })
-    this._destroyRealtimePcmPlayer()
+    this.stopRealtimeMic()
     if (this._audioPlayer) {
       this._audioPlayer.destroy()
       this._audioPlayer = null
@@ -1312,7 +1329,7 @@ Page({
     recorder.onStart(() => {
       this._realtimeStarting = false
       this._clearRealtimeRecorderStartTimeout()
-      this._realtimeStats = { frameCount: 0, totalBytes: 0 }
+      this._resetRealtimeDebugStats()
       if (this._unloaded) return
       this.setData({
         realtimeConnecting: false,
@@ -1326,6 +1343,7 @@ Page({
       }, () => {
         this._syncSourceDetailUI()
         this._startMicLevelVisualizer()
+        this._startRealtimeDebugUiTimer()
       })
     })
 
@@ -1334,77 +1352,86 @@ Page({
       if (!(frameBuffer instanceof ArrayBuffer)) return
 
       const bytes = frameBuffer.byteLength || 0
-      if (!this._realtimeStats) {
-        this._realtimeStats = { frameCount: 0, totalBytes: 0 }
-      }
-      this._realtimeStats.frameCount += 1
-      this._realtimeStats.totalBytes += bytes
+      const stats = this._ensureRealtimeDebugStats()
+      stats.frameCount += 1
+      stats.totalBytes += bytes
+      stats.lastFrameBytes = bytes
 
       console.log(
         '[realtime-recorder]',
-        'frame=', this._realtimeStats.frameCount,
+        'frame=', stats.frameCount,
         'bytes=', bytes,
         'last=', !!(res && res.isLastFrame)
       )
 
       this._feedMicLevelFromFrame(frameBuffer)
-
-      if (this._unloaded) return
-      this.setData({
-        realtimeFrameCount: this._realtimeStats.frameCount,
-        realtimeLastFrameBytes: bytes,
-        realtimeTotalBytes: this._realtimeStats.totalBytes
-      })
-
       this._sendRealtimeFrame(frameBuffer, bytes)
     })
 
     recorder.onStop(() => {
       this._realtimeStarting = false
       this._clearRealtimeRecorderStartTimeout()
-      this._clearRealtimeVisualLevels()
-      this._stopMicLevelVisualizer({ decay: true })
-      if (this._unloaded) return
-      this.setData({
-        realtimeConnecting: false,
-        realtimeRecording: false,
-        realtimeStatusText: '实时麦克风已停止'
-      }, () => {
-        this._syncSourceDetailUI()
+      this._stopRealtimeDebugUiTimer()
+
+      const userStop = this._realtimeUserStop
+      this._realtimeUserStop = false
+
+      if (userStop || this._realtimeSessionStopping) {
+        this._clearRealtimeVisualLevels()
+        this._stopMicLevelVisualizer({ decay: true })
+        if (this._unloaded) return
+        this.setData({
+          realtimeConnecting: false,
+          realtimeRecording: false,
+          realtimeStatusText: '实时麦克风已停止'
+        }, () => {
+          this._syncSourceDetailUI()
+        })
+        return
+      }
+
+      // Recorder 意外停止：连带清理 socket / player，避免只录不发
+      this._stopRealtimeSession({
+        byUser: false,
+        stopRecorder: false,
+        closeSocket: true,
+        destroyPlayer: true,
+        statusText: '实时麦克风已停止',
+        showToast: false
       })
     })
 
     recorder.onError((err) => {
       this._realtimeStarting = false
+      this._realtimeUserStop = false
       this._clearRealtimeRecorderStartTimeout()
       console.error('[realtime-recorder] error', err)
-      this._clearRealtimeVisualLevels()
-      this._closeRealtimeSocket()
-      this._stopMicLevelVisualizer({ decay: true })
-      if (this._unloaded) return
-      this.setData({
-        realtimeConnecting: false,
-        realtimeRecording: false,
-        realtimeError: (err && err.errMsg) ? err.errMsg : '录音失败',
-        realtimeStatusText: '麦克风录音失败'
-      }, () => {
-        this._syncSourceDetailUI()
+      this._stopRealtimeSession({
+        byUser: false,
+        stopRecorder: false,
+        closeSocket: true,
+        destroyPlayer: true,
+        statusText: '麦克风录音失败',
+        error: (err && err.errMsg) ? err.errMsg : '录音失败',
+        showToast: false
       })
     })
 
     recorder.onInterruptionBegin(() => {
       if (this._unloaded) return
-      this._stopMicLevelVisualizer({ decay: true })
-      this.setData({
-        realtimeRecording: false,
-        realtimeStatusText: '麦克风被系统音频任务中断'
-      }, () => {
-        this._syncSourceDetailUI()
+      this._stopRealtimeSession({
+        byUser: false,
+        stopRecorder: true,
+        closeSocket: true,
+        destroyPlayer: true,
+        statusText: '麦克风被系统中断，请重新开始实时体验',
+        showToast: true
       })
     })
 
     recorder.onInterruptionEnd(() => {
       if (this._unloaded) return
+      // 不自动重连，保持 idle
       this.setData({
         realtimeStatusText: '系统音频中断已结束，请重新开始实时体验'
       }, () => {
@@ -1566,12 +1593,42 @@ Page({
       socketTask.onClose(() => {
         if (!isCurrentSocket()) return
         this._realtimeSocketReady = false
+
+        const closingByUser = this._realtimeSocketClosingByUser
+        this._realtimeSocketClosingByUser = false
+
+        const wasMicSession = this._streamingMode === 'mic'
+          && (
+            this.data.realtimeRecording
+            || this._realtimeStarting
+            || this.data.realtimeConnecting
+            || !!this._realtimePcmPlayer
+          )
+
         if (this._fileStreamActive || this._fileStreamStarting) {
           this._stopFileStreamingProcessed({ silent: true })
         }
         if (!this._realtimeConnectSettled) {
           failConnect(new Error('WebSocket closed before READY'))
         }
+
+        if (this._realtimeSocket === socketTask) {
+          this._realtimeSocket = null
+        }
+
+        // READY 之后异常断开：必须停 mic / player，避免继续采集却无处可发
+        if (!closingByUser && wasMicSession && !this._realtimeSessionStopping) {
+          this._stopRealtimeSession({
+            byUser: false,
+            stopRecorder: true,
+            closeSocket: false,
+            destroyPlayer: true,
+            statusText: '实时连接已断开，请重新开始',
+            showToast: true
+          })
+          return
+        }
+
         if (!this._unloaded) {
           this.setData({ realtimeSocketConnected: false })
         }
@@ -1603,6 +1660,7 @@ Page({
       : (this._streamingMode === 'upload'
         ? '声码器已就绪，正在流式播放上传模拟声'
         : '声码器已就绪，正在采集麦克风音频')
+    this._resetRealtimeDebugStats()
     this.setData({
       realtimeSocketConnected: true,
       realtimeSentFrames: 0,
@@ -1620,6 +1678,9 @@ Page({
       realtimePlaybackDroppedFrames: 0,
       realtimePlaybackRecoveryCount: 0
     })
+    if (this._streamingMode === 'mic' && this.data.realtimeRecording) {
+      this._startRealtimeDebugUiTimer()
+    }
   },
 
   _buildRealtimeParams() {
@@ -2156,11 +2217,9 @@ Page({
       }
     })
 
-    if (this._unloaded) return
-    this.setData({
-      realtimeSentFrames: this.data.realtimeSentFrames + 1,
-      realtimeSentBytes: this.data.realtimeSentBytes + bytes
-    })
+    const stats = this._ensureRealtimeDebugStats()
+    stats.sentFrames += 1
+    stats.sentBytes += bytes
   },
 
   _clearRealtimeReadyTimeout() {
@@ -2192,9 +2251,10 @@ Page({
 
   _failRealtimeConnectAttempt(message) {
     this._realtimeStarting = false
+    this._stopRealtimeDebugUiTimer()
     this._clearRealtimeRecorderStartTimeout()
     this._destroyRealtimePcmPlayer()
-    this._closeRealtimeSocket({ silent: true })
+    this._closeRealtimeSocket({ silent: true, byUser: true })
     this._stopMicLevelVisualizer({ decay: false })
     if (this._unloaded) return
     this.setData({
@@ -2308,15 +2368,17 @@ Page({
 
     this._realtimeRttTotal += rtt
     this._realtimeRttCount += 1
-    const avgRtt = Math.round(this._realtimeRttTotal / this._realtimeRttCount)
+    const avgRtt = this._realtimeRttCount > 0
+      ? Math.round(this._realtimeRttTotal / this._realtimeRttCount)
+      : null
 
-    if (this._unloaded) return
-    this.setData({
-      realtimeReceivedFrames: this.data.realtimeReceivedFrames + 1,
-      realtimeReceivedBytes: this.data.realtimeReceivedBytes + receivedBytes,
-      realtimeLastRttMs: rtt,
-      realtimeAvgRttMs: avgRtt
-    })
+    const stats = this._ensureRealtimeDebugStats()
+    stats.receivedFrames += 1
+    stats.receivedBytes += receivedBytes
+    stats.lastRttMs = rtt
+    stats.rttTotal = this._realtimeRttTotal
+    stats.rttCount = this._realtimeRttCount
+    stats.avgRttMs = avgRtt
   },
 
   _startRealtimePendingSweep() {
@@ -2346,14 +2408,161 @@ Page({
     })
 
     if (lost > 0 && !this._unloaded) {
-      this.setData({
-        realtimeLostFrames: this.data.realtimeLostFrames + lost
-      })
+      const stats = this._ensureRealtimeDebugStats()
+      stats.lostFrames += lost
+    }
+  },
+
+  _ensureRealtimeDebugStats() {
+    if (!this._realtimeDebugStats) {
+      this._resetRealtimeDebugStats()
+    }
+    // 兼容旧字段引用
+    this._realtimeStats = this._realtimeDebugStats
+    return this._realtimeDebugStats
+  },
+
+  _resetRealtimeDebugStats() {
+    this._realtimeDebugStats = {
+      frameCount: 0,
+      lastFrameBytes: 0,
+      totalBytes: 0,
+      sentFrames: 0,
+      receivedFrames: 0,
+      sentBytes: 0,
+      receivedBytes: 0,
+      lastRttMs: null,
+      avgRttMs: null,
+      rttTotal: 0,
+      rttCount: 0,
+      lostFrames: 0
+    }
+    this._realtimeStats = this._realtimeDebugStats
+    this._realtimeRttTotal = 0
+    this._realtimeRttCount = 0
+    return this._realtimeDebugStats
+  },
+
+  _startRealtimeDebugUiTimer() {
+    if (this._unloaded) return
+    if (!this.data.showRealtimeDebug) {
+      this._stopRealtimeDebugUiTimer()
+      return
+    }
+    if (this._realtimeDebugUiTimer) return
+    this._flushRealtimeDebugUi()
+    this._realtimeDebugUiTimer = setInterval(() => {
+      this._flushRealtimeDebugUi()
+    }, DEBUG_UI_INTERVAL_MS)
+  },
+
+  _stopRealtimeDebugUiTimer() {
+    if (!this._realtimeDebugUiTimer) return
+    clearInterval(this._realtimeDebugUiTimer)
+    this._realtimeDebugUiTimer = null
+  },
+
+  _flushRealtimeDebugUi() {
+    if (this._unloaded || !this.data.showRealtimeDebug) return
+    const stats = this._ensureRealtimeDebugStats()
+    const avgRtt = stats.rttCount > 0
+      ? Math.round(stats.rttTotal / stats.rttCount)
+      : stats.avgRttMs
+    this.setData({
+      realtimeFrameCount: stats.frameCount,
+      realtimeLastFrameBytes: stats.lastFrameBytes,
+      realtimeTotalBytes: stats.totalBytes,
+      realtimeSentFrames: stats.sentFrames,
+      realtimeReceivedFrames: stats.receivedFrames,
+      realtimeSentBytes: stats.sentBytes,
+      realtimeReceivedBytes: stats.receivedBytes,
+      realtimeLastRttMs: stats.lastRttMs,
+      realtimeAvgRttMs: avgRtt,
+      realtimeLostFrames: stats.lostFrames
+    })
+  },
+
+  _stopRealtimeSession(options = {}) {
+    const {
+      byUser = false,
+      stopRecorder = true,
+      closeSocket = true,
+      destroyPlayer = true,
+      statusText = '实时麦克风已停止',
+      error = '',
+      showToast = false
+    } = options
+
+    if (this._realtimeSessionStopping) return
+    this._realtimeSessionStopping = true
+
+    try {
+      const wasActive = !!(
+        this.data.realtimeRecording
+        || this._realtimeStarting
+        || this.data.realtimeConnecting
+        || this._realtimeSocket
+        || this._realtimePcmPlayer
+      )
+
+      this._realtimePermissionRequesting = false
+      this._realtimeStarting = false
+      this._stopRealtimeDebugUiTimer()
+
+      if (stopRecorder && this._recorderManager
+        && (this.data.realtimeRecording || this.data.realtimeConnecting || this._realtimeSocketReady || this._realtimeStarting)) {
+        // 由 session stop 主动触发的 recorder.stop，onStop 走轻量分支避免重复 close
+        this._realtimeUserStop = true
+        try {
+          this._recorderManager.stop()
+        } catch (e) {
+          this._realtimeUserStop = false
+          console.warn('[realtime-recorder] stop failed', e)
+        }
+      }
+
+      if (destroyPlayer) {
+        this._destroyRealtimePcmPlayer()
+      }
+
+      if (closeSocket) {
+        this._closeRealtimeSocket({ silent: true, byUser: !!byUser })
+      }
+
+      this._stopMicLevelVisualizer({ decay: !byUser })
+      this._clearRealtimeVisualLevels()
+
+      if (this._streamingMode === 'mic') {
+        this._streamingMode = null
+      }
+
+      if (!this._unloaded && wasActive) {
+        this.setData({
+          realtimeConnecting: false,
+          realtimeRecording: false,
+          realtimeSocketConnected: false,
+          realtimeStatusText: statusText,
+          realtimeError: error || ''
+        }, () => {
+          this._syncSourceDetailUI()
+        })
+        if (showToast && statusText) {
+          wx.showToast({
+            title: statusText.length > 20 ? statusText.slice(0, 20) : statusText,
+            icon: 'none'
+          })
+        }
+      }
+    } finally {
+      this._realtimeSessionStopping = false
     }
   },
 
   _closeRealtimeSocket(options = {}) {
-    const { silent = false } = options
+    const { silent = false, byUser = false } = options
+    if (byUser) {
+      this._realtimeSocketClosingByUser = true
+    }
     this._stopFileStreamPump()
     this._clearRealtimeParamThrottle()
     this._stopRealtimePendingSweep()
@@ -2380,12 +2589,15 @@ Page({
       try {
         this._realtimeSocket.close({
           code: 1000,
-          reason: 'user stop'
+          reason: byUser ? 'user stop' : 'session stop'
         })
       } catch (e) {
         console.warn('[realtime-ws] close failed', e)
+        this._realtimeSocketClosingByUser = false
       }
       this._realtimeSocket = null
+    } else if (byUser) {
+      this._realtimeSocketClosingByUser = false
     }
 
     this._realtimePendingFrames = null
@@ -2393,6 +2605,17 @@ Page({
     if (!silent && !this._unloaded) {
       this.setData({ realtimeSocketConnected: false })
     }
+  },
+
+  stopRealtimeMic() {
+    this._stopRealtimeSession({
+      byUser: true,
+      stopRecorder: true,
+      closeSocket: true,
+      destroyPlayer: true,
+      statusText: '实时麦克风已停止',
+      showToast: false
+    })
   },
 
   async startRealtimeMic() {
@@ -2464,33 +2687,6 @@ Page({
       this._failRealtimeConnectAttempt(
         (err && err.errMsg) ? err.errMsg : ((err && err.message) ? err.message : '实时连接失败')
       )
-    }
-  },
-
-  stopRealtimeMic() {
-    const wasRecording = this.data.realtimeRecording
-    const wasConnecting = this.data.realtimeConnecting || this._realtimeStarting
-    this._realtimePermissionRequesting = false
-    if (this._recorderManager && (this.data.realtimeRecording || this._realtimeStarting)) {
-      try {
-        this._recorderManager.stop()
-      } catch (e) {
-        console.warn('[realtime-recorder] stop failed', e)
-      }
-    }
-    this._realtimeStarting = false
-    this._destroyRealtimePcmPlayer()
-    this._closeRealtimeSocket()
-    if (!wasRecording) {
-      this._stopMicLevelVisualizer({ decay: false })
-    }
-    if (!this._unloaded && (wasConnecting || this.data.realtimeRecording)) {
-      this.setData({
-        realtimeConnecting: false,
-        realtimeRecording: false
-      }, () => {
-        this._syncSourceDetailUI()
-      })
     }
   },
 

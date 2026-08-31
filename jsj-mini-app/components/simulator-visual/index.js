@@ -551,6 +551,13 @@ Component({
     },
 
     _refreshStaticViews() {
+      // bars 不可见时跳过 electrodeBarLevels setData，避免 wave/spec/cochlea/neuro 下无效刷新
+      if (this.data.activeView !== 'bars') return
+      this._refreshBarsIfVisible()
+    },
+
+    _refreshBarsIfVisible() {
+      if (this.data.activeView !== 'bars') return
       const levels = this._getCurrentLevels()
       const flags = this._getRuntimeFlags()
       const isRealtime = !!this.properties.realtimeActive

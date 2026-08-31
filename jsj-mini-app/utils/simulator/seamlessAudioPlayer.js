@@ -227,7 +227,8 @@ function createSeamlessAudioPlayer() {
 
   async function switchSrc(url) {
     if (state.destroyed || !state.playing) return false
-    const generation = playGeneration
+    // 每次切换独立 bump，保证「最后一次选择」获胜，旧的 decode/start 全部失效
+    const generation = ++playGeneration
 
     if (state.useWebAudio && state.webCtx) {
       try {
@@ -236,14 +237,18 @@ function createSeamlessAudioPlayer() {
         startWebSource(buffer)
         return true
       } catch (err) {
+        if (generation !== playGeneration) return false
         console.warn('[seamlessAudio] WebAudio 切换失败', err)
       }
     }
+
+    if (state.destroyed || generation !== playGeneration || !state.playing) return false
 
     if (state.inner) {
       try {
         state.inner.stop()
       } catch (e) {}
+      if (state.destroyed || generation !== playGeneration || !state.playing) return false
       state.inner.src = url
       state.inner.loop = true
       state.inner.play()
