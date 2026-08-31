@@ -3,6 +3,7 @@ package com.zhs.controller;
 import com.zhs.common.NoLoginRequest;
 import com.zhs.common.TokenUtil;
 import com.zhs.common.UserContext;
+import com.zhs.exception.ServiceException;
 import com.zhs.request.auth.WxLoginReq;
 import com.zhs.response.auth.CurrentUserResp;
 import com.zhs.response.auth.WxLoginResp;
