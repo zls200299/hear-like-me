@@ -30,6 +30,11 @@ spring:
           max-idle: 8
           min-idle: 0
 
+wx:
+  mini:
+    app-id: wx747aea8e5b113bc6
+    app-secret: 5d47a6de169cc4640fe06c6d25f7aa45
+
 hear-like-me:
   storage:
     root-path: ${HLM_STORAGE_ROOT:/data/hear-like-me}
