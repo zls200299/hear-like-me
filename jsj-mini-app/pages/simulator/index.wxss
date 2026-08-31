@@ -1332,14 +1332,14 @@
 
 .feedback-export-btn {
   width: 100%;
-  min-height: 124rpx;
-  border: 3rpx solid #46eee5;
-  border-radius: 32rpx;
+  min-height: 88rpx;
+  border: 2rpx solid #46eee5;
+  border-radius: 24rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 28rpx;
-  padding: 24rpx 36rpx;
+  gap: 16rpx;
+  padding: 16rpx 24rpx;
   color: #9ffbf5;
   background:
     radial-gradient(circle at 35% 45%, rgba(26, 199, 190, 0.09), transparent 33%),
@@ -1347,7 +1347,7 @@
   box-shadow:
     0 0 0 1rpx rgba(70, 238, 229, 0.04),
     inset 0 1rpx 0 rgba(255, 255, 255, 0.025),
-    0 0 36rpx rgba(70, 238, 229, 0.06);
+    0 0 24rpx rgba(70, 238, 229, 0.06);
 }
 
 .feedback-export-btn--pressed {
@@ -1361,22 +1361,22 @@
 }
 
 .feedback-export-icon {
-  width: 62rpx;
-  height: 62rpx;
+  width: 44rpx;
+  height: 44rpx;
   flex-shrink: 0;
-  filter: drop-shadow(0 0 14rpx rgba(70, 238, 229, 0.18));
+  filter: drop-shadow(0 0 10rpx rgba(70, 238, 229, 0.18));
 }
 
 .feedback-export-label {
-  font-size: 40rpx;
+  font-size: 28rpx;
   line-height: 1.2;
-  font-weight: 800;
-  letter-spacing: 0.015em;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   text-align: center;
 }
 
 .feedback-export-helper {
-  margin-top: 22rpx;
+  margin-top: 16rpx;
   text-align: center;
   color: #8296b1;
   font-size: 24rpx;
