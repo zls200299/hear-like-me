@@ -16,6 +16,7 @@ const ICONS = {
   MICROPHONE_SM: `${ICON_BASE}/microphone-sm.svg`,
   HEADPHONES: `${ICON_BASE}/headphones.svg`,
   WAVEFORM: `${ICON_BASE}/waveform.svg`,
+  WAVEFORM_GRID: `${ICON_BASE}/waveform-grid.svg`,
   TROPHY: `${ICON_BASE}/trophy.svg`,
   BOOK_OPEN: `${ICON_BASE}/book-open.svg`,
   USER: `${ICON_BASE}/user.svg`
@@ -31,6 +32,7 @@ const ICON_NAMES = Object.freeze({
   'microphone-sm': ICONS.MICROPHONE_SM,
   headphones: ICONS.HEADPHONES,
   waveform: ICONS.WAVEFORM,
+  'waveform-grid': ICONS.WAVEFORM_GRID,
   trophy: ICONS.TROPHY,
   'book-open': ICONS.BOOK_OPEN,
   user: ICONS.USER

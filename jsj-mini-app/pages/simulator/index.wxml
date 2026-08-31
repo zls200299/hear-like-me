@@ -131,7 +131,7 @@
         <view wx:if="{{processedUiSpinning}}" class="play-btn__spinner"></view>
         <hlm-icon
           wx:else
-          name="waveform"
+          name="waveform-grid"
           size="48"
           color="{{processedUiState === 'playing' || (isAudioPlaying && playingKind === 'processed') ? '#28e0c2' : '#06141c'}}"
         />

@@ -3446,28 +3446,68 @@ Page({
   _chooseAndUpload() {
     if (this.data.taskStatus === 'uploading' || this.data.uploadUiState === 'uploading') return
 
-    wx.chooseMessageFile({
-      count: 1,
-      type: 'file',
-      extension: ['mp3', 'wav', 'm4a', 'aac'],
+    const platform = String((wx.getSystemInfoSync() || {}).platform || '').toLowerCase()
+    const isDesktop = platform === 'windows' || platform === 'mac' || platform === 'devtools'
+
+    if (isDesktop) {
+      this._openUploadFilePicker()
+      return
+    }
+
+    wx.showActionSheet({
+      itemList: ['从手机选择文件', '从聊天记录选择'],
       success: (res) => {
-        const file = res.tempFiles[0]
-        if (!file || !file.path) return
-        this._doUpload(file.path, file.name)
-      },
-      fail: (err) => {
-        const errMsg = (err && err.errMsg) ? err.errMsg : ''
-        if (errMsg.indexOf('cancel') !== -1 || errMsg.indexOf('取消') !== -1) {
-          this.setData({
-            sourceType: 'upload',
-            statusText: this.data.uploadUiState === 'success'
-              ? '音频上传成功，可以播放原声或模拟声'
-              : '已选择上传音频，请选择文件',
-            sourceHint: ''
-          }, () => {
-            this._syncSourceDetailUI()
-          })
+        if (res.tapIndex === 0) {
+          this._openUploadFilePicker({ showLocalGuide: true })
+        } else if (res.tapIndex === 1) {
+          this._openUploadFilePicker({ showLocalGuide: false })
         }
+      }
+    })
+  },
+
+  _openUploadFilePicker(options = {}) {
+    const { showLocalGuide = false } = options
+
+    const startPicker = () => {
+      wx.chooseMessageFile({
+        count: 1,
+        type: 'file',
+        extension: ['mp3', 'wav', 'm4a', 'aac'],
+        success: (res) => {
+          const file = res.tempFiles[0]
+          if (!file || !file.path) return
+          this._doUpload(file.path, file.name)
+        },
+        fail: (err) => {
+          const errMsg = (err && err.errMsg) ? err.errMsg : ''
+          if (errMsg.indexOf('cancel') !== -1 || errMsg.indexOf('取消') !== -1) {
+            this.setData({
+              sourceType: 'upload',
+              statusText: this.data.uploadUiState === 'success'
+                ? '音频上传成功，可以播放原声或模拟声'
+                : '已选择上传音频，请选择文件',
+              sourceHint: ''
+            }, () => {
+              this._syncSourceDetailUI()
+            })
+          }
+        }
+      })
+    }
+
+    if (!showLocalGuide) {
+      startPicker()
+      return
+    }
+
+    wx.showModal({
+      title: '从手机选择音频',
+      content: '请先选择「文件传输助手」，再点右下角 ＋ → 文件 → 从手机中选择 MP3 / WAV 文件。',
+      confirmText: '去选择',
+      cancelText: '取消',
+      success: (res) => {
+        if (res.confirm) startPicker()
       }
     })
   },
