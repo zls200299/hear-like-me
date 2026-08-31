@@ -316,12 +316,7 @@
   <!-- 当前模拟反馈 -->
   <view class="mid-card mid-card--feedback {{taskStatus === 'failed' ? 'mid-card--feedback-failed' : ''}}">
     <view class="feedback-card-head">
-      <view class="feedback-title-wrap">
-        <view class="feedback-title-icon">
-          <image class="feedback-title-icon__img" src="/assets/feedback/title-wave.svg" mode="aspectFit" />
-        </view>
-        <text class="feedback-card-title">当前模拟反馈</text>
-      </view>
+      <view class="mid-card__title feedback-card__title">当前模拟反馈</view>
       <view wx:if="{{feedbackLiveActive}}" class="feedback-live-pill">
         <view class="feedback-live-dot"></view>
         <text>实时分析中</text>
