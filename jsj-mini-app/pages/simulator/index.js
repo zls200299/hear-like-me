@@ -121,6 +121,9 @@ Page({
     originalAudioUrl: '',
     uploadedFileName: '',
     uploadedObjectKey: '',
+    uploadUiState: 'idle',
+    uploadUiText: '',
+    uploadErrorText: '',
     selectedSample: 'vowel',
     selectedScenario: '',
     nChannels: 8,
@@ -273,6 +276,7 @@ Page({
   _realtimeDebugStats: null,
   _processedUiGeneration: 0,
   _processedUiErrorTimer: null,
+  _uploadSourceSnapshot: null,
 
   onLoad() {
     this._audioPlayer = createSeamlessAudioPlayer()
@@ -424,10 +428,26 @@ Page({
     } else if (sourceType === 'upload') {
       icon = 'upload'
       title = '上传音频'
-      hint = '支持 MP3 / WAV 等常见格式'
       showAction = true
-      actionLabel = uploadedFileName ? '重新选择' : '选择文件'
-      actionTone = 'neutral'
+      const uploadUiState = this.data.uploadUiState || 'idle'
+      if (uploadUiState === 'uploading') {
+        hint = '请稍候，上传完成后即可试听。'
+        actionLabel = '上传中…'
+        actionTone = 'connecting'
+        actionDisabled = true
+      } else if (uploadUiState === 'success') {
+        hint = this.data.uploadUiText || '上传成功，可以试听原声或模拟声'
+        actionLabel = '重新选择'
+        actionTone = 'neutral'
+      } else if (uploadUiState === 'error') {
+        hint = '可重新选择文件后重试'
+        actionLabel = '重新选择'
+        actionTone = 'neutral'
+      } else {
+        hint = '支持 MP3 / WAV 等常见格式'
+        actionLabel = '选择文件'
+        actionTone = 'neutral'
+      }
     } else if (sourceType === 'realtime') {
       icon = 'microphone-sm'
       title = '实时麦克风'
@@ -1142,6 +1162,47 @@ Page({
       return text.substring(0, maxLen) + '…'
     }
     return text
+  },
+
+  _resolveUploadError(err) {
+    const rawParts = []
+    if (typeof err === 'string') {
+      rawParts.push(err)
+    } else if (err) {
+      rawParts.push(err.errMsg, err.message, err.errorMessage)
+      if (err.response) {
+        rawParts.push(err.response.msg, err.response.message, err.response.code)
+      }
+      if (err.data) {
+        rawParts.push(err.data.msg, err.data.message, err.data.code)
+      }
+      if (err.statusCode != null) rawParts.push(String(err.statusCode))
+      if (err.status != null) rawParts.push(String(err.status))
+    }
+
+    const raw = rawParts.filter(Boolean).join(' ').toLowerCase()
+
+    if (/timeout|超时/.test(raw)) {
+      return '上传超时，请重试'
+    }
+    if (/network|request:fail|网络/.test(raw)) {
+      return '网络连接异常，请检查网络后重试'
+    }
+    if (/size|too large|文件过大|过大/.test(raw)) {
+      return '音频文件过大，请选择较短的音频文件'
+    }
+    if (/format|decode|unsupported|格式/.test(raw)) {
+      return '暂不支持该音频格式，请尝试 MP3 或 WAV'
+    }
+    if (/\b500\b|server|服务/.test(raw)) {
+      return '上传服务暂时不可用，请稍后重试'
+    }
+
+    const fallback = this._formatErrorMessage(err)
+    if (!fallback || fallback === '未知错误') {
+      return '上传失败，请重试'
+    }
+    return fallback
   },
 
   _parseFrequencyRange(range) {
@@ -2906,20 +2967,52 @@ Page({
     if (type === 'upload') {
       this._stopAudio('已停止播放')
       this._cancelAutoRefresh()
+
+      const snap = this._uploadSourceSnapshot
+      const hasSuccess = !!(snap && snap.sourceAssetId && snap.originalAudioUrl)
+      const keepError = !hasSuccess && this.data.uploadUiState === 'error'
+
+      const nextData = {
+        sourceType: 'upload',
+        selectedScenario: '',
+        sourceHint: '',
+        isProcessing: false
+      }
+
+      if (hasSuccess) {
+        nextData.sourceAssetId = snap.sourceAssetId
+        nextData.originalAudioUrl = snap.originalAudioUrl
+        nextData.uploadedFileName = snap.uploadedFileName || ''
+        nextData.uploadedObjectKey = snap.uploadedObjectKey || ''
+        nextData.uploadUiState = 'success'
+        nextData.uploadUiText = '上传成功，可以试听原声或模拟声'
+        nextData.uploadErrorText = ''
+        nextData.taskStatus = 'ready'
+        nextData.statusText = '音频上传成功，可以播放原声或模拟声'
+        nextData.errorMessage = ''
+      } else if (keepError) {
+        nextData.uploadUiState = 'error'
+        nextData.uploadUiText = this.data.uploadUiText || '上传失败'
+        nextData.uploadErrorText = this.data.uploadErrorText || ''
+        nextData.uploadedFileName = this.data.uploadedFileName || ''
+        nextData.taskStatus = 'idle'
+        nextData.statusText = '音频上传失败，请重试'
+      } else {
+        nextData.uploadUiState = 'idle'
+        nextData.uploadUiText = ''
+        nextData.uploadErrorText = ''
+        nextData.taskStatus = 'idle'
+        nextData.statusText = '已选择上传音频，请选择文件'
+      }
+
       this._applyRuntimePatch({
         sourceType: 'upload',
-        sourceAssetId: '',
+        sourceAssetId: hasSuccess ? snap.sourceAssetId : (this.data.sourceAssetId || ''),
         selectedScenario: ''
       })
-      this.setData({
-        sourceType: 'upload',
-        sourceAssetId: '',
-        selectedScenario: '',
-        sourceHint: ''
-      }, () => {
+      this.setData(nextData, () => {
         this._syncSourceDetailUI()
       })
-      this._chooseAndUpload()
       return
     }
 
@@ -3292,7 +3385,7 @@ Page({
   },
 
   _chooseAndUpload() {
-    if (this.data.taskStatus === 'uploading') return
+    if (this.data.taskStatus === 'uploading' || this.data.uploadUiState === 'uploading') return
 
     wx.chooseMessageFile({
       count: 1,
@@ -3308,8 +3401,12 @@ Page({
         if (errMsg.indexOf('cancel') !== -1 || errMsg.indexOf('取消') !== -1) {
           this.setData({
             sourceType: 'upload',
-            statusText: '已选择上传音频，请选择文件',
+            statusText: this.data.uploadUiState === 'success'
+              ? '音频上传成功，可以播放原声或模拟声'
+              : '已选择上传音频，请选择文件',
             sourceHint: ''
+          }, () => {
+            this._syncSourceDetailUI()
           })
         }
       }
@@ -3322,25 +3419,37 @@ Page({
     }
     this._stopAudio('已停止播放')
     this._cancelAutoRefresh()
+
+    const displayName = fileName || '音频文件'
     this.setData({
       sourceType: 'upload',
       taskStatus: 'uploading',
       statusText: '正在上传音频...',
-      uploadedFileName: fileName || '',
+      uploadedFileName: displayName,
       sourceHint: '',
       isProcessing: false,
       errorMessage: '',
-      clarityDesc: ''
+      clarityDesc: '',
+      uploadUiState: 'uploading',
+      uploadUiText: `正在上传「${displayName}」…`,
+      uploadErrorText: ''
     }, () => {
       this._syncSourceDetailUI()
     })
 
     try {
       const result = await uploadAudio(filePath)
+      const successName = result.fileName || displayName
+      this._uploadSourceSnapshot = {
+        sourceAssetId: result.assetId,
+        originalAudioUrl: result.url,
+        uploadedFileName: successName,
+        uploadedObjectKey: result.objectKey
+      }
       this.setData({
         sourceAssetId: result.assetId,
         originalAudioUrl: result.url,
-        uploadedFileName: result.fileName || fileName,
+        uploadedFileName: successName,
         uploadedObjectKey: result.objectKey,
         taskNo: '',
         outputAssetId: null,
@@ -3348,19 +3457,31 @@ Page({
         processedKey: '',
         taskStatus: 'ready',
         statusText: '音频上传成功，可以播放原声或模拟声',
-        sourceHint: ''
+        sourceHint: '',
+        uploadUiState: 'success',
+        uploadUiText: '上传成功，可以试听原声或模拟声',
+        uploadErrorText: ''
       }, () => {
         this._syncRuntimeParamsFromData()
         this._invalidateProcessedResult({ keepStatus: true, autoRefresh: false })
         this._syncSourceDetailUI()
       })
+      wx.showToast({
+        title: '上传成功',
+        icon: 'success'
+      })
     } catch (err) {
       console.error(err)
+      const errorText = this._resolveUploadError(err)
       this.setData({
         taskStatus: 'idle',
         statusText: '音频上传失败，请重试',
         sourceHint: '',
-        errorMessage: ''
+        errorMessage: errorText,
+        uploadUiState: 'error',
+        uploadUiText: '上传失败',
+        uploadErrorText: errorText,
+        uploadedFileName: displayName
       }, () => {
         this._syncSourceDetailUI()
       })

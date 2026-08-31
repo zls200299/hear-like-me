@@ -35,6 +35,27 @@
 
       <view wx:if="{{realtimeError && sourceType === 'realtime'}}" class="source-detail__error">{{realtimeError}}</view>
 
+      <view wx:if="{{sourceType === 'upload'}}" class="source-detail__upload">
+        <view wx:if="{{uploadUiState === 'uploading'}}" class="source-detail__upload-row source-detail__upload-row--loading">
+          <view class="source-detail__upload-spinner"></view>
+          <text class="source-detail__upload-text">{{uploadUiText}}</text>
+        </view>
+
+        <view wx:elif="{{uploadUiState === 'success'}}" class="source-detail__upload-row source-detail__upload-row--success">
+          <text class="source-detail__upload-mark">✓</text>
+          <text class="source-detail__upload-text">{{uploadedFileName}}</text>
+        </view>
+
+        <view wx:elif="{{uploadUiState === 'error'}}" class="source-detail__upload-fail">
+          <view class="source-detail__upload-row source-detail__upload-row--error">
+            <text class="source-detail__upload-mark">!</text>
+            <text class="source-detail__upload-text">上传失败</text>
+          </view>
+          <view wx:if="{{uploadedFileName}}" class="source-detail__upload-file">{{uploadedFileName}}</view>
+          <view wx:if="{{uploadErrorText}}" class="source-detail__upload-reason">{{uploadErrorText}}</view>
+        </view>
+      </view>
+
       <view wx:if="{{sourceType === 'sample'}}" class="source-detail__samples">
         <view class="source-detail__samples-row">
           <view
