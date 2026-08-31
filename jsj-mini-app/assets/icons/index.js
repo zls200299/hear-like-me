@@ -23,7 +23,16 @@ const ICONS = {
   TAB_SIMULATOR: `${ICON_BASE}/tab-simulator.svg`,
   TAB_CHALLENGE: `${ICON_BASE}/tab-challenge.svg`,
   TAB_LEARN: `${ICON_BASE}/tab-learn.svg`,
-  TAB_PROFILE: `${ICON_BASE}/tab-profile.svg`
+  TAB_PROFILE: `${ICON_BASE}/tab-profile.svg`,
+  PROFILE_MENU_ACCOUNT: `${ICON_BASE}/profile-menu-account.svg`,
+  PROFILE_MENU_ABOUT: `${ICON_BASE}/profile-menu-about.svg`,
+  PROFILE_MENU_GUIDE: `${ICON_BASE}/profile-menu-guide.svg`,
+  PROFILE_MENU_FEEDBACK: `${ICON_BASE}/profile-menu-feedback.svg`,
+  PROFILE_MENU_PRIVACY: `${ICON_BASE}/profile-menu-privacy.svg`,
+  PROFILE_CHEVRON_RIGHT: `${ICON_BASE}/profile-chevron-right.svg`,
+  PROFILE_HEART: `${ICON_BASE}/profile-heart.svg`,
+  PROFILE_AVATAR_PLACEHOLDER: `${ICON_BASE}/profile-avatar-placeholder.svg`,
+  PROFILE_WECHAT: `${ICON_BASE}/profile-wechat.svg`
 }
 
 const ICON_NAMES = Object.freeze({
@@ -43,7 +52,14 @@ const ICON_NAMES = Object.freeze({
   'tab-simulator': ICONS.TAB_SIMULATOR,
   'tab-challenge': ICONS.TAB_CHALLENGE,
   'tab-learn': ICONS.TAB_LEARN,
-  'tab-profile': ICONS.TAB_PROFILE
+  'tab-profile': ICONS.TAB_PROFILE,
+  'profile-menu-account': ICONS.PROFILE_MENU_ACCOUNT,
+  'profile-menu-about': ICONS.PROFILE_MENU_ABOUT,
+  'profile-menu-guide': ICONS.PROFILE_MENU_GUIDE,
+  'profile-menu-feedback': ICONS.PROFILE_MENU_FEEDBACK,
+  'profile-menu-privacy': ICONS.PROFILE_MENU_PRIVACY,
+  'profile-chevron-right': ICONS.PROFILE_CHEVRON_RIGHT,
+  'profile-heart': ICONS.PROFILE_HEART
 })
 
 function resolveIconPath(name) {

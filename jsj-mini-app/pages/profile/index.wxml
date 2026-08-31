@@ -1,57 +1,120 @@
-<view class="page safe-bottom profile-page page-with-bg">
+<view class="profile-page page-with-bg safe-bottom">
   <image class="page-bg" src="/assets/my-bg.png" mode="widthFix" aria-hidden="true" />
-  <view class="page-content">
-  <view class="page-title">我的</view>
-  <view class="page-desc">管理账号、查看处理历史，了解项目与隐私说明。</view>
+  <view class="profile-grid" aria-hidden="true"></view>
 
-  <view class="card profile-card" wx:if="{{loggedIn}}">
-    <view class="profile-header">
-      <image class="profile-avatar" src="{{avatarUrl || defaultAvatar}}" mode="aspectFill" />
-      <view class="profile-meta">
-        <view class="profile-name">{{nickname || '微信用户'}}</view>
-        <view class="profile-id">ID {{userId}}</view>
-      </view>
+  <view class="page-content profile-content">
+    <view class="profile-brand">
+      <view class="profile-brand__title">hear like me</view>
+      <view class="profile-brand__sub">像我一样聆听——一款关于听觉、声码器和理解的教育工具</view>
     </view>
-    <button class="btn-outline" bindtap="onLogout" loading="{{loggingOut}}" disabled="{{loggingOut}}">
-      退出登录
-    </button>
-  </view>
 
-  <view class="card login-card" wx:else>
-    <view class="card-title">微信登录</view>
-    <view class="card-desc">选择头像、填写昵称后登录，用于保存你的模拟记录。</view>
-
-    <view class="login-form">
-      <button class="avatar-picker" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+    <view class="profile-card profile-login-card">
+      <button
+        wx:if="{{!loggedIn}}"
+        class="profile-avatar-btn"
+        open-type="chooseAvatar"
+        bindchooseavatar="onChooseAvatar"
+      >
+        <view class="profile-avatar">
+          <image
+            wx:if="{{avatarUrl}}"
+            class="profile-avatar__image"
+            src="{{avatarUrl}}"
+            mode="aspectFill"
+          />
+          <image
+            wx:else
+            class="profile-avatar__placeholder"
+            src="/assets/icons/profile-avatar-placeholder.svg"
+            mode="aspectFit"
+          />
+        </view>
+      </button>
+      <view wx:else class="profile-avatar">
         <image
-          class="avatar-picker__image"
+          class="profile-avatar__image"
           src="{{avatarUrl || defaultAvatar}}"
           mode="aspectFill"
         />
-        <view class="avatar-picker__hint">点击选择头像</view>
-      </button>
+      </view>
 
-      <view class="nickname-field">
-        <view class="field-label">昵称</view>
-        <input
-          class="nickname-input"
-          type="nickname"
-          placeholder="请输入昵称"
-          value="{{nickname}}"
-          bindinput="onNicknameInput"
-          maxlength="32"
-        />
+      <view class="profile-login-text">
+        <view class="profile-login-title">{{loggedIn ? (nickname || '微信用户') : '未登录'}}</view>
+        <view class="profile-login-sub">
+          {{loggedIn ? ('ID ' + userId) : '登录后同步您的设置与数据'}}
+        </view>
       </view>
 
       <button
-        class="btn-primary"
-        bindtap="onLogin"
+        wx:if="{{!loggedIn}}"
+        class="profile-wechat-btn"
+        bindtap="onWechatLoginTap"
         loading="{{loggingIn}}"
         disabled="{{loggingIn}}"
       >
-        微信授权登录
+        <image class="profile-wechat-btn__icon" src="/assets/icons/profile-wechat.svg" mode="aspectFit" />
+        <text>微信登录</text>
+      </button>
+      <button
+        wx:else
+        class="profile-wechat-btn profile-wechat-btn--outline"
+        bindtap="onLogout"
+        loading="{{loggingOut}}"
+        disabled="{{loggingOut}}"
+      >
+        <text>退出登录</text>
       </button>
     </view>
+
+    <view class="profile-card profile-menu">
+      <view
+        wx:for="{{menuItems}}"
+        wx:key="key"
+        class="profile-menu-row"
+        data-key="{{item.key}}"
+        bindtap="onMenuTap"
+      >
+        <view class="profile-menu-icon">
+          <hlm-icon name="{{item.icon}}" size="66" color="#2ac2d1" />
+        </view>
+        <view class="profile-menu-label">{{item.label}}</view>
+        <hlm-icon class="profile-menu-chevron" name="profile-chevron-right" size="42" color="#a2afc4" />
+      </view>
+    </view>
+
+    <view class="profile-card profile-public-card">
+      <hlm-icon class="profile-public-heart" name="profile-heart" size="74" color="#2ac2d1" />
+      <view class="profile-public-text">
+        <view class="profile-public-title">公益说明</view>
+        <view class="profile-public-sub">本项目用于听觉科普与教育体验，不代表真实医疗效果。</view>
+      </view>
+    </view>
   </view>
+
+  <view wx:if="{{loginSheetVisible}}" class="profile-login-sheet">
+    <view class="profile-login-sheet__mask" bindtap="onCloseLoginSheet"></view>
+    <view class="profile-login-sheet__panel">
+      <view class="profile-login-sheet__title">完善登录信息</view>
+      <view class="profile-login-sheet__desc">请选择头像并填写昵称后完成微信登录</view>
+      <button class="profile-login-sheet__avatar" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+        <image
+          class="profile-login-sheet__avatar-img"
+          src="{{avatarUrl || '/assets/icons/profile-avatar-placeholder.svg'}}"
+          mode="aspectFill"
+        />
+        <text class="profile-login-sheet__avatar-hint">点击选择头像</text>
+      </button>
+      <input
+        class="profile-login-sheet__input"
+        type="nickname"
+        placeholder="请输入昵称"
+        value="{{nickname}}"
+        bindinput="onNicknameInput"
+        maxlength="32"
+      />
+      <button class="profile-login-sheet__confirm" bindtap="onLogin" loading="{{loggingIn}}" disabled="{{loggingIn}}">
+        确认登录
+      </button>
+    </view>
   </view>
 </view>

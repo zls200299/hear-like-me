@@ -6,7 +6,15 @@ const {
   logout
 } = require('../../services/auth.js')
 
-const DEFAULT_AVATAR = '/assets/icons/user.svg'
+const { ICONS } = require('../../assets/icons/index.js')
+
+const MENU_ITEMS = [
+  { key: 'account', icon: 'profile-menu-account', label: '账号信息' },
+  { key: 'about', icon: 'profile-menu-about', label: '关于项目' },
+  { key: 'guide', icon: 'profile-menu-guide', label: '使用说明' },
+  { key: 'feedback', icon: 'profile-menu-feedback', label: '意见反馈' },
+  { key: 'privacy', icon: 'profile-menu-privacy', label: '隐私说明' }
+]
 
 Page({
   data: {
@@ -14,9 +22,11 @@ Page({
     userId: '',
     nickname: '',
     avatarUrl: '',
-    defaultAvatar: DEFAULT_AVATAR,
+    defaultAvatar: ICONS.PROFILE_AVATAR_PLACEHOLDER,
     loggingIn: false,
-    loggingOut: false
+    loggingOut: false,
+    loginSheetVisible: false,
+    menuItems: MENU_ITEMS
   },
 
   onShow() {
@@ -50,9 +60,7 @@ Page({
           avatarUrl: user.avatar || this.data.avatarUrl
         })
       })
-      .catch(() => {
-        // 401 等由 request 层处理
-      })
+      .catch(() => {})
   },
 
   onChooseAvatar(e) {
@@ -65,6 +73,16 @@ Page({
     this.setData({
       nickname: (e.detail && e.detail.value) || ''
     })
+  },
+
+  onWechatLoginTap() {
+    if (this.data.loggedIn || this.data.loggingIn) return
+    this.setData({ loginSheetVisible: true })
+  },
+
+  onCloseLoginSheet() {
+    if (this.data.loggingIn) return
+    this.setData({ loginSheetVisible: false })
   },
 
   onLogin() {
@@ -87,7 +105,8 @@ Page({
           userId: userInfo.userId || '',
           nickname: userInfo.nickname || nickname,
           avatarUrl: userInfo.avatar || this.data.avatarUrl,
-          loggingIn: false
+          loggingIn: false,
+          loginSheetVisible: false
         })
         wx.showToast({ title: '登录成功', icon: 'success' })
       })
@@ -105,18 +124,40 @@ Page({
 
     this.setData({ loggingOut: true })
     logout()
-      .catch(() => {
-        // 即使接口失败也清本地态
-      })
+      .catch(() => {})
       .finally(() => {
         this.setData({
           loggedIn: false,
           userId: '',
           nickname: '',
           avatarUrl: '',
-          loggingOut: false
+          loggingOut: false,
+          loginSheetVisible: false
         })
         wx.showToast({ title: '已退出登录', icon: 'none' })
       })
+  },
+
+  onMenuTap(e) {
+    const key = e.currentTarget.dataset && e.currentTarget.dataset.key
+    if (key === 'account') {
+      if (!this.data.loggedIn) {
+        this.onWechatLoginTap()
+        return
+      }
+      wx.showToast({ title: '账号信息开发中', icon: 'none' })
+      return
+    }
+
+    const labels = {
+      about: '关于项目',
+      guide: '使用说明',
+      feedback: '意见反馈',
+      privacy: '隐私说明'
+    }
+    wx.showToast({
+      title: `${labels[key] || '功能'}开发中`,
+      icon: 'none'
+    })
   }
 })

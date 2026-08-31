@@ -1,5 +1,8 @@
 {
   "navigationBarTitleText": "我的",
-  "navigationBarBackgroundColor": "#07111f",
-  "usingComponents": {}
+  "navigationBarBackgroundColor": "#071521",
+  "navigationBarTextStyle": "white",
+  "usingComponents": {
+    "hlm-icon": "/components/hlm-icon/index"
+  }
 }

@@ -1,121 +1,316 @@
 .profile-page {
   min-height: 100vh;
+  background-color: #071521;
 }
 
-.profile-card,
-.login-card {
-  margin-top: 24rpx;
+.profile-page.page-with-bg {
+  padding-bottom: calc(108rpx + env(safe-area-inset-bottom));
 }
 
-.profile-header {
-  display: flex;
-  align-items: center;
-  gap: 24rpx;
-  margin-bottom: 28rpx;
+.profile-page .page-content {
+  padding: 28rpx 44rpx 0;
 }
 
-.profile-avatar {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  border: 2rpx solid rgba(53, 208, 186, 0.35);
+.profile-grid {
+  position: absolute;
+  top: 120rpx;
+  left: 0;
+  right: 0;
+  height: 700rpx;
+  opacity: 0.23;
+  pointer-events: none;
+  z-index: 1;
+  background-image:
+    linear-gradient(rgba(55, 106, 133, 0.2) 1rpx, transparent 1rpx),
+    linear-gradient(90deg, rgba(55, 106, 133, 0.18) 1rpx, transparent 1rpx);
+  background-size: 76rpx 76rpx;
 }
 
-.profile-meta {
-  flex: 1;
-  min-width: 0;
+.profile-content {
+  position: relative;
+  z-index: 2;
 }
 
-.profile-name {
-  font-size: 34rpx;
-  font-weight: 600;
-  color: #EAF2FF;
-  margin-bottom: 8rpx;
+.profile-brand {
+  padding: 18rpx 12rpx 0;
+  min-height: 332rpx;
 }
 
-.profile-id {
-  font-size: 24rpx;
-  color: #8FA3C1;
-}
-
-.login-form {
+.profile-brand__title {
   margin-top: 28rpx;
+  font-size: 84rpx;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: -3.4rpx;
+  color: #f5f7fb;
 }
 
-.avatar-picker {
+.profile-brand__sub {
+  margin-top: 34rpx;
+  font-size: 30rpx;
+  line-height: 1.55;
+  letter-spacing: 0.4rpx;
+  color: #b7c0d1;
+}
+
+.profile-card {
+  border: 3.2rpx solid rgba(121, 146, 180, 0.24);
+  background: linear-gradient(180deg, rgba(18, 34, 56, 0.94), rgba(14, 29, 48, 0.94));
+  border-radius: 36rpx;
+  box-shadow: inset 0 0 0 1rpx rgba(255, 255, 255, 0.015);
+}
+
+.profile-login-card {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  width: 100%;
-  padding: 32rpx 24rpx;
-  margin: 0 0 28rpx;
-  border-radius: 20rpx;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1rpx dashed rgba(53, 208, 186, 0.35);
-  line-height: 1.4;
+  min-height: 284rpx;
+  padding: 40rpx 46rpx 38rpx 40rpx;
+  margin-bottom: 44rpx;
 }
 
-.avatar-picker::after {
+.profile-avatar-btn {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.profile-avatar-btn::after {
   border: none;
 }
 
-.avatar-picker__image {
-  width: 128rpx;
-  height: 128rpx;
+.profile-avatar {
+  width: 164rpx;
+  height: 164rpx;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 28%, rgba(112, 137, 171, 0.28), transparent 48%),
+    linear-gradient(180deg, #1a2940, #111e31);
+  border: 4rpx solid rgba(114, 139, 173, 0.35);
 }
 
-.avatar-picker__hint {
+.profile-avatar__placeholder {
+  width: 118rpx;
+  height: 118rpx;
+}
+
+.profile-avatar__image {
+  width: 100%;
+  height: 100%;
+}
+
+.profile-login-text {
+  flex: 1;
+  min-width: 0;
+  margin: 0 24rpx 0 36rpx;
+}
+
+.profile-login-title {
+  font-size: 50rpx;
+  font-weight: 700;
+  letter-spacing: 0.6rpx;
+  margin-bottom: 20rpx;
+  color: #f5f7fb;
+}
+
+.profile-login-sub {
+  color: #9cabc1;
+  font-size: 30rpx;
+  line-height: 1.4;
+}
+
+.profile-wechat-btn {
+  flex-shrink: 0;
+  height: 96rpx;
+  min-width: 272rpx;
+  padding: 0 34rpx;
+  margin: 0;
+  border: 3.6rpx solid rgba(42, 233, 218, 0.75);
+  border-radius: 76rpx;
+  color: #fff;
+  background: linear-gradient(180deg, #27c8ce, #23b5c8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 26rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: 0 0 50rpx rgba(37, 203, 205, 0.13);
+}
+
+.profile-wechat-btn::after {
+  border: none;
+}
+
+.profile-wechat-btn--outline {
+  min-width: 220rpx;
+  background: transparent;
+  color: #2bd8ca;
+  box-shadow: none;
+}
+
+.profile-wechat-btn__icon {
+  width: 46rpx;
+  height: 46rpx;
+  flex-shrink: 0;
+}
+
+.profile-menu {
+  overflow: hidden;
+  margin-bottom: 44rpx;
+}
+
+.profile-menu-row {
+  height: 148rpx;
+  display: flex;
+  align-items: center;
+  padding: 0 36rpx 0 46rpx;
+  border-bottom: 2rpx solid rgba(119, 144, 176, 0.16);
+}
+
+.profile-menu-row:last-child {
+  border-bottom: none;
+}
+
+.profile-menu-icon {
+  width: 104rpx;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.profile-menu-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 38rpx;
+  font-weight: 500;
+  letter-spacing: 0.8rpx;
+  color: #f5f7fb;
+}
+
+.profile-menu-chevron {
+  flex-shrink: 0;
+}
+
+.profile-public-card {
+  min-height: 192rpx;
+  display: flex;
+  align-items: center;
+  gap: 30rpx;
+  padding: 36rpx 46rpx;
+  margin-bottom: 24rpx;
+}
+
+.profile-public-heart {
+  flex-shrink: 0;
+}
+
+.profile-public-title {
+  font-size: 38rpx;
+  margin-bottom: 8rpx;
+  color: #f5f7fb;
+}
+
+.profile-public-sub {
+  font-size: 26rpx;
+  color: #a0adc1;
+  line-height: 1.55;
+}
+
+.profile-login-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+
+.profile-login-sheet__mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 10, 18, 0.72);
+}
+
+.profile-login-sheet__panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 40rpx 44rpx calc(40rpx + env(safe-area-inset-bottom));
+  border-radius: 36rpx 36rpx 0 0;
+  background: linear-gradient(180deg, #122238, #0e1d30);
+  border-top: 2rpx solid rgba(121, 146, 180, 0.24);
+}
+
+.profile-login-sheet__title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #f5f7fb;
+}
+
+.profile-login-sheet__desc {
+  margin-top: 12rpx;
+  font-size: 26rpx;
+  color: #9cabc1;
+  line-height: 1.5;
+}
+
+.profile-login-sheet__avatar {
+  margin: 32rpx auto 0;
+  padding: 0;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.4;
+}
+
+.profile-login-sheet__avatar::after {
+  border: none;
+}
+
+.profile-login-sheet__avatar-img {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 4rpx solid rgba(114, 139, 173, 0.35);
+}
+
+.profile-login-sheet__avatar-hint {
   margin-top: 16rpx;
   font-size: 24rpx;
-  color: #8FA3C1;
+  color: #8fa3c1;
 }
 
-.nickname-field {
-  margin-bottom: 28rpx;
-}
-
-.field-label {
-  font-size: 24rpx;
-  color: #8FA3C1;
-  margin-bottom: 12rpx;
-}
-
-.nickname-input {
+.profile-login-sheet__input {
+  margin-top: 28rpx;
   height: 88rpx;
   padding: 0 24rpx;
   border-radius: 16rpx;
   background: rgba(255, 255, 255, 0.06);
-  border: 1rpx solid rgba(255, 255, 255, 0.1);
-  color: #EAF2FF;
+  border: 2rpx solid rgba(255, 255, 255, 0.1);
+  color: #eaf2ff;
   font-size: 28rpx;
 }
 
-.btn-primary,
-.btn-outline {
-  width: 100%;
+.profile-login-sheet__confirm {
+  margin-top: 28rpx;
   height: 88rpx;
   line-height: 88rpx;
   border-radius: 44rpx;
+  background: linear-gradient(180deg, #27c8ce, #23b5c8);
+  color: #fff;
   font-size: 30rpx;
   font-weight: 600;
 }
 
-.btn-primary {
-  background: linear-gradient(135deg, #35D0BA 0%, #2BB3A0 100%);
-  color: #0B1020;
-}
-
-.btn-primary::after,
-.btn-outline::after {
+.profile-login-sheet__confirm::after {
   border: none;
-}
-
-.btn-outline {
-  background: transparent;
-  color: #35D0BA;
-  border: 1rpx solid rgba(53, 208, 186, 0.45);
 }
