@@ -1196,15 +1196,15 @@
 
 .feedback-main {
   display: grid;
-  grid-template-columns: 284rpx minmax(0, 1fr);
-  gap: 40rpx;
+  grid-template-columns: 240rpx minmax(0, 1fr);
+  gap: 28rpx;
   align-items: center;
 }
 
 .feedback-score-gauge {
   position: relative;
-  width: 284rpx;
-  height: 284rpx;
+  width: 240rpx;
+  height: 240rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1227,7 +1227,7 @@
 .feedback-score-num {
   display: block;
   color: #46eee5;
-  font-size: 96rpx;
+  font-size: 80rpx;
   line-height: 0.88;
   font-weight: 850;
   letter-spacing: -0.04em;
@@ -1236,9 +1236,9 @@
 
 .feedback-score-total {
   display: block;
-  margin-top: 26rpx;
+  margin-top: 20rpx;
   color: #aebbd0;
-  font-size: 36rpx;
+  font-size: 30rpx;
   line-height: 1;
   font-weight: 600;
 }
@@ -1250,57 +1250,64 @@
 .feedback-grade {
   display: flex;
   align-items: center;
-  gap: 20rpx;
+  gap: 16rpx;
   color: #d8fff9;
-  font-size: 44rpx;
+  font-size: 36rpx;
   font-weight: 800;
-  line-height: 1.15;
+  line-height: 1.2;
 }
 
 .feedback-grade-icon {
-  width: 62rpx;
-  height: 62rpx;
+  width: 52rpx;
+  height: 52rpx;
   flex-shrink: 0;
 }
 
 .feedback-text {
-  margin-top: 24rpx;
+  margin-top: 16rpx;
   color: #92a5bf;
-  font-size: 26rpx;
-  line-height: 1.6;
+  font-size: 24rpx;
+  line-height: 1.55;
 }
 
 .feedback-chips {
-  margin-top: 32rpx;
+  margin-top: 28rpx;
 }
 
 .feedback-chips--grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16rpx;
+  gap: 12rpx;
 }
 
 .feedback-chip {
   min-width: 0;
-  height: 78rpx;
+  min-height: 72rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12rpx;
-  padding: 0 16rpx;
+  gap: 8rpx;
+  padding: 12rpx 10rpx;
+  box-sizing: border-box;
   border: 1rpx solid #1b4568;
   border-radius: 22rpx;
   background: linear-gradient(180deg, rgba(6, 24, 43, 0.92), rgba(5, 18, 33, 0.96));
   color: #b7c6db;
-  font-size: 23rpx;
-  white-space: nowrap;
-  overflow: hidden;
 }
 
 .feedback-chip-icon {
-  width: 38rpx;
-  height: 38rpx;
+  width: 28rpx;
+  height: 28rpx;
   flex-shrink: 0;
+}
+
+.feedback-chip-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 20rpx;
+  line-height: 1.25;
+  text-align: center;
+  word-break: break-all;
 }
 
 .feedback-loading {

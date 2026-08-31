@@ -343,21 +343,21 @@
           <text>{{clarityGrade || '参数估算'}}</text>
         </view>
         <view class="feedback-text">{{clarityDesc}}</view>
+      </view>
+    </view>
 
-        <view class="feedback-chips feedback-chips--grid">
-          <view class="feedback-chip">
-            <image class="feedback-chip-icon" src="/assets/feedback/chip-channels.svg" mode="aspectFit" />
-            <text>通道 {{nChannels}}</text>
-          </view>
-          <view class="feedback-chip">
-            <image class="feedback-chip-icon" src="/assets/feedback/chip-carrier.svg" mode="aspectFit" />
-            <text>{{feedbackCarrierLabel}}</text>
-          </view>
-          <view class="feedback-chip">
-            <image class="feedback-chip-icon" src="/assets/feedback/chip-freq.svg" mode="aspectFit" />
-            <text>{{frequencyRange}} Hz</text>
-          </view>
-        </view>
+    <view class="feedback-chips feedback-chips--grid">
+      <view class="feedback-chip">
+        <image class="feedback-chip-icon" src="/assets/feedback/chip-channels.svg" mode="aspectFit" />
+        <text class="feedback-chip-text">通道 {{nChannels}}</text>
+      </view>
+      <view class="feedback-chip">
+        <image class="feedback-chip-icon" src="/assets/feedback/chip-carrier.svg" mode="aspectFit" />
+        <text class="feedback-chip-text">{{feedbackCarrierLabel}}</text>
+      </view>
+      <view class="feedback-chip">
+        <image class="feedback-chip-icon" src="/assets/feedback/chip-freq.svg" mode="aspectFit" />
+        <text class="feedback-chip-text">{{frequencyRange}} Hz</text>
       </view>
     </view>
 
