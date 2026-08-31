@@ -18,6 +18,9 @@ const REALTIME_PARAM_THROTTLE_MS = 120
 const REALTIME_PARAM_SUPERSEDED = 'PARAM_SUPERSEDED'
 const DEBUG_UI_INTERVAL_MS = 300
 const FILE_STREAM_FRAME_MS = 60
+const CHANNEL_RAMP_INTERVAL_MS = 200
+const CHANNEL_MIN = 1
+const CHANNEL_MAX = 22
 const FILE_STREAM_MAX_PENDING_FRAMES = 5
 const FILE_STREAM_BOOTSTRAP_FRAMES = 3
 const PROCESSED_UI_ERROR_HOLD_MS = 5000
@@ -181,7 +184,7 @@ Page({
     feedbackCarrierLabel: '噪声载体',
     exportAudioState: 'idle',
     exportAudioBtnLabel: '导出当前音频（WAV）',
-    exportAudioHelperText: '生成后可保存到手机',
+    exportAudioHelperText: '生成后将打开预览，可用其他应用保存',
     exportAudioErrorText: '',
     exportAudioSavedKey: '',
     exportAudioDisabled: true,
@@ -289,6 +292,8 @@ Page({
   _processedUiGeneration: 0,
   _processedUiErrorTimer: null,
   _uploadSourceSnapshot: null,
+  _channelTarget: null,
+  _channelRampTimer: null,
 
   onLoad() {
     this._audioPlayer = createSeamlessAudioPlayer()
@@ -318,6 +323,7 @@ Page({
 
   onHide() {
     if (this._unloaded) return
+    this._clearChannelRampTimer()
 
     if (this.data.realtimeRecording || this._realtimeStarting || this.data.realtimeConnecting) {
       this.stopRealtimeMic()
@@ -343,6 +349,7 @@ Page({
   onUnload() {
     this._unloaded = true
     this._exportGeneration += 1
+    this._clearChannelRampTimer()
     this._clearProcessedUiErrorTimer()
     this._stopRealtimeDebugUiTimer()
     this._clearRealtimeConnectTimeout()
@@ -1017,7 +1024,7 @@ Page({
       exportAudioState: state
     })
     let btnLabel = '导出当前音频（WAV）'
-    let helperText = '生成后可保存到手机'
+    let helperText = '生成后将打开预览，可用其他应用保存'
     let disabled = !canExport
 
     if (state === 'exporting') {
@@ -1025,8 +1032,8 @@ Page({
       helperText = '正在按当前参数生成完整模拟音频…'
       disabled = true
     } else if (state === 'success') {
-      btnLabel = '已保存'
-      helperText = 'WAV 音频已保存到本地'
+      btnLabel = '已导出'
+      helperText = '已打开预览，可用右上角菜单保存到手机'
     } else if (state === 'error') {
       helperText = overrides.exportAudioErrorText || this.data.exportAudioErrorText || '导出失败，请重试'
     }
@@ -1055,8 +1062,12 @@ Page({
   _resolveExportErrorMessage(stage) {
     if (stage === 'generate') return '模拟音频生成失败，请重试'
     if (stage === 'download') return '音频下载失败，请检查网络后重试'
-    if (stage === 'save') return '音频保存失败，请重试'
+    if (stage === 'open') return '音频打开失败，请重试'
     return '导出失败，请重试'
+  },
+
+  _buildExportFilePath() {
+    return `${wx.env.USER_DATA_PATH}/hear-like-me-export-${Date.now()}.wav`
   },
 
   _buildTaskPayloadFromSnapshot(snapshot, sourceAssetId) {
@@ -1211,7 +1222,7 @@ Page({
     }
   },
 
-  _downloadAndSaveExportFile(url, generation) {
+  _downloadAndOpenExportFile(url, generation) {
     return new Promise((resolve, reject) => {
       wx.downloadFile({
         url,
@@ -1224,17 +1235,36 @@ Page({
             reject(new Error('EXPORT_DOWNLOAD_FAILED'))
             return
           }
-          wx.saveFile({
-            tempFilePath: res.tempFilePath,
-            success: (saveRes) => {
+
+          const destPath = this._buildExportFilePath()
+          const fs = wx.getFileSystemManager()
+          fs.copyFile({
+            srcPath: res.tempFilePath,
+            destPath,
+            success: () => {
               if (generation !== this._exportGeneration) {
                 reject(new Error('EXPORT_CANCELLED'))
                 return
               }
-              resolve(saveRes)
+              wx.openDocument({
+                filePath: destPath,
+                showMenu: true,
+                success: () => {
+                  if (generation !== this._exportGeneration) {
+                    reject(new Error('EXPORT_CANCELLED'))
+                    return
+                  }
+                  resolve({ filePath: destPath })
+                },
+                fail: (err) => {
+                  console.warn('[export-audio] openDocument failed', err)
+                  reject(new Error('EXPORT_OPEN_FAILED'))
+                }
+              })
             },
-            fail: () => {
-              reject(new Error('EXPORT_SAVE_FAILED'))
+            fail: (err) => {
+              console.warn('[export-audio] copyFile failed', err)
+              reject(new Error('EXPORT_OPEN_FAILED'))
             }
           })
         },
@@ -1274,7 +1304,7 @@ Page({
         throw new Error('EXPORT_GENERATE_FAILED')
       }
 
-      await this._downloadAndSaveExportFile(result.processedAudioUrl, generation)
+      await this._downloadAndOpenExportFile(result.processedAudioUrl, generation)
       if (generation !== this._exportGeneration) return
 
       this.setData({
@@ -1284,7 +1314,7 @@ Page({
         ...this._buildExportAudioUiPatch({ exportAudioState: 'success' })
       })
       wx.showToast({
-        title: '保存成功',
+        title: '已打开预览',
         icon: 'success'
       })
     } catch (err) {
@@ -1294,8 +1324,8 @@ Page({
       let stage = 'generate'
       if (err && err.message === 'EXPORT_DOWNLOAD_FAILED') {
         stage = 'download'
-      } else if (err && err.message === 'EXPORT_SAVE_FAILED') {
-        stage = 'save'
+      } else if (err && err.message === 'EXPORT_OPEN_FAILED') {
+        stage = 'open'
       }
 
       const errorText = this._resolveExportErrorMessage(stage)
@@ -3344,6 +3374,7 @@ Page({
 
   selectSource(e) {
     this._ensurePageState()
+    this._clearChannelRampTimer()
     const type = e.currentTarget.dataset.type
 
     if (this._fileStreamActive || this._fileStreamStarting) {
@@ -3590,6 +3621,8 @@ Page({
     const preset = this._getScenarioPreset(code)
     if (!preset) return
 
+    this._clearChannelRampTimer()
+
     const scenarioItem = this.data.scenarioList.find((item) => item.code === code)
     const scenarioName = scenarioItem ? scenarioItem.name : code
 
@@ -3619,49 +3652,102 @@ Page({
     })
   },
 
+  _clampChannels(value) {
+    const n = Math.round(Number(value))
+    if (!Number.isFinite(n)) return CHANNEL_MIN
+    return Math.max(CHANNEL_MIN, Math.min(CHANNEL_MAX, n))
+  },
+
+  _clearChannelRampTimer() {
+    if (this._channelRampTimer) {
+      clearInterval(this._channelRampTimer)
+      this._channelRampTimer = null
+    }
+    this._channelTarget = null
+  },
+
+  _applyChannelUi(value, options = {}) {
+    const nChannels = this._clampChannels(value)
+    const { statusText = '', commit = false } = options
+    this._applyRuntimePatch({ nChannels, selectedScenario: '' })
+    this._updateElectrodeDots(nChannels)
+    const patch = {
+      nChannels,
+      selectedScenario: '',
+      channelSliderPct: this._sliderPct(nChannels, CHANNEL_MIN, CHANNEL_MAX)
+    }
+    if (statusText) {
+      patch.statusText = statusText
+    }
+    this.setData(patch, () => {
+      if (commit) {
+        this._invalidateProcessedResult()
+        this._flushRealtimeParamUpdate()
+      } else {
+        this._refreshVisualFeedback()
+      }
+    })
+    return nChannels
+  },
+
+  _tickChannelRamp() {
+    if (this._unloaded || this._channelTarget == null) {
+      this._clearChannelRampTimer()
+      return
+    }
+
+    const target = this._clampChannels(this._channelTarget)
+    const current = this._clampChannels(this.data.nChannels)
+    if (current === target) {
+      this._clearChannelRampTimer()
+      return
+    }
+
+    const next = current < target ? current + 1 : current - 1
+    this._applyChannelUi(next)
+    if (next === target) {
+      this._clearChannelRampTimer()
+    }
+  },
+
+  _startChannelRamp(targetChannels) {
+    this._channelTarget = this._clampChannels(targetChannels)
+    if (this._channelRampTimer) return
+    this._channelRampTimer = setInterval(() => {
+      this._tickChannelRamp()
+    }, CHANNEL_RAMP_INTERVAL_MS)
+    this._tickChannelRamp()
+  },
+
   onChannelsChanging(e) {
     const value = Number(e.detail.value)
     if (!Number.isFinite(value)) return
-    this._applyRuntimePatch({ nChannels: value, selectedScenario: '' })
-    this._updateElectrodeDots(value)
-    this.setData({
-      nChannels: value,
-      selectedScenario: '',
-      channelSliderPct: this._sliderPct(value, 1, 22)
-    }, () => {
-      this._refreshVisualFeedback()
-    })
+    // 拖动中只记录目标并软限速推进 UI，不发送 realtime PARAM_UPDATE
+    this._startChannelRamp(value)
   },
 
   changeChannels(e) {
     const value = Number(e.detail.value)
     if (!Number.isFinite(value)) return
-    this._applyRuntimePatch({ nChannels: value, selectedScenario: '' })
-    this._updateElectrodeDots(value)
-    this.setData({
-      nChannels: value,
-      selectedScenario: '',
-      channelSliderPct: this._sliderPct(value, 1, 22),
-      statusText: `已设置 ${value} 通道`
-    }, () => {
-      this._invalidateProcessedResult()
-      this._flushRealtimeParamUpdate()
+    // 松手：停止软限速，立即落到用户最终目标，并只发送一次 PARAM_UPDATE
+    const target = this._clampChannels(
+      this._channelTarget != null ? this._channelTarget : value
+    )
+    this._clearChannelRampTimer()
+    this._applyChannelUi(target, {
+      statusText: `已设置 ${target} 通道`,
+      commit: true
     })
   },
 
   quickSetChannels(e) {
     const value = Number(e.currentTarget.dataset.value)
     if (!Number.isFinite(value)) return
-    this._applyRuntimePatch({ nChannels: value, selectedScenario: '' })
-    this._updateElectrodeDots(value)
-    this.setData({
-      nChannels: value,
-      selectedScenario: '',
-      channelSliderPct: this._sliderPct(value, 1, 22),
-      statusText: `已设置 ${value} 通道`
-    }, () => {
-      this._invalidateProcessedResult()
-      this._maybeSendRealtimeParams()
+    const target = this._clampChannels(value)
+    this._clearChannelRampTimer()
+    this._applyChannelUi(target, {
+      statusText: `已设置 ${target} 通道`,
+      commit: true
     })
   },
 
@@ -3780,68 +3866,28 @@ Page({
   _chooseAndUpload() {
     if (this.data.taskStatus === 'uploading' || this.data.uploadUiState === 'uploading') return
 
-    const platform = String((wx.getSystemInfoSync() || {}).platform || '').toLowerCase()
-    const isDesktop = platform === 'windows' || platform === 'mac' || platform === 'devtools'
-
-    if (isDesktop) {
-      this._openUploadFilePicker()
-      return
-    }
-
-    wx.showActionSheet({
-      itemList: ['从手机选择文件', '从聊天记录选择'],
+    wx.chooseMessageFile({
+      count: 1,
+      type: 'file',
+      extension: ['mp3', 'wav', 'm4a', 'aac'],
       success: (res) => {
-        if (res.tapIndex === 0) {
-          this._openUploadFilePicker({ showLocalGuide: true })
-        } else if (res.tapIndex === 1) {
-          this._openUploadFilePicker({ showLocalGuide: false })
+        const file = res.tempFiles[0]
+        if (!file || !file.path) return
+        this._doUpload(file.path, file.name)
+      },
+      fail: (err) => {
+        const errMsg = (err && err.errMsg) ? err.errMsg : ''
+        if (errMsg.indexOf('cancel') !== -1 || errMsg.indexOf('取消') !== -1) {
+          this.setData({
+            sourceType: 'upload',
+            statusText: this.data.uploadUiState === 'success'
+              ? '音频上传成功，可以播放原声或模拟声'
+              : '已选择上传音频，请选择文件',
+            sourceHint: ''
+          }, () => {
+            this._syncSourceDetailUI()
+          })
         }
-      }
-    })
-  },
-
-  _openUploadFilePicker(options = {}) {
-    const { showLocalGuide = false } = options
-
-    const startPicker = () => {
-      wx.chooseMessageFile({
-        count: 1,
-        type: 'file',
-        extension: ['mp3', 'wav', 'm4a', 'aac'],
-        success: (res) => {
-          const file = res.tempFiles[0]
-          if (!file || !file.path) return
-          this._doUpload(file.path, file.name)
-        },
-        fail: (err) => {
-          const errMsg = (err && err.errMsg) ? err.errMsg : ''
-          if (errMsg.indexOf('cancel') !== -1 || errMsg.indexOf('取消') !== -1) {
-            this.setData({
-              sourceType: 'upload',
-              statusText: this.data.uploadUiState === 'success'
-                ? '音频上传成功，可以播放原声或模拟声'
-                : '已选择上传音频，请选择文件',
-              sourceHint: ''
-            }, () => {
-              this._syncSourceDetailUI()
-            })
-          }
-        }
-      })
-    }
-
-    if (!showLocalGuide) {
-      startPicker()
-      return
-    }
-
-    wx.showModal({
-      title: '从手机选择音频',
-      content: '请先选择「文件传输助手」，再点右下角 ＋ → 文件 → 从手机中选择 MP3 / WAV 文件。',
-      confirmText: '去选择',
-      cancelText: '取消',
-      success: (res) => {
-        if (res.confirm) startPicker()
       }
     })
   },
