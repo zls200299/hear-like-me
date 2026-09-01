@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 320" fill="none">
+  <defs>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="cyanLine" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#23e0d3"/>
+      <stop offset="1" stop-color="#2b8ee0"/>
+    </linearGradient>
+    <linearGradient id="greenLine" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#23e0d3"/>
+      <stop offset="1" stop-color="#7ada65"/>
+    </linearGradient>
+    <linearGradient id="yellowLine" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#23e0d3"/>
+      <stop offset="1" stop-color="#f0ca4a"/>
+    </linearGradient>
+  </defs>
+
+  <text x="176" y="28" text-anchor="middle" fill="#7bdd5c" font-size="23" font-weight="800" font-family="PingFang SC, Microsoft YaHei, sans-serif" opacity=".78">信息丰富</text>
+  <text x="438" y="28" text-anchor="middle" fill="#19d0c4" font-size="23" font-weight="800" font-family="PingFang SC, Microsoft YaHei, sans-serif" opacity=".78">压缩成少数通道</text>
+
+  <g opacity=".22" stroke-width="2.4" stroke-linecap="round">
+    <path d="M120 96L184 118" stroke="#2c67d7"/>
+    <path d="M120 112L184 126" stroke="#268dd7"/>
+    <path d="M120 128L184 134" stroke="#26bdd2"/>
+    <path d="M120 142H184" stroke="#7bd967"/>
+    <path d="M120 156L184 150" stroke="#e8ca48"/>
+    <path d="M120 172L184 158" stroke="#efb84a"/>
+    <path d="M120 188L184 166" stroke="#2498d7"/>
+  </g>
+
+  <path d="M120 142H184" stroke="#24ccd0" stroke-width="4" stroke-linecap="round" opacity=".48"/>
+  <g fill="#83df4e" filter="url(#glow)">
+    <circle cx="132" cy="142" r="5.5"/>
+    <circle cx="158" cy="142" r="5.5"/>
+    <circle cx="184" cy="142" r="5.5"/>
+  </g>
+
+  <g stroke-width="4.4" stroke-linecap="round">
+    <path d="M292 104L394 94" stroke="#30359c" opacity=".86"/>
+    <path d="M292 122L394 114" stroke="url(#cyanLine)"/>
+    <path d="M292 142H394" stroke="url(#greenLine)" stroke-width="4.8"/>
+    <path d="M292 162L394 170" stroke="url(#yellowLine)"/>
+    <path d="M292 180L394 190" stroke="#30359c" opacity=".86"/>
+  </g>
+
+  <g stroke-width="4.4" stroke-linecap="round">
+    <path d="M510 100L552 112" stroke="#30359c" opacity=".86"/>
+    <path d="M510 120L552 126" stroke="url(#cyanLine)"/>
+    <path d="M510 142H552" stroke="url(#greenLine)" stroke-width="4.8"/>
+    <path d="M510 164L552 154" stroke="url(#yellowLine)"/>
+    <path d="M510 186L552 170" stroke="#30359c" opacity=".86"/>
+  </g>
+
+  <circle cx="72" cy="142" r="42" fill="#111d32" stroke="#1ac7c0" stroke-width="3"/>
+  <circle cx="72" cy="142" r="55" stroke="#1ac7c0" stroke-opacity=".25" stroke-width="3"/>
+  <path d="M49 133C57 127 64 127 72 133C80 139 87 139 97 133M49 142C57 136 64 136 72 142C80 148 87 148 97 142M49 151C57 145 64 145 72 151C80 157 87 157 97 151" stroke="#dce6f2" stroke-width="3" stroke-linecap="round" opacity=".84"/>
+
+  <circle cx="236" cy="142" r="42" fill="#111d32" stroke="#1ac7c0" stroke-width="3"/>
+  <circle cx="236" cy="142" r="55" stroke="#1ac7c0" stroke-opacity=".25" stroke-width="3"/>
+  <rect x="222" y="119" width="28" height="46" rx="6" fill="#c9d7ec" opacity=".9"/>
+  <g fill="#3c83dd">
+    <circle cx="230" cy="129" r="4"/><circle cx="242" cy="129" r="4"/>
+    <circle cx="230" cy="142" r="4"/><circle cx="242" cy="142" r="4"/>
+    <circle cx="230" cy="155" r="4"/><circle cx="242" cy="155" r="4"/>
+  </g>
+  <path d="M227 127L233 133M245 127L239 133M227 153L233 159M245 153L239 159" stroke="#e8f1fb" stroke-width="1.5" stroke-linecap="round"/>
+
+  <circle cx="452" cy="142" r="44" fill="#111d32" stroke="#a27b23" stroke-width="3.2"/>
+  <circle cx="452" cy="142" r="58" stroke="#24d4cf" stroke-opacity=".2" stroke-width="3"/>
+  <path d="M456 111L441 145H455L448 172L467 133H453L456 111Z" fill="#ff9840"/>
+
+  <circle cx="608" cy="142" r="43" fill="#111d32" stroke="#1ac7c0" stroke-width="3"/>
+  <circle cx="608" cy="142" r="57" stroke="#1ac7c0" stroke-opacity=".18" stroke-width="8"/>
+  <path d="M603 125C594 120 584 127 586 137C577 141 579 154 588 157C585 167 596 174 605 168C609 177 622 174 624 164C635 166 642 155 634 147C642 138 634 125 623 127C620 118 608 117 603 125Z" fill="#f4a0d4"/>
+  <path d="M604 126V167M590 144H604M622 134L607 150M623 159L607 151" stroke="#572a5d" stroke-width="2.4" stroke-linecap="round"/>
+
+  <circle cx="292" cy="142" r="9" fill="#20cfc7" filter="url(#glow)"/>
+  <circle cx="352" cy="142" r="9" fill="#20cfc7" filter="url(#glow)"/>
+  <circle cx="524" cy="142" r="9" fill="#20cfc7" filter="url(#glow)"/>
+
+  <text x="72" y="224" text-anchor="middle" fill="#d8e3f0" font-size="29" font-weight="800" font-family="PingFang SC, Microsoft YaHei, sans-serif">声音</text>
+  <text x="236" y="224" text-anchor="middle" fill="#d8e3f0" font-size="29" font-weight="800" font-family="PingFang SC, Microsoft YaHei, sans-serif">处理器</text>
+  <text x="452" y="224" text-anchor="middle" fill="#d8e3f0" font-size="29" font-weight="800" font-family="PingFang SC, Microsoft YaHei, sans-serif">电极</text>
+  <text x="608" y="224" text-anchor="middle" fill="#d8e3f0" font-size="29" font-weight="800" font-family="PingFang SC, Microsoft YaHei, sans-serif">大脑</text>
+
+  <g fill="#dce6f2" font-size="22" font-weight="700" font-family="PingFang SC, Microsoft YaHei, sans-serif" opacity=".94">
+    <text x="170" y="274" text-anchor="middle">声音：空气振动</text>
+    <text x="504" y="274" text-anchor="middle">处理器：拆分频段、提取包络</text>
+    <text x="170" y="304" text-anchor="middle">电极：产生电脉冲</text>
+    <text x="504" y="304" text-anchor="middle">大脑：学习解读信号</text>
+  </g>
+</svg>

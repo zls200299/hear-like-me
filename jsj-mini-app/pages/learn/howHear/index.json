@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "声音如何被“听见”",
+  "navigationBarBackgroundColor": "#020914",
+  "navigationBarTextStyle": "white",
+  "backgroundColor": "#020914",
+  "usingComponents": {
+    "hlm-icon": "/components/hlm-icon/index"
+  }
+}

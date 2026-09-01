@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 230" fill="none">
+  <defs>
+    <filter id="glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <g opacity=".36">
+    <ellipse cx="252" cy="112" rx="90" ry="84" stroke="#1599b7"/>
+    <ellipse cx="252" cy="112" rx="70" ry="64" stroke="#1599b7" stroke-dasharray="3 6"/>
+  </g>
+  <g filter="url(#glow)">
+    <path d="M232 44C194 44 171 70 171 108C171 140 188 157 205 163C220 168 225 181 218 192C212 201 218 208 227 206C243 201 246 180 251 166C256 148 268 140 273 126C282 99 266 44 232 44Z" stroke="#2bdfe0" stroke-width="3"/>
+    <path d="M236 67C211 67 194 85 195 108C196 126 207 136 220 139C231 142 236 150 232 159C229 167 234 173 242 172C253 170 255 159 259 150C265 137 270 128 270 115C270 88 257 67 236 67Z" stroke="#24b8d0" stroke-width="2.2"/>
+    <circle cx="306" cy="77" r="23" stroke="#26c5db" stroke-width="2"/>
+    <circle cx="306" cy="77" r="11" stroke="#26c5db" stroke-opacity=".6"/>
+    <path d="M318 97C331 113 337 132 337 151" stroke="#26c5db" stroke-width="2.3" stroke-linecap="round"/>
+  </g>
+  <path d="M15 135H55M47 127L55 135L47 143" stroke="#2be2d3" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M72 137L84 137L91 112L101 159L113 91L125 148L138 119L148 137H165" stroke="#2be2d3" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

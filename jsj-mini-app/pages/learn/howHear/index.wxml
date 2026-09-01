@@ -1,0 +1,104 @@
+<view class="hear-page page-with-bg">
+  <image class="page-bg" src="/assets/study-bg.png" mode="widthFix" aria-hidden="true" />
+
+  <view class="hear-content">
+    <view class="hear-hero">
+      <view class="hear-hero__copy">
+        <view class="hear-hero__title">声音如何被“听见”</view>
+        <view class="hear-hero__subtitle">从声音进入，到大脑理解</view>
+        <view class="hear-hero__desc">这页重点看两件事：人工耳蜗如何处理声音，以及一句“你好”会经历怎样的旅程。</view>
+      </view>
+      <image
+        class="hear-hero__art"
+        src="/assets/icons/learn-hear-hero.svg"
+        mode="aspectFit"
+        aria-hidden="true"
+      />
+    </view>
+
+    <view class="essay-section">
+      <view class="section-kicker">
+        <view class="section-line"></view>
+        <text>02</text>
+        <text>/</text>
+        <text>原则</text>
+      </view>
+      <view class="section-title">它如何“听见”</view>
+      <view class="section-copy">健康的耳朵依靠耳蜗里的毛细胞形成精细的频率响应。人工耳蜗绕过受损的毛细胞，通过一排电极对听神经进行电刺激。</view>
+      <view class="section-copy">它传递的信息，本质上就是把声音分成几个频段，并保留每个频段的“响度包络”。</view>
+    </view>
+
+    <view class="principle-grid">
+      <view class="principle-card">
+        <view class="step-label"><view class="step-dot"></view><text>步骤 01</text></view>
+        <view class="step-title">分成几个频段</view>
+        <view class="step-desc">麦克风捕捉声音后，按频率拆成几个通道，对应耳蜗上的不同位置。</view>
+      </view>
+
+      <view class="principle-card">
+        <view class="step-label"><view class="step-dot"></view><text>步骤 02</text></view>
+        <view class="step-title">取出包络</view>
+        <view class="step-desc">每个频段只保留响度随时间上升、下降的轮廓，舍弃精细波形。</view>
+      </view>
+
+      <view class="principle-card">
+        <view class="step-label"><view class="step-dot"></view><text>步骤 03</text></view>
+        <view class="step-title">重新合成</view>
+        <view class="step-desc">模拟器用载波填充每个频段，让用户听到被压缩后的声音信息。</view>
+      </view>
+
+      <view class="principle-card">
+        <view class="step-label"><view class="step-dot"></view><text>步骤 04</text></view>
+        <view class="step-title">刺激/回放</view>
+        <view class="step-desc">真实设备会把这些信号转换成听神经上的电脉冲；模拟器则播放给你听。</view>
+      </view>
+    </view>
+
+    <view class="signal-card">
+      <view class="signal-head">
+        <view class="signal-title">信号管道</view>
+        <view class="signal-status"><view class="status-dot"></view><text>在线演示</text></view>
+      </view>
+
+      <view class="signal-visual">
+        <image
+          class="signal-diagram"
+          src="/assets/icons/learn-hear-signal-cn.svg"
+          mode="aspectFit"
+          aria-label="声音从处理器、电极到大脑的信号管道示意图"
+        />
+      </view>
+
+      <view class="signal-caption">声音从左侧进入，被拆成多个频段；每个频段只保留响度包络，再重新合成为可传递的刺激信息。</view>
+    </view>
+
+    <view class="essay-section journey-section">
+      <view class="section-kicker">
+        <view class="section-line"></view>
+        <text>03</text>
+        <text>/</text>
+        <text>旅程</text>
+      </view>
+      <view class="section-title section-title--mark">一句“你好”的旅程</view>
+      <view class="section-copy">从空气中的声波到大脑“听到”声音，声音会经过多个阶段。跟着图中的点，看植入体如何接管原本属于耳朵的功能。</view>
+    </view>
+
+    <view class="journey-map">
+      <view class="map-label">声音 · 信号 · 尖峰 · 感知</view>
+
+      <view class="journey-visual">
+        <image
+          class="journey-diagram"
+          src="/assets/icons/learn-hear-journey-cn.svg"
+          mode="aspectFit"
+          aria-label="一句你好的声音旅程示意图"
+        />
+      </view>
+    </view>
+
+    <view class="note-card">
+      <view class="note-title">理解重点</view>
+      <view class="note-text">绿点代表声音信息。在“处理器”处，信息被压缩成几个通道；一旦信息在这里丢失，就无法在下游完全恢复。</view>
+    </view>
+  </view>
+</view>

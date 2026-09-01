@@ -1,15 +1,11 @@
-const {
-  getSession,
-  isLoggedIn,
-  wxLoginSilent,
-  wxLoginWithProfile,
-  getCurrentUser,
-  logout,
-  readLastProfile,
-  saveSession
-} = require('../../services/auth.js')
+let authService = null
 
-const { ICONS } = require('../../assets/icons/index.js')
+function getAuthService() {
+  if (!authService) {
+    authService = require('../../services/auth.js')
+  }
+  return authService
+}
 
 const MENU_ITEMS = [
   { key: 'account', icon: 'profile-menu-account', label: '账号信息' },
@@ -25,7 +21,7 @@ Page({
     userId: '',
     nickname: '',
     avatarUrl: '',
-    defaultAvatar: ICONS.PROFILE_AVATAR_PLACEHOLDER,
+    defaultAvatar: '/assets/icons/profile-avatar-placeholder.svg',
     loggingIn: false,
     loggingOut: false,
     loginSheetVisible: false,
@@ -44,6 +40,7 @@ Page({
   },
 
   _syncLoginState() {
+    const { getSession, isLoggedIn } = getAuthService()
     const { userId, userInfo } = getSession()
     const loggedIn = isLoggedIn()
     this.setData({
@@ -59,6 +56,7 @@ Page({
   },
 
   _refreshCurrentUser() {
+    const { getCurrentUser } = getAuthService()
     getCurrentUser()
       .then((user) => {
         if (!user) return
@@ -124,6 +122,7 @@ Page({
     if (this.data.loggedIn || this.data.loggingIn) return
 
     this.setData({ loggingIn: true })
+    const { wxLoginSilent, saveSession, readLastProfile } = getAuthService()
     wxLoginSilent()
       .then(({ newUser, data }) => {
         if (!newUser) {
@@ -173,6 +172,7 @@ Page({
   onLogin() {
     if (this.data.loggingIn) return
 
+    const { wxLoginWithProfile } = getAuthService()
     this._readSheetNickname().then((nickname) => {
       if (!nickname) {
         wx.showToast({ title: '请先填写昵称', icon: 'none' })
@@ -205,6 +205,7 @@ Page({
     if (this.data.loggingOut) return
 
     this.setData({ loggingOut: true })
+    const { logout } = getAuthService()
     logout()
       .catch(() => {})
       .finally(() => {

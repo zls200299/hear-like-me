@@ -251,13 +251,16 @@
 
 .challenge-answers {
   margin-top: 32rpx;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 22rpx 30rpx;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 30rpx;
+  row-gap: 22rpx;
 }
 
 .challenge-answer {
-  width: calc(50% - 15rpx);
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   height: 116rpx;
   border: 3.2rpx solid rgba(86, 112, 146, 0.67);
   border-radius: 30rpx;

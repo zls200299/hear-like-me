@@ -1,6 +1,6 @@
 {
-  "navigationBarTitleText": "科普学习",
-  "navigationBarBackgroundColor": "#020814",
+  "navigationBarTitleText": "人工耳蜗基础入门",
+  "navigationBarBackgroundColor": "#020914",
   "navigationBarTextStyle": "white",
   "usingComponents": {
     "hlm-icon": "/components/hlm-icon/index"

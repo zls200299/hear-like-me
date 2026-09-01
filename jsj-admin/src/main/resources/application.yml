@@ -66,16 +66,16 @@ spring:
       # 热部署开关
       enabled: true
   data:
-    # redis 配置
+    # redis 配置（与 jsj-mini 本地开发一致）
     redis:
       # 地址
-      host: 192.168.1.246
+      host: 127.0.0.1
       # 端口，默认为6379
       port: 6379
       # 数据库索引
       database: 0
       # 密码
-      password: Q86KDiDoZULykMfz
+      password: 123456
       # 连接超时时间
       timeout: 10s
       lettuce:

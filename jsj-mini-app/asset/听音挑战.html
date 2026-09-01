@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Hear Like Me - 听音挑战</title>
+<style>
+  :root{
+    --bg:#020817;
+    --bg2:#061426;
+    --panel:#0b1b30;
+    --panel2:#0d2037;
+    --stroke:#334a67;
+    --stroke-soft:rgba(91,122,160,.32);
+    --text:#f3f6fb;
+    --muted:#91a2bd;
+    --teal:#27e0cf;
+    --teal2:#15c8d9;
+    --cyan:#47ecff;
+    --green:#9ce45f;
+    --nav:#03101e;
+    --danger:#ff6d7b;
+  }
+
+  *{box-sizing:border-box}
+  html,body{
+    margin:0;
+    min-height:100%;
+    background:#000;
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  }
+
+  body{
+    display:flex;
+    justify-content:center;
+    padding:16px 0;
+  }
+
+  .phone{
+    position:relative;
+    width:min(100vw,941px);
+    height:1672px;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,.55);
+    border-radius:60px;
+    background:
+      radial-gradient(circle at 72% 18%, rgba(0,209,230,.08), transparent 26%),
+      radial-gradient(circle at 18% 23%, rgba(34,115,255,.07), transparent 25%),
+      linear-gradient(180deg,#020817 0%,#04101f 34%,#061525 100%);
+  }
+
+  /* 第二张图风格：轨道 + 点阵 + 声纹背景 */
+  .space-bg{
+    position:absolute;
+    inset:85px 0 0;
+    overflow:hidden;
+    pointer-events:none;
+    z-index:0;
+  }
+  .space-bg svg{width:100%;height:100%;display:block}
+
+  /* 顶部状态栏 */
+  .statusbar{
+    position:relative;
+    z-index:5;
+    height:82px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    padding:21px 31px 0;
+    font-size:22px;
+    font-weight:500;
+  }
+  .notch{
+    position:absolute;
+    left:50%;
+    top:0;
+    width:432px;
+    height:70px;
+    transform:translateX(-50%);
+    background:#000;
+    border:2px solid rgba(255,255,255,.92);
+    border-top:0;
+    border-radius:0 0 39px 39px;
+  }
+  .status-icons{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    position:relative;
+    z-index:2;
+  }
+
+  /* 顶部导航 */
+  .topbar{
+    height:100px;
+    position:relative;
+    z-index:5;
+    border-bottom:1px solid rgba(111,139,173,.22);
+  }
+  .topbar-title{
+    position:absolute;
+    inset:0;
+    display:grid;
+    place-items:center;
+    font-size:28px;
+    font-weight:650;
+  }
+  .capsule{
+    position:absolute;
+    right:19px;
+    top:20px;
+    width:167px;
+    height:58px;
+    border:2px solid rgba(255,255,255,.33);
+    border-radius:31px;
+    background:rgba(4,11,23,.72);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:16px;
+  }
+  .capsule .line{width:1px;height:26px;background:rgba(255,255,255,.33)}
+
+  .content{
+    position:relative;
+    z-index:2;
+    padding:42px 34px 150px;
+  }
+
+  /* hero */
+  .hero{
+    padding:0 18px 25px;
+    position:relative;
+  }
+  .hero-title{
+    color:var(--teal);
+    font-size:51px;
+    line-height:1;
+    font-weight:750;
+    letter-spacing:.3px;
+    text-shadow:0 0 20px rgba(39,224,207,.12);
+  }
+  .hero-heading{
+    margin-top:24px;
+    font-size:31px;
+    line-height:1.25;
+    font-weight:700;
+  }
+  .hero-desc{
+    margin-top:17px;
+    max-width:650px;
+    font-size:22px;
+    color:#a4b1c5;
+    line-height:1.55;
+  }
+
+  .card{
+    background:linear-gradient(180deg,rgba(11,27,48,.96),rgba(8,23,40,.96));
+    border:1.6px solid rgba(81,111,147,.52);
+    border-radius:27px;
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,.015),
+      0 14px 34px rgba(0,0,0,.18);
+  }
+
+  /* challenge main */
+  .challenge{
+    min-height:442px;
+    padding:29px 30px 29px;
+    position:relative;
+    overflow:hidden;
+  }
+
+  .challenge::before{
+    content:"";
+    position:absolute;
+    width:430px;
+    height:430px;
+    left:50%;
+    top:28px;
+    transform:translateX(-50%);
+    border-radius:50%;
+    background:
+      radial-gradient(circle,rgba(27,226,212,.09) 0 26%,transparent 27% 100%);
+    box-shadow:0 0 100px rgba(30,221,215,.06);
+    pointer-events:none;
+  }
+
+  .question-badge{
+    display:inline-flex;
+    align-items:center;
+    height:48px;
+    padding:0 25px;
+    border:1px solid rgba(39,224,207,.27);
+    border-radius:25px;
+    background:rgba(31,113,124,.17);
+    color:var(--teal);
+    font-size:23px;
+    font-weight:700;
+    position:relative;
+    z-index:2;
+  }
+
+  .unknown{
+    position:relative;
+    z-index:2;
+    width:100%;
+    margin-top:-2px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+
+  .unknown-mark{
+    margin-top:-8px;
+    color:var(--teal);
+    font-size:150px;
+    line-height:.92;
+    font-weight:700;
+    text-shadow:
+      0 0 18px rgba(39,224,207,.5),
+      0 0 45px rgba(39,224,207,.18);
+  }
+  .unknown-label{
+    margin-top:3px;
+    font-size:26px;
+    letter-spacing:.3px;
+  }
+
+  .play-btn{
+    margin-top:36px;
+    width:550px;
+    height:83px;
+    border:0;
+    border-radius:42px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:17px;
+    color:#08202b;
+    background:linear-gradient(90deg,#34dfd4,#28d6c7);
+    font-size:31px;
+    font-weight:800;
+    box-shadow:
+      0 0 0 1px rgba(90,255,242,.65) inset,
+      0 0 26px rgba(39,224,207,.25);
+    cursor:pointer;
+  }
+  .play-icon{
+    width:54px;height:54px;
+    display:grid;place-items:center;
+    border-radius:50%;
+    background:rgba(7,28,42,.92);
+    color:#fff;
+  }
+
+  .listen-tip{
+    margin-top:26px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    color:#94a4bc;
+    font-size:20px;
+  }
+
+  /* answer */
+  .answer-card{
+    margin-top:18px;
+    min-height:284px;
+    padding:28px 29px 28px;
+  }
+  .section-title{
+    font-size:28px;
+    font-weight:700;
+  }
+  .answers{
+    margin-top:22px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px 24px;
+  }
+  .answer{
+    height:86px;
+    border:1.6px solid rgba(86,112,146,.67);
+    border-radius:22px;
+    background:rgba(9,23,41,.72);
+    color:#eef3fa;
+    font-size:29px;
+    font-weight:500;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    cursor:pointer;
+  }
+  .answer.selected{
+    border-color:var(--teal);
+    background:linear-gradient(90deg,rgba(14,94,103,.5),rgba(18,74,82,.35));
+    box-shadow:
+      inset 0 0 0 1px rgba(48,239,219,.2),
+      0 0 18px rgba(39,224,207,.08);
+  }
+  .answer .check{
+    position:absolute;
+    right:17px;
+    top:15px;
+    width:34px;height:34px;
+    border-radius:50%;
+    display:none;
+    place-items:center;
+    background:var(--teal);
+    color:#07313a;
+  }
+  .answer.selected .check{display:grid}
+
+  /* score */
+  .score-card{
+    margin-top:18px;
+    height:103px;
+    display:grid;
+    grid-template-columns:1fr 1px 1fr;
+    align-items:center;
+    padding:0 39px;
+  }
+  .vline{height:48px;background:rgba(102,128,159,.25)}
+  .score-block{
+    display:flex;
+    align-items:center;
+    gap:20px;
+  }
+  .score-icon{
+    width:56px;height:56px;
+    display:grid;place-items:center;
+    border-radius:50%;
+    color:var(--teal);
+    background:rgba(20,97,108,.21);
+  }
+  .score-small{
+    font-size:19px;
+    color:#a2aec1;
+  }
+  .score-value{
+    margin-top:5px;
+    font-size:26px;
+  }
+  .score-value b{
+    color:var(--teal);
+    font-weight:500;
+    font-size:29px;
+  }
+
+  .info-card{
+    margin-top:18px;
+    min-height:136px;
+    padding:23px 29px;
+    display:grid;
+    grid-template-columns:84px 1fr;
+    gap:18px;
+    align-items:center;
+  }
+  .info-icon{
+    width:68px;height:68px;
+    border-radius:50%;
+    background:rgba(26,51,80,.7);
+    display:grid;place-items:center;
+    color:#fff;
+  }
+  .info-title{
+    font-size:26px;
+    font-weight:700;
+    margin-bottom:5px;
+  }
+  .info-text{
+    font-size:20px;
+    line-height:1.55;
+    color:#a4b1c6;
+  }
+
+  /* 第二张图的背景装饰 */
+  .orbit-left{
+    position:absolute;
+    left:-78px;
+    top:125px;
+    width:390px;
+    height:390px;
+    border:1px solid rgba(0,172,255,.18);
+    border-radius:50%;
+    box-shadow:
+      0 0 0 38px rgba(0,135,255,.028),
+      0 0 0 76px rgba(0,135,255,.02);
+    z-index:1;
+    pointer-events:none;
+  }
+  .orbit-right{
+    position:absolute;
+    right:-260px;
+    top:110px;
+    width:780px;
+    height:290px;
+    border:2px dashed rgba(22,211,231,.32);
+    border-radius:50%;
+    transform:rotate(7deg);
+    z-index:1;
+    pointer-events:none;
+  }
+
+  /* bottom tab */
+  .tabbar{
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:0;
+    height:132px;
+    padding:15px 29px 29px;
+    background:rgba(3,15,29,.97);
+    border-top:1px solid rgba(92,120,151,.27);
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    z-index:7;
+  }
+  .tab{
+    color:#7687a2;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:5px;
+    font-size:18px;
+  }
+  .tab.active{color:var(--teal)}
+  .tab svg{width:39px;height:39px}
+
+  /* small phones */
+  @media(max-width:700px){
+    body{padding:0}
+    .phone{
+      width:100vw;height:auto;min-height:100vh;border-radius:0;border:0;
+      padding-bottom:90px;
+    }
+    .statusbar{height:54px;padding:13px 20px 0;font-size:14px}
+    .notch{width:200px;height:44px;border-radius:0 0 22px 22px}
+    .topbar{height:64px}
+    .topbar-title{font-size:18px}
+    .capsule{top:10px;right:12px;width:104px;height:40px;border-radius:22px;gap:10px}
+    .capsule .line{height:19px}
+    .content{padding:25px 21px 110px}
+    .hero{padding:0 10px 18px}
+    .hero-title{font-size:35px}
+    .hero-heading{font-size:21px;margin-top:17px}
+    .hero-desc{font-size:15px;margin-top:10px}
+    .card{border-radius:19px}
+    .challenge{min-height:300px;padding:19px 19px}
+    .question-badge{height:34px;padding:0 17px;font-size:16px}
+    .unknown-mark{font-size:100px}
+    .unknown-label{font-size:18px}
+    .play-btn{width:70%;max-width:360px;height:56px;border-radius:30px;font-size:20px;gap:10px;margin-top:22px}
+    .play-icon{width:36px;height:36px}
+    .listen-tip{font-size:13px;margin-top:17px}
+    .answer-card{padding:19px;min-height:195px}
+    .section-title{font-size:19px}
+    .answers{margin-top:16px;gap:11px 15px}
+    .answer{height:58px;border-radius:15px;font-size:19px}
+    .answer .check{width:25px;height:25px;right:10px;top:10px}
+    .score-card{height:74px;padding:0 24px}
+    .score-block{gap:12px}
+    .score-icon{width:40px;height:40px}
+    .score-small{font-size:13px}
+    .score-value{font-size:18px}
+    .score-value b{font-size:20px}
+    .info-card{min-height:91px;padding:15px 19px;grid-template-columns:57px 1fr;gap:12px}
+    .info-icon{width:47px;height:47px}
+    .info-title{font-size:18px}
+    .info-text{font-size:13px}
+    .tabbar{position:fixed;height:88px;padding:9px 17px 15px}
+    .tab{font-size:12px;gap:3px}
+    .tab svg{width:28px;height:28px}
+    .orbit-left{width:260px;height:260px;left:-82px;top:82px}
+    .orbit-right{width:510px;height:190px;right:-270px;top:75px}
+  }
+</style>
+</head>
+
+<body>
+<div class="phone">
+
+  <!-- 背景：参考第二张图，采用轨道、点阵、声纹，不复用“我的”页波浪背景 -->
+  <div class="space-bg" aria-hidden="true">
+    <svg viewBox="0 0 941 1590" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="haloA" cx="0" cy="0" r="1" gradientTransform="translate(145 162) rotate(50) scale(240)">
+          <stop stop-color="#13499C" stop-opacity=".18"/>
+          <stop offset="1" stop-color="#13499C" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="haloB" cx="0" cy="0" r="1" gradientTransform="translate(715 190) rotate(50) scale(360)">
+          <stop stop-color="#08D5D1" stop-opacity=".11"/>
+          <stop offset="1" stop-color="#08D5D1" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="cyanStroke" x1="30" y1="40" x2="900" y2="350">
+          <stop stop-color="#2169FF" stop-opacity=".18"/>
+          <stop offset=".5" stop-color="#16E1E6" stop-opacity=".55"/>
+          <stop offset="1" stop-color="#2CDAC8" stop-opacity=".10"/>
+        </linearGradient>
+        <filter id="softGlow">
+          <feGaussianBlur stdDeviation="4" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+
+      <rect width="941" height="1590" fill="url(#haloA)"/>
+      <rect width="941" height="1590" fill="url(#haloB)"/>
+
+      <!-- 顶部大轨道 -->
+      <ellipse cx="610" cy="205" rx="420" ry="128"
+               stroke="url(#cyanStroke)" stroke-width="1.4"
+               stroke-dasharray="5 12" transform="rotate(6 610 205)"/>
+      <ellipse cx="610" cy="205" rx="470" ry="154"
+               stroke="#1AE4E6" stroke-opacity=".08"
+               transform="rotate(6 610 205)"/>
+      <ellipse cx="610" cy="205" rx="520" ry="180"
+               stroke="#0A78FF" stroke-opacity=".06"
+               transform="rotate(6 610 205)"/>
+
+      <!-- 左侧同心圆 -->
+      <circle cx="118" cy="162" r="72" stroke="#2BD9F4" stroke-opacity=".22"/>
+      <circle cx="118" cy="162" r="102" stroke="#2A8DFF" stroke-opacity=".16"/>
+      <circle cx="118" cy="162" r="132" stroke="#2A72E8" stroke-opacity=".12"/>
+
+      <!-- 点 -->
+      <g filter="url(#softGlow)">
+        <circle cx="69" cy="91" r="2.5" fill="#30E5F7"/>
+        <circle cx="182" cy="109" r="2.2" fill="#21E3E7"/>
+        <circle cx="347" cy="105" r="2" fill="#23D5E6"/>
+        <circle cx="510" cy="124" r="2.5" fill="#22E4E9"/>
+        <circle cx="672" cy="154" r="2.2" fill="#2CE1DF"/>
+        <circle cx="809" cy="187" r="2.8" fill="#2CE6E0"/>
+        <circle cx="865" cy="218" r="2.2" fill="#A7E46A"/>
+        <circle cx="577" cy="184" r="1.8" fill="#A4E45E"/>
+      </g>
+
+      <!-- 主挑战卡背后的环形声纹 -->
+      <g opacity=".16" transform="translate(0 340)">
+        <circle cx="470" cy="170" r="72" stroke="#2EEBE3"/>
+        <circle cx="470" cy="170" r="94" stroke="#24CFEB"/>
+        <circle cx="470" cy="170" r="119" stroke="#198AC2" stroke-dasharray="4 6"/>
+        <circle cx="470" cy="170" r="146" stroke="#126E9D" stroke-dasharray="3 10"/>
+        <path d="M46 170 C178 132 270 226 380 170 C485 117 568 226 894 170"
+              stroke="#13B4D4" stroke-width="1.4"/>
+        <path d="M46 180 C176 147 270 207 380 180 C492 153 585 205 894 180"
+              stroke="#157CA8" stroke-width="1"/>
+      </g>
+
+      <!-- 稀疏底部粒子 -->
+      <g opacity=".14">
+        <circle cx="100" cy="905" r="1.5" fill="#2DE5E0"/>
+        <circle cx="187" cy="1040" r="1.5" fill="#2DE5E0"/>
+        <circle cx="320" cy="1005" r="1.2" fill="#2DE5E0"/>
+        <circle cx="690" cy="980" r="1.4" fill="#2DE5E0"/>
+        <circle cx="823" cy="1120" r="1.5" fill="#2DE5E0"/>
+        <circle cx="760" cy="1290" r="1.2" fill="#2DE5E0"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="orbit-left" aria-hidden="true"></div>
+  <div class="orbit-right" aria-hidden="true"></div>
+
+  <!-- 状态栏 -->
+  <div class="statusbar">
+    <div>21:30</div>
+    <div class="notch"></div>
+    <div class="status-icons">
+      <svg width="28" height="22" viewBox="0 0 28 22" fill="none">
+        <rect x="1" y="14" width="4" height="7" rx="1.4" fill="#fff"/>
+        <rect x="8" y="10" width="4" height="11" rx="1.4" fill="#fff"/>
+        <rect x="15" y="6" width="4" height="15" rx="1.4" fill="#fff"/>
+        <rect x="22" y="2" width="4" height="19" rx="1.4" fill="#fff"/>
+      </svg>
+      <svg width="29" height="22" viewBox="0 0 29 22" fill="none">
+        <path d="M2.5 7C9.2 1.5 19.8 1.5 26.5 7" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M7 11.2C11.3 7.8 17.7 7.8 22 11.2" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M11.5 15.4C13.5 13.9 15.5 13.9 17.5 15.4" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="14.5" cy="19" r="1.6" fill="#fff"/>
+      </svg>
+      <svg width="40" height="22" viewBox="0 0 40 22" fill="none">
+        <rect x="1" y="2" width="34" height="18" rx="4" stroke="#fff" stroke-width="2"/>
+        <rect x="4" y="5" width="28" height="12" rx="2" fill="#fff"/>
+        <path d="M37 8V14" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- 顶部导航栏 -->
+  <header class="topbar">
+    <div class="topbar-title">听音挑战</div>
+    <div class="capsule">
+      <svg width="40" height="16" viewBox="0 0 40 16">
+        <circle cx="7" cy="8" r="4" fill="#fff"/>
+        <circle cx="20" cy="8" r="4" fill="#fff"/>
+        <circle cx="33" cy="8" r="4" fill="#fff"/>
+      </svg>
+      <span class="line"></span>
+      <svg width="31" height="31" viewBox="0 0 31 31" fill="none">
+        <circle cx="15.5" cy="15.5" r="11.5" stroke="#fff" stroke-width="3"/>
+        <circle cx="15.5" cy="15.5" r="4.4" fill="#fff"/>
+      </svg>
+    </div>
+  </header>
+
+  <main class="content">
+    <section class="hero">
+      <div class="hero-title">hear like me</div>
+      <div class="hero-heading">听一听，猜猜有多少个有效通道</div>
+      <div class="hero-desc">同一段声音会随机使用不同通道数进行模拟，<br>戴耳机体验更明显。</div>
+    </section>
+
+    <section class="card challenge">
+      <div class="question-badge">第 1 题</div>
+
+      <div class="unknown">
+        <div class="unknown-mark">?</div>
+        <div class="unknown-label">本轮有效通道</div>
+
+        <button class="play-btn" type="button" id="playBtn">
+          <span class="play-icon">
+            <svg width="25" height="27" viewBox="0 0 25 27" fill="none">
+              <path d="M22.7 11.1C24.8 12.3 24.8 15.2 22.7 16.4L5.3 26.1C3.2 27.3.6 25.8.6 23.4V4.1C.6 1.7 3.2.2 5.3 1.4L22.7 11.1Z" fill="currentColor"/>
+            </svg>
+          </span>
+          <span id="playText">播放模拟声音</span>
+        </button>
+
+        <div class="listen-tip">
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+            <path d="M6 17V14C6 8.5 10.5 4 16 4C21.5 4 26 8.5 26 14V17" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M7 17H10C11.1 17 12 17.9 12 19V25C12 26.1 11.1 27 10 27H8.5C7.1 27 6 25.9 6 24.5V19.5C6 18.1 7.1 17 8.5 17Z" stroke="currentColor" stroke-width="2.4"/>
+            <path d="M25 17H22C20.9 17 20 17.9 20 19V25C20 26.1 20.9 27 22 27H23.5C24.9 27 26 25.9 26 24.5V19.5C26 18.1 24.9 17 23.5 17Z" stroke="currentColor" stroke-width="2.4"/>
+          </svg>
+          <span>请先播放本轮声音，再选择答案</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card answer-card">
+      <div class="section-title">选择你的答案</div>
+      <div class="answers">
+        <button class="answer" type="button" data-value="2">2 通道
+          <span class="check">
+            <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M4 10.5L8 14.5L16 6.5" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        </button>
+        <button class="answer selected" type="button" data-value="4">4 通道
+          <span class="check">
+            <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M4 10.5L8 14.5L16 6.5" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        </button>
+        <button class="answer" type="button" data-value="8">8 通道
+          <span class="check">
+            <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M4 10.5L8 14.5L16 6.5" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        </button>
+        <button class="answer" type="button" data-value="16">16 通道
+          <span class="check">
+            <svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M4 10.5L8 14.5L16 6.5" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        </button>
+      </div>
+    </section>
+
+    <section class="card score-card">
+      <div class="score-block">
+        <div class="score-icon">
+          <svg width="35" height="35" viewBox="0 0 38 38" fill="none">
+            <circle cx="19" cy="19" r="14" stroke="currentColor" stroke-width="2.4"/>
+            <circle cx="19" cy="19" r="7.5" stroke="currentColor" stroke-width="2.4"/>
+            <path d="M19 19L29 9" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M26 9H29V12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="score-small">当前成绩</div>
+          <div class="score-value">正确&nbsp; <b>3</b> &nbsp;/&nbsp; <b>5</b></div>
+        </div>
+      </div>
+
+      <div class="vline"></div>
+
+      <div class="score-block" style="padding-left:35px">
+        <div class="score-icon">
+          <svg width="36" height="36" viewBox="0 0 38 38" fill="none">
+            <path d="M6 29V9" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/>
+            <path d="M6 29H32" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/>
+            <path d="M10 24L16 18L21 22L31 11" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M26 11H31V16" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="score-small">已完成</div>
+          <div class="score-value"><b>5</b> 题</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card info-card">
+      <div class="info-icon">
+        <svg width="40" height="40" viewBox="0 0 44 44" fill="none">
+          <circle cx="22" cy="22" r="17" stroke="currentColor" stroke-width="2.5"/>
+          <path d="M22 19V30" stroke="currentColor" stroke-width="2.7" stroke-linecap="round"/>
+          <circle cx="22" cy="13.5" r="2" fill="currentColor"/>
+        </svg>
+      </div>
+      <div>
+        <div class="info-title">挑战说明</div>
+        <div class="info-text">系统将播放一段经过人工耳蜗模拟处理的声音，<br>请根据听感判断有效通道数。</div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <div class="tab">
+      <svg viewBox="0 0 40 40" fill="none">
+        <path d="M23 6C16 6 10.5 11.5 10.5 18.5C10.5 23.2 13 25.8 15.5 28.3C17.2 30 18.3 31.4 18.3 34" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M23 11C27.1 11 30 14 30 18C30 20.8 28.6 22.6 27.1 24.1C25.8 25.4 24.7 26.5 24.7 28.5C24.7 30.2 25.8 31.6 27.7 31.6C31 31.6 33.4 27.8 33.4 23.2" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+      </svg>
+      <span>听觉模拟</span>
+    </div>
+
+    <div class="tab active">
+      <svg viewBox="0 0 40 40" fill="none">
+        <path d="M7.5 21V17.8C7.5 10.8 13.1 5 20 5C26.9 5 32.5 10.8 32.5 17.8V21" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>
+        <path d="M8.8 20H13C14.1 20 15 20.9 15 22V31C15 32.1 14.1 33 13 33H10.7C8.9 33 7.5 31.6 7.5 29.8V23.2C7.5 21.4 8.9 20 10.7 20Z" stroke="currentColor" stroke-width="2.8"/>
+        <path d="M31.2 20H27C25.9 20 25 20.9 25 22V31C25 32.1 25.9 33 27 33H29.3C31.1 33 32.5 31.6 32.5 29.8V23.2C32.5 21.4 31.1 20 29.3 20Z" stroke="currentColor" stroke-width="2.8"/>
+      </svg>
+      <span>听音挑战</span>
+    </div>
+
+    <div class="tab">
+      <svg viewBox="0 0 40 40" fill="none">
+        <path d="M5 15L20 7.5L35 15L20 22.5L5 15Z" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M11 19V27C11 29.5 15 32 20 32C25 32 29 29.5 29 27V19" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+      </svg>
+      <span>科普学习</span>
+    </div>
+
+    <div class="tab">
+      <svg viewBox="0 0 40 40" fill="none">
+        <circle cx="20" cy="12.8" r="6.5" stroke="currentColor" stroke-width="2.6"/>
+        <path d="M8.5 33C9.4 26.7 14 22.8 20 22.8C26 22.8 30.6 26.7 31.5 33" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+      </svg>
+      <span>我的</span>
+    </div>
+  </nav>
+</div>
+
+<script>
+  // 原型交互：点击答案切换选中
+  document.querySelectorAll('.answer').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.answer').forEach(x => x.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+  });
+
+  // 原型交互：播放按钮切换文案
+  const playBtn = document.getElementById('playBtn');
+  const playText = document.getElementById('playText');
+  let playing = false;
+  playBtn.addEventListener('click', () => {
+    playing = !playing;
+    playText.textContent = playing ? '正在播放…' : '播放模拟声音';
+  });
+</script>
+</body>
+</html>

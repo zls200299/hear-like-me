@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 150" fill="none">
+  <defs>
+    <linearGradient id="freqGrad" x1="40" y1="80" x2="300" y2="60">
+      <stop stop-color="#2e9cff"/>
+      <stop offset=".28" stop-color="#1dd6e1"/>
+      <stop offset=".56" stop-color="#4be28a"/>
+      <stop offset=".8" stop-color="#d8e64d"/>
+      <stop offset="1" stop-color="#ffd53d"/>
+    </linearGradient>
+    <filter id="freqGlow">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <path d="M65 112C41 89 50 45 85 29C121 12 180 23 202 58C222 90 201 119 171 124C144 129 118 113 118 91C118 70 137 58 155 63C170 67 174 79 169 89C164 99 150 100 145 93" stroke="url(#freqGrad)" stroke-width="11" stroke-linecap="round" filter="url(#freqGlow)"/>
+  <path d="M65 112C41 89 50 45 85 29C121 12 180 23 202 58C222 90 201 119 171 124C144 129 118 113 118 91C118 70 137 58 155 63C170 67 174 79 169 89C164 99 150 100 145 93" stroke="#ffffff" stroke-opacity=".32" stroke-width="2.2"/>
+  <g fill="#dffcff">
+    <circle cx="62" cy="103" r="3"/><circle cx="78" cy="63" r="3"/>
+    <circle cx="105" cy="31" r="3"/><circle cx="140" cy="28" r="3"/>
+    <circle cx="177" cy="42" r="3"/><circle cx="198" cy="70" r="3"/>
+    <circle cx="193" cy="100" r="3"/><circle cx="169" cy="119" r="3"/>
+    <circle cx="139" cy="113" r="3"/><circle cx="122" cy="91" r="3"/>
+    <circle cx="134" cy="69" r="3"/><circle cx="157" cy="65" r="3"/>
+  </g>
+</svg>
