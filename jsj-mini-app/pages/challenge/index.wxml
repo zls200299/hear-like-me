@@ -55,6 +55,15 @@
           </view>
         </view>
       </view>
+
+      <button
+        class="challenge-submit-btn {{submitting ? 'challenge-submit-btn--disabled' : ''}}"
+        bindtap="onSubmitTap"
+        disabled="{{loading || submitting}}"
+        loading="{{submitting}}"
+      >
+        确认提交
+      </button>
     </view>
 
     <view class="challenge-card challenge-card--score">
