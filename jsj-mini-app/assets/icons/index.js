@@ -32,7 +32,13 @@ const ICONS = {
   PROFILE_CHEVRON_RIGHT: `${ICON_BASE}/profile-chevron-right.svg`,
   PROFILE_HEART: `${ICON_BASE}/profile-heart.svg`,
   PROFILE_AVATAR_PLACEHOLDER: `${ICON_BASE}/profile-avatar-placeholder.svg`,
-  PROFILE_WECHAT: `${ICON_BASE}/profile-wechat.svg`
+  PROFILE_WECHAT: `${ICON_BASE}/profile-wechat.svg`,
+  CHALLENGE_PLAY: `${ICON_BASE}/challenge-play.svg`,
+  CHALLENGE_LISTEN: `${ICON_BASE}/challenge-listen.svg`,
+  CHALLENGE_CHECK: `${ICON_BASE}/challenge-check.svg`,
+  CHALLENGE_SCORE_TARGET: `${ICON_BASE}/challenge-score-target.svg`,
+  CHALLENGE_SCORE_CHART: `${ICON_BASE}/challenge-score-chart.svg`,
+  CHALLENGE_INFO: `${ICON_BASE}/challenge-info.svg`
 }
 
 const ICON_NAMES = Object.freeze({
@@ -59,7 +65,13 @@ const ICON_NAMES = Object.freeze({
   'profile-menu-feedback': ICONS.PROFILE_MENU_FEEDBACK,
   'profile-menu-privacy': ICONS.PROFILE_MENU_PRIVACY,
   'profile-chevron-right': ICONS.PROFILE_CHEVRON_RIGHT,
-  'profile-heart': ICONS.PROFILE_HEART
+  'profile-heart': ICONS.PROFILE_HEART,
+  'challenge-play': ICONS.CHALLENGE_PLAY,
+  'challenge-listen': ICONS.CHALLENGE_LISTEN,
+  'challenge-check': ICONS.CHALLENGE_CHECK,
+  'challenge-score-target': ICONS.CHALLENGE_SCORE_TARGET,
+  'challenge-score-chart': ICONS.CHALLENGE_SCORE_CHART,
+  'challenge-info': ICONS.CHALLENGE_INFO
 })
 
 function resolveIconPath(name) {

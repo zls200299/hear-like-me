@@ -1,10 +1,98 @@
-<view class="page safe-bottom">
-  <view class="page-title">听音挑战</view>
-  <view class="page-desc">通过听辨不同通道数的声音，体验人工耳蜗听觉分辨能力。</view>
+<view class="challenge-page page-with-bg safe-bottom">
+  <image class="page-bg" src="/assets/hear-bg.png" mode="widthFix" aria-hidden="true" />
+  <view class="challenge-orbit challenge-orbit--left" aria-hidden="true"></view>
+  <view class="challenge-orbit challenge-orbit--right" aria-hidden="true"></view>
 
-  <view class="card">
-    <view class="card-title">听音挑战</view>
-    <view class="card-desc">这里后续会放置听辨小游戏与答题反馈。</view>
-    <view class="placeholder">页面框架已创建，业务功能后续接入。后续将支持：播放神秘声音、选择通道数、显示答题反馈。</view>
+  <view class="page-content challenge-content">
+    <view class="challenge-hero">
+      <view class="challenge-hero__title">hear like me</view>
+      <view class="challenge-hero__heading">听一听，猜猜有多少个有效通道</view>
+      <view class="challenge-hero__desc">同一段声音会随机使用不同通道数进行模拟，戴耳机体验更明显。</view>
+    </view>
+
+    <view class="challenge-card challenge-card--main">
+      <view class="challenge-disc" aria-hidden="true">
+        <view class="challenge-disc__glow"></view>
+        <view class="challenge-disc__ring challenge-disc__ring--1"></view>
+        <view class="challenge-disc__ring challenge-disc__ring--2"></view>
+        <view class="challenge-disc__ring challenge-disc__ring--3"></view>
+        <view class="challenge-disc__ring challenge-disc__ring--4"></view>
+      </view>
+
+      <view class="challenge-badge">第 {{questionIndex}} 题</view>
+
+      <view class="challenge-unknown">
+        <view class="challenge-unknown__mark">?</view>
+        <view class="challenge-unknown__label">本轮有效通道</view>
+
+        <button class="challenge-play-btn" bindtap="onPlayTap">
+          <view class="challenge-play-btn__icon">
+            <image class="challenge-play-btn__icon-img" src="/assets/icons/challenge-play.svg" mode="aspectFit" />
+          </view>
+          <text>{{playText}}</text>
+        </button>
+
+        <view class="challenge-listen-tip">
+          <hlm-icon name="challenge-listen" size="40" color="#94a4bc" />
+          <text>请先播放本轮声音，再选择答案</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="challenge-card challenge-card--answer">
+      <view class="challenge-section-title">选择你的答案</view>
+      <view class="challenge-answers">
+        <view
+          wx:for="{{answers}}"
+          wx:key="value"
+          class="challenge-answer {{selectedAnswer === item.value ? 'challenge-answer--selected' : ''}}"
+          data-value="{{item.value}}"
+          bindtap="onAnswerTap"
+        >
+          <text>{{item.label}}</text>
+          <view class="challenge-answer__check">
+            <hlm-icon name="challenge-check" size="30" color="#07313a" />
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="challenge-card challenge-card--score">
+      <view class="challenge-score-block">
+        <view class="challenge-score-icon">
+          <hlm-icon name="challenge-score-target" size="56" color="#27e0cf" />
+        </view>
+        <view>
+          <view class="challenge-score-small">当前成绩</view>
+          <view class="challenge-score-value">
+            正确 <text class="challenge-score-num">{{correctCount}}</text> / <text class="challenge-score-num">{{totalCount}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="challenge-score-vline"></view>
+
+      <view class="challenge-score-block challenge-score-block--right">
+        <view class="challenge-score-icon">
+          <hlm-icon name="challenge-score-chart" size="56" color="#27e0cf" />
+        </view>
+        <view>
+          <view class="challenge-score-small">已完成</view>
+          <view class="challenge-score-value">
+            <text class="challenge-score-num">{{completedCount}}</text> 题
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="challenge-card challenge-card--info">
+      <view class="challenge-info-icon">
+        <hlm-icon name="challenge-info" size="64" color="#ffffff" />
+      </view>
+      <view>
+        <view class="challenge-info-title">挑战说明</view>
+        <view class="challenge-info-text">系统将播放一段经过人工耳蜗模拟处理的声音，请根据听感判断有效通道数。</view>
+      </view>
+    </view>
   </view>
 </view>

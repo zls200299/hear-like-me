@@ -1,3 +1,8 @@
 {
-  "navigationBarTitleText": "听音挑战"
+  "navigationBarTitleText": "听音挑战",
+  "navigationBarBackgroundColor": "#020817",
+  "navigationBarTextStyle": "white",
+  "usingComponents": {
+    "hlm-icon": "/components/hlm-icon/index"
+  }
 }
