@@ -400,6 +400,7 @@ Page({
     const samples = await listSamples()
     if (!samples || !samples.length) return
 
+    this._samples = samples
     this._sampleLabels = buildSampleLabels(samples)
 
     const sampleOptions = samples.map((item) => ({
@@ -423,6 +424,31 @@ Page({
       return this._sampleLabels[code]
     }
     return SAMPLE_LABELS[code] || code
+  },
+
+  _findSampleByCode(code) {
+    const samples = this._samples || []
+    return samples.find((item) => item.code === code) || null
+  },
+
+  /**
+   * 解析示例音源：
+   * - 「预生成文件」且已有 assetId → 直接播放上传的音频（不再走 Python 合成）
+   * - 其它（内置 vowel/tone/melody）→ 走 Python 运行时合成原声
+   */
+  _resolveSampleSource(sampleCode) {
+    const sample = this._findSampleByCode(sampleCode)
+    if (sample && sample.generatorType === 'PREGENERATED' && sample.assetId) {
+      const assetId = String(sample.assetId)
+      return Promise.resolve({
+        assetId,
+        sampleCode: sample.code,
+        fileName: sample.nameCn || sample.code,
+        url: config.baseUrl + '/api/files/preview/' + assetId,
+        objectKey: ''
+      })
+    }
+    return prepareSampleSource(sampleCode)
   },
 
   _syncSourceDetailUI() {
@@ -1110,7 +1136,7 @@ Page({
     }
 
     const preparePromise = (async () => {
-      const result = await prepareSampleSource(sampleCode)
+      const result = await this._resolveSampleSource(sampleCode)
       this._sampleSourceCache[sampleCode] = result
       return result
     })()
@@ -3300,7 +3326,7 @@ Page({
       }
 
       try {
-        const result = await prepareSampleSource(sampleCode)
+        const result = await this._resolveSampleSource(sampleCode)
         this._sampleSourceCache[sampleCode] = result
         if (!this._unloaded && this.data.sourceType === 'sample') {
           this._applySampleSourceToData(result)

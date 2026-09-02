@@ -9,6 +9,7 @@ import com.zhs.exception.ServiceException;
 import com.zhs.mapper.UserMapper;
 import com.zhs.mapper.UserSensitiveInfoMapper;
 import com.zhs.request.auth.WxLoginReq;
+import com.zhs.request.auth.UpdateProfileReq;
 import com.zhs.response.auth.CurrentUserResp;
 import com.zhs.response.auth.WxLoginResp;
 import com.zhs.service.AuthService;
@@ -96,15 +97,43 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public CurrentUserResp getCurrentUser(Long userId) {
-        User user = userMapper.selectById(userId);
-        if (user == null || user.getIsDelete() == 1) {
-            throw new ServiceException("用户不存在");
+        return toCurrentUserResp(requireActiveUser(userId));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public CurrentUserResp updateProfile(Long userId, UpdateProfileReq req) {
+        if (req == null) {
+            throw new ServiceException("资料不能为空");
         }
-        CurrentUserResp resp = new CurrentUserResp();
-        resp.setUserId(user.getId());
-        resp.setNickname(user.getNickname());
-        resp.setAvatar(user.getAvatar());
-        return resp;
+
+        String nickname = req.getNickname() == null ? "" : req.getNickname().trim();
+        String avatar = req.getAvatar() == null ? "" : req.getAvatar().trim();
+        if (!StringUtils.hasText(nickname)) {
+            throw new ServiceException("昵称不能为空");
+        }
+        if (nickname.length() > 32) {
+            throw new ServiceException("昵称不能超过32个字符");
+        }
+        if (avatar.length() > 255) {
+            throw new ServiceException("头像地址过长");
+        }
+
+        User user = requireActiveUser(userId);
+        boolean updated = false;
+        if (!nickname.equals(user.getNickname())) {
+            user.setNickname(nickname);
+            updated = true;
+        }
+        if (StringUtils.hasText(avatar) && !avatar.equals(user.getAvatar())) {
+            user.setAvatar(avatar);
+            updated = true;
+        }
+        if (updated) {
+            user.setLastActiveTime(new Date());
+            userMapper.updateById(user);
+        }
+        return toCurrentUserResp(user);
     }
 
     @Override
@@ -159,5 +188,21 @@ public class AuthServiceImpl implements AuthService {
             user.setLastActiveTime(new Date());
             userMapper.updateById(user);
         }
+    }
+
+    private User requireActiveUser(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null || user.getIsDelete() == 1) {
+            throw new ServiceException("用户不存在");
+        }
+        return user;
+    }
+
+    private CurrentUserResp toCurrentUserResp(User user) {
+        CurrentUserResp resp = new CurrentUserResp();
+        resp.setUserId(user.getId());
+        resp.setNickname(user.getNickname());
+        resp.setAvatar(user.getAvatar());
+        return resp;
     }
 }

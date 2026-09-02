@@ -9,7 +9,11 @@
     <el-table v-loading="loading" :data="list">
       <el-table-column label="配置键" prop="configKey" min-width="200" show-overflow-tooltip />
       <el-table-column label="配置值" prop="configValue" min-width="200" show-overflow-tooltip />
-      <el-table-column label="类型" prop="valueType" width="100" />
+      <el-table-column label="类型" width="100" align="center">
+        <template #default="{ row }">
+          <el-tag :type="dictTag(VALUE_TYPE_DICT, row.valueType)">{{ dictLabel(VALUE_TYPE_DICT, row.valueType) }}</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="说明" prop="description" min-width="200" show-overflow-tooltip />
       <el-table-column label="启用" width="80" align="center">
         <template #default="{ row }">
@@ -68,6 +72,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { listBizConfig, saveBizConfig, removeBizConfig, type BizConfig } from '@/api/hlm/bizConfig'
 import { parseMiniPage } from '@/api/hlm/common'
+import { VALUE_TYPE_DICT, dictLabel, dictTag } from '@/utils/hlmDict'
 
 const loading = ref(false)
 const open = ref(false)

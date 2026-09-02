@@ -6,6 +6,9 @@
 -- Quartz 的 qrtz_* 表不包含在这里，当前阶段不需要执行 quartz.sql。
 -- ============================================================================
 SET NAMES utf8mb4;
+CREATE DATABASE IF NOT EXISTS `hear_like_me_admin`
+  DEFAULT CHARACTER SET utf8mb4
+  COLLATE utf8mb4_0900_ai_ci;
 USE `hear_like_me_admin`;
 
 -- ----------------------------

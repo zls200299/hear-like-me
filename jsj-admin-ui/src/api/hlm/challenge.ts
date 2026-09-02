@@ -7,6 +7,7 @@ export interface HearingChallenge {
   questionCode?: string
   title?: string
   description?: string
+  audioBankId?: string
   audioAssetId?: string
   nChannels?: number
   carrier?: string

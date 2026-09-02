@@ -327,17 +327,53 @@
 }
 
 .challenge-card--score {
-  height: 148rpx;
+  min-height: 220rpx;
+  padding: 28rpx 34rpx 30rpx;
+  margin-bottom: 36rpx;
+}
+
+.challenge-score-head {
   display: flex;
   align-items: center;
-  padding: 0 48rpx;
-  margin-bottom: 36rpx;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.challenge-score-heading {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  color: #e9f0f8;
+  font-size: 28rpx;
+  line-height: 1.4;
+  font-weight: 650;
+}
+
+.challenge-score-heading__mark {
+  width: 28rpx;
+  height: 4rpx;
+  border-radius: 99rpx;
+  background: #27e0cf;
+  box-shadow: 0 0 16rpx rgba(39, 224, 207, 0.35);
+}
+
+.challenge-score-summary {
+  color: #7589a4;
+  font-size: 22rpx;
+  line-height: 1.4;
+}
+
+.challenge-score-metrics {
+  margin-top: 24rpx;
+  display: flex;
+  align-items: center;
 }
 
 .challenge-score-vline {
   width: 2rpx;
-  height: 96rpx;
-  background: rgba(102, 128, 159, 0.25);
+  height: 78rpx;
+  margin: 0 24rpx;
+  background: linear-gradient(180deg, transparent, rgba(102, 128, 159, 0.32), transparent);
   flex-shrink: 0;
 }
 
@@ -345,17 +381,17 @@
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 24rpx;
+  gap: 18rpx;
   min-width: 0;
 }
 
 .challenge-score-block--right {
-  padding-left: 48rpx;
+  padding-left: 0;
 }
 
 .challenge-score-icon {
-  width: 80rpx;
-  height: 80rpx;
+  width: 68rpx;
+  height: 68rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -364,21 +400,38 @@
   flex-shrink: 0;
 }
 
-.challenge-score-small {
-  font-size: 26rpx;
-  color: #a2aec1;
+.challenge-score-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.challenge-score-label {
+  color: #92a3b9;
+  font-size: 23rpx;
+  line-height: 1.35;
 }
 
 .challenge-score-value {
-  margin-top: 10rpx;
-  font-size: 36rpx;
+  margin-top: 4rpx;
+  display: flex;
+  align-items: baseline;
+  gap: 8rpx;
   color: #f3f6fb;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 
 .challenge-score-num {
   color: #27e0cf;
+  font-weight: 700;
+  font-size: 46rpx;
+  letter-spacing: 0.5rpx;
+}
+
+.challenge-score-suffix {
+  color: #dbe4ee;
+  font-size: 27rpx;
   font-weight: 500;
-  font-size: 40rpx;
 }
 
 .challenge-card--info {

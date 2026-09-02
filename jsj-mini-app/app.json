@@ -44,7 +44,8 @@
   "style": "v2",
   "sitemapLocation": "sitemap.json",
   "usingComponents": {
-    "hlm-icon": "/components/hlm-icon/index"
+    "hlm-icon": "/components/hlm-icon/index",
+    "page-background": "/components/page-background/index"
   },
   "permission": {
     "scope.record": {

@@ -43,9 +43,22 @@ public class FileAssetController {
     @GetMapping("/getByPage")
     public R<Map<String, Object>> getListByPage(
         @RequestParam(value = "currentPage", required = false, defaultValue = "1")Integer currentPage,
-        @RequestParam(value = "pageSize", required = false, defaultValue = "10") Integer pageSize){
+        @RequestParam(value = "pageSize", required = false, defaultValue = "10") Integer pageSize,
+        @RequestParam(value = "assetType", required = false) String assetType,
+        @RequestParam(value = "fileExt", required = false) String fileExt,
+        @RequestParam(value = "originalFilename", required = false) String originalFilename){
         LambdaQueryWrapper<FileAsset> lambda = new QueryWrapper<FileAsset>().lambda();
-        lambda.eq(FileAsset::getIsDelete,0).orderByDesc(FileAsset::getCreateTime);
+        lambda.eq(FileAsset::getIsDelete,0);
+        if (StringUtils.isNotBlank(assetType)) {
+            lambda.eq(FileAsset::getAssetType, assetType);
+        }
+        if (StringUtils.isNotBlank(fileExt)) {
+            lambda.eq(FileAsset::getFileExt, fileExt);
+        }
+        if (StringUtils.isNotBlank(originalFilename)) {
+            lambda.like(FileAsset::getOriginalFilename, originalFilename);
+        }
+        lambda.orderByDesc(FileAsset::getCreateTime);
         return R.ok(PageQueryUtil.queryPage(iFileAssetService, currentPage, pageSize, lambda));
     }
 

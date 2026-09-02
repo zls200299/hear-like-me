@@ -1,5 +1,5 @@
 <view class="limits-page page-with-bg">
-  <image class="page-bg" src="/assets/study-bg.png" mode="widthFix" aria-hidden="true" />
+  <page-background src="/assets/study-bg.png" tone="reading"></page-background>
 
   <view class="limits-content">
     <view class="limits-head">

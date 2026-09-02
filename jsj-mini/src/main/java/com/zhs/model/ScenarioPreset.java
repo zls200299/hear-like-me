@@ -2,6 +2,7 @@ package com.zhs.model;
 
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import io.swagger.annotations.ApiModel;
@@ -52,15 +53,18 @@ public class ScenarioPreset implements Serializable {
     @ApiModelProperty(value = "图标 key")
     private String icon;
 
+    @JsonProperty("nChannels")
     @ApiModelProperty(value = "有效通道数 1-22")
     private Integer nChannels;
 
     @ApiModelProperty(value = "noise/sine")
     private String carrier;
 
+    @JsonProperty("fLo")
     @ApiModelProperty(value = "频率下限 Hz")
     private java.math.BigDecimal fLo;
 
+    @JsonProperty("fHi")
     @ApiModelProperty(value = "频率上限 Hz")
     private java.math.BigDecimal fHi;
 

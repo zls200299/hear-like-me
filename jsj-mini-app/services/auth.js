@@ -62,6 +62,27 @@ function saveSession(data) {
   return userInfo
 }
 
+function saveUserProfile(data) {
+  const app = getAppSafe()
+  const session = getSession()
+  const userId = data.userId != null ? String(data.userId) : String(session.userId || '')
+  const userInfo = {
+    userId,
+    nickname: data.nickname || '',
+    avatar: data.avatar || ''
+  }
+
+  if (app) {
+    app.globalData.userId = userId
+    app.globalData.userInfo = userInfo
+  }
+
+  wx.setStorageSync('userId', userId)
+  wx.setStorageSync('userInfo', userInfo)
+  saveLastProfile(userInfo)
+  return userInfo
+}
+
 function clearSession() {
   const app = getAppSafe()
   const cached = readStoredUserInfo()
@@ -153,37 +174,55 @@ function wxLoginWithProfile({ nickname, avatarPath }) {
       throw new Error('获取微信登录凭证失败')
     }
 
-    let avatarUrl = avatarPath || ''
-    if (avatarUrl && !/^https?:\/\//i.test(avatarUrl)) {
-      const uploaded = await uploadImage(avatarUrl)
-      avatarUrl = uploaded.url || ''
-    }
-
     const body = await request({
       url: '/api/auth/wx-login',
       method: 'POST',
       data: {
         code: loginRes.code,
-        nickname: nickname || '',
-        avatar: avatarUrl
+        nickname: nickname || ''
       },
       skipAuth: true
     })
 
     const data = body.data || {}
     const userInfo = saveSession(data)
-    return userInfo
+    if (!avatarPath) return userInfo
+
+    return updateProfile({
+      nickname: userInfo.nickname || nickname,
+      avatarPath
+    })
   })
+}
+
+async function updateProfile({ nickname, avatarPath }) {
+  let avatarUrl = avatarPath || ''
+  if (avatarUrl && !/^https?:\/\//i.test(avatarUrl)) {
+    const uploaded = await uploadImage(avatarUrl)
+    avatarUrl = uploaded.url || ''
+  }
+
+  const body = await request({
+    url: '/api/auth/profile',
+    method: 'POST',
+    data: {
+      nickname: nickname || '',
+      avatar: avatarUrl
+    }
+  })
+  return saveUserProfile(body.data || {})
 }
 
 module.exports = {
   saveSession,
+  saveUserProfile,
   clearSession,
   getSession,
   isLoggedIn,
   wxLogin,
   wxLoginSilent,
   wxLoginWithProfile,
+  updateProfile,
   getCurrentUser,
   logout,
   readLastProfile

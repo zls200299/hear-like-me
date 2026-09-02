@@ -31,6 +31,7 @@ function normalizeSample(item) {
     nameCn: item.nameCn || item.name_cn || item.name || code,
     description: item.description || item.descriptionCn || item.description_cn || '',
     assetId: item.assetId != null ? item.assetId : (item.asset_id != null ? item.asset_id : null),
+    generatorType: item.generatorType || item.generator_type || '',
     audioUrl: item.audioUrl || item.audio_url || ''
   }
 }

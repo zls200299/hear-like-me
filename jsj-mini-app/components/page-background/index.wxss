@@ -1,0 +1,84 @@
+:host {
+  display: block;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.page-background {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.page-background__base,
+.page-background__image,
+.page-background__overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.page-background__base {
+  background: #020914;
+}
+
+.page-background__image {
+  display: block;
+}
+
+.page-background__overlay {
+  background: linear-gradient(
+    180deg,
+    rgba(2, 9, 20, 0.06) 0%,
+    rgba(2, 9, 20, 0.22) 56%,
+    rgba(2, 9, 20, 0.44) 100%
+  );
+}
+
+.page-background--reading .page-background__overlay {
+  background: linear-gradient(
+    180deg,
+    rgba(2, 9, 20, 0.14) 0%,
+    rgba(2, 9, 20, 0.34) 56%,
+    rgba(2, 9, 20, 0.55) 100%
+  );
+}
+
+.page-background--simulator .page-background__base {
+  background: #07111f;
+}
+
+.page-background--simulator .page-background__overlay {
+  background: linear-gradient(
+    180deg,
+    rgba(7, 17, 31, 0.06) 0%,
+    rgba(7, 17, 31, 0.2) 56%,
+    rgba(7, 17, 31, 0.42) 100%
+  );
+}
+
+.page-background--profile .page-background__base {
+  background: #071521;
+}
+
+.page-background--profile .page-background__overlay {
+  background: linear-gradient(
+    180deg,
+    rgba(7, 21, 33, 0.08) 0%,
+    rgba(7, 21, 33, 0.28) 56%,
+    rgba(7, 21, 33, 0.5) 100%
+  );
+}

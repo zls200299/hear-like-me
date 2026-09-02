@@ -1,5 +1,5 @@
 <view class="profile-page page-with-bg safe-bottom">
-  <image class="page-bg" src="/assets/my-bg.png" mode="widthFix" aria-hidden="true" />
+  <page-background src="/assets/my-bg.png" tone="profile"></page-background>
   <view class="profile-grid" aria-hidden="true"></view>
 
   <view class="page-content profile-content">
@@ -101,17 +101,21 @@
     <view class="profile-login-sheet__panel">
       <view class="profile-login-sheet__handle" aria-hidden="true"></view>
       <view class="profile-login-sheet__header">
-        <view class="profile-login-sheet__title">完善登录信息</view>
+        <view class="profile-login-sheet__title">{{profileSheetMode === 'edit' ? '编辑账号信息' : '完善登录信息'}}</view>
         <view class="profile-login-sheet__close" bindtap="onCloseLoginSheet">×</view>
       </view>
-      <view class="profile-login-sheet__desc">请选择头像并填写昵称后完成微信登录</view>
-      <button class="profile-login-sheet__avatar" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+      <view class="profile-login-sheet__desc">
+        {{profileSheetMode === 'edit' ? '点击头像可重新选择，修改完成后记得保存' : '请选择头像并填写昵称后完成微信登录'}}
+      </view>
+      <button class="profile-login-sheet__avatar" open-type="chooseAvatar" bindchooseavatar="onSheetChooseAvatar">
         <image
           class="profile-login-sheet__avatar-img"
-          src="{{avatarUrl || '/assets/icons/profile-avatar-placeholder.svg'}}"
+          src="{{sheetAvatarUrl || '/assets/icons/profile-avatar-placeholder.svg'}}"
           mode="aspectFill"
         />
-        <text class="profile-login-sheet__avatar-hint">点击选择头像</text>
+        <text class="profile-login-sheet__avatar-hint">
+          {{preparingAvatar ? '正在上传头像…' : (sheetAvatarUrl ? '更换头像' : '选择头像')}}
+        </text>
       </button>
       <input
         id="loginNicknameInput"
@@ -124,9 +128,55 @@
         bindnicknamereview="onNicknameReview"
         maxlength="32"
       />
-      <button class="profile-login-sheet__confirm" bindtap="onLogin" loading="{{loggingIn}}" disabled="{{loggingIn}}">
-        确认登录
+      <button
+        class="profile-login-sheet__confirm"
+        bindtap="onProfileSubmit"
+        loading="{{loggingIn || savingProfile}}"
+        disabled="{{loggingIn || savingProfile || preparingAvatar}}"
+      >
+        {{profileSheetMode === 'edit' ? '保存修改' : '确认登录'}}
       </button>
+    </view>
+  </view>
+
+  <view wx:if="{{infoSheetVisible && activePanel}}" class="profile-info-sheet">
+    <view class="profile-info-sheet__mask" bindtap="onCloseInfoSheet"></view>
+    <view class="profile-info-sheet__panel">
+      <view class="profile-info-sheet__handle" aria-hidden="true"></view>
+      <view class="profile-info-sheet__header">
+        <view class="profile-info-sheet__heading">
+          <view class="profile-info-sheet__icon">
+            <hlm-icon name="{{activePanel.icon}}" size="48" color="#2ac2d1" />
+          </view>
+          <view class="profile-info-sheet__title">{{activePanel.title}}</view>
+        </view>
+        <view class="profile-info-sheet__close" bindtap="onCloseInfoSheet">×</view>
+      </view>
+
+      <scroll-view class="profile-info-sheet__body" scroll-y enhanced show-scrollbar="{{false}}">
+        <view class="profile-info-sheet__intro">{{activePanel.intro}}</view>
+
+        <block wx:if="{{activePanelKey === 'feedback'}}">
+          <view class="profile-feedback-note">
+            <view class="profile-feedback-note__title">为了更快定位问题</view>
+            <view class="profile-feedback-note__item"><text>1</text><view>请写明问题出现在哪个页面</view></view>
+            <view class="profile-feedback-note__item"><text>2</text><view>描述操作步骤和你期望看到的结果</view></view>
+            <view class="profile-feedback-note__item"><text>3</text><view>如有异常画面，建议同时上传截图</view></view>
+          </view>
+          <button class="profile-feedback-button" open-type="feedback">进入微信意见反馈</button>
+          <view class="profile-feedback-helper">反馈页由微信提供，可填写文字并附加图片。</view>
+        </block>
+
+        <view wx:else class="profile-info-sections">
+          <view wx:for="{{activePanel.sections}}" wx:key="title" class="profile-info-section">
+            <view class="profile-info-section__number">{{index + 1}}</view>
+            <view class="profile-info-section__content">
+              <view class="profile-info-section__title">{{item.title}}</view>
+              <view class="profile-info-section__text">{{item.text}}</view>
+            </view>
+          </view>
+        </view>
+      </scroll-view>
     </view>
   </view>
 </view>

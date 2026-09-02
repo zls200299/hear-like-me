@@ -8,6 +8,7 @@ import lombok.ToString;
 import io.swagger.annotations.ApiModelProperty;
 import org.springframework.format.annotation.DateTimeFormat;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.List;
@@ -48,15 +49,18 @@ public class ScenarioPresetDto implements Serializable {
         @ApiModelProperty(value = "图标 key")
         private String icon;
 
+        @JsonProperty("nChannels")
         @ApiModelProperty(value = "有效通道数 1-22", required = true)
         private Integer nChannels;
 
         @ApiModelProperty(value = "noise/sine", required = true)
         private String carrier;
 
+        @JsonProperty("fLo")
         @ApiModelProperty(value = "频率下限 Hz", required = true)
         private java.math.BigDecimal fLo;
 
+        @JsonProperty("fHi")
         @ApiModelProperty(value = "频率上限 Hz", required = true)
         private java.math.BigDecimal fHi;
 

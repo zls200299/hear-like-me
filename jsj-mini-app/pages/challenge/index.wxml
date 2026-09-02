@@ -1,5 +1,5 @@
 <view class="challenge-page page-with-bg safe-bottom">
-  <image class="page-bg" src="/assets/hear-bg.png" mode="widthFix" aria-hidden="true" />
+  <page-background src="/assets/hear-bg.png"></page-background>
   <view class="challenge-orbit challenge-orbit--left" aria-hidden="true"></view>
   <view class="challenge-orbit challenge-orbit--right" aria-hidden="true"></view>
 
@@ -67,28 +67,40 @@
     </view>
 
     <view class="challenge-card challenge-card--score">
-      <view class="challenge-score-block">
-        <view class="challenge-score-icon">
-          <hlm-icon name="challenge-score-target" size="56" color="#27e0cf" />
+      <view class="challenge-score-head">
+        <view class="challenge-score-heading">
+          <view class="challenge-score-heading__mark"></view>
+          <text>当前成绩</text>
         </view>
-        <view>
-          <view class="challenge-score-small">当前成绩</view>
-          <view class="challenge-score-value">
-            正确 <text class="challenge-score-num">{{correctCount}}</text> / <text class="challenge-score-num">{{totalCount}}</text>
-          </view>
-        </view>
+        <view class="challenge-score-summary">本轮共 {{totalCount}} 题</view>
       </view>
 
-      <view class="challenge-score-vline"></view>
-
-      <view class="challenge-score-block challenge-score-block--right">
-        <view class="challenge-score-icon">
-          <hlm-icon name="challenge-score-chart" size="56" color="#27e0cf" />
+      <view class="challenge-score-metrics">
+        <view class="challenge-score-block">
+          <view class="challenge-score-icon">
+            <hlm-icon name="challenge-score-target" size="48" color="#27e0cf" />
+          </view>
+          <view class="challenge-score-copy">
+            <view class="challenge-score-label">答对题数</view>
+            <view class="challenge-score-value">
+              <text class="challenge-score-num">{{correctCount}}</text>
+              <text class="challenge-score-suffix">/ {{totalCount}}</text>
+            </view>
+          </view>
         </view>
-        <view>
-          <view class="challenge-score-small">已完成</view>
-          <view class="challenge-score-value">
-            <text class="challenge-score-num">{{completedCount}}</text> 题
+
+        <view class="challenge-score-vline"></view>
+
+        <view class="challenge-score-block challenge-score-block--right">
+          <view class="challenge-score-icon">
+            <hlm-icon name="challenge-score-chart" size="48" color="#27e0cf" />
+          </view>
+          <view class="challenge-score-copy">
+            <view class="challenge-score-label">已完成题数</view>
+            <view class="challenge-score-value">
+              <text class="challenge-score-num">{{completedCount}}</text>
+              <text class="challenge-score-suffix">题</text>
+            </view>
           </view>
         </view>
       </view>

@@ -1,0 +1,5 @@
+<view class="page-background page-background--{{tone}}" aria-hidden="true">
+  <view class="page-background__base"></view>
+  <image class="page-background__image" src="{{src}}" mode="aspectFill" />
+  <view class="page-background__overlay"></view>
+</view>

@@ -1,5 +1,5 @@
 <view class="page safe-bottom simulator-page top-ui page-with-bg">
-  <image class="page-bg" src="/assets/home-bg.png" mode="widthFix" aria-hidden="true" />
+  <page-background src="/assets/home-bg.png" tone="simulator"></page-background>
   <view class="page-content">
   <view class="top-header">
     <view class="top-header__brand">hear like me</view>

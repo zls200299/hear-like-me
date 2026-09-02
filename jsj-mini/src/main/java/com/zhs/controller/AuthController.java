@@ -5,6 +5,7 @@ import com.zhs.common.TokenUtil;
 import com.zhs.common.UserContext;
 import com.zhs.exception.ServiceException;
 import com.zhs.request.auth.WxLoginReq;
+import com.zhs.request.auth.UpdateProfileReq;
 import com.zhs.response.auth.CurrentUserResp;
 import com.zhs.response.auth.WxLoginResp;
 import com.zhs.service.AuthService;
@@ -40,6 +41,15 @@ public class AuthController {
             throw new ServiceException("未登录", 401);
         }
         return R.ok(authService.getCurrentUser(userId));
+    }
+
+    @PostMapping("/profile")
+    public R<CurrentUserResp> updateProfile(@RequestBody UpdateProfileReq req) {
+        Long userId = UserContext.getUserId();
+        if (userId == null) {
+            throw new ServiceException("未登录", 401);
+        }
+        return R.ok(authService.updateProfile(userId, req));
     }
 
     @PostMapping("/logout")

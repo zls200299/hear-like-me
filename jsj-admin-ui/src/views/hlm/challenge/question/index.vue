@@ -66,22 +66,36 @@
         <el-form-item label="备注说明">
           <el-input v-model="form.description" type="textarea" :rows="2" />
         </el-form-item>
-        <el-form-item label="挑战音频" prop="audioAssetId">
-          <div class="audio-row">
-            <el-input v-model="form.audioAssetId" placeholder="上传后自动填入 assetId" readonly style="flex: 1" />
-            <el-upload :show-file-list="false" :http-request="handleUpload" accept="audio/*">
-              <el-button type="primary" plain>上传音频</el-button>
-            </el-upload>
-            <el-button v-if="form.audioAssetId" @click="playAudio(form.audioAssetId)">试听</el-button>
+        <el-form-item label="模拟音频" prop="audioBankId">
+          <el-select
+            v-model="form.audioBankId"
+            filterable
+            placeholder="从模拟音频库选择已生成的音频"
+            style="width: 100%"
+            @change="handleAudioSelected"
+          >
+            <el-option
+              v-for="audio in audioOptions"
+              :key="audio.id"
+              :label="`${audio.title} · ${audio.nChannels} 通道`"
+              :value="audio.id"
+            >
+              <div class="audio-option">
+                <span>{{ audio.title }}</span>
+                <small>{{ audio.audioCode }} · {{ audio.nChannels }} 通道</small>
+              </div>
+            </el-option>
+          </el-select>
+          <div v-if="selectedAudio" class="selected-audio">
+            <div class="selected-main">
+              <span class="channel-badge">{{ selectedAudio.nChannels }}</span>
+              <div>
+                <strong>{{ selectedAudio.title }}</strong>
+                <small>正确答案已自动锁定为 {{ selectedAudio.nChannels }} 通道</small>
+              </div>
+            </div>
+            <el-button link type="primary" @click="playAudio(selectedAudio.outputAssetId)">试听模拟音</el-button>
           </div>
-        </el-form-item>
-        <el-form-item label="正确答案通道" prop="nChannels">
-          <el-radio-group v-model="form.nChannels">
-            <el-radio :value="2">2</el-radio>
-            <el-radio :value="4">4</el-radio>
-            <el-radio :value="8">8</el-radio>
-            <el-radio :value="16">16</el-radio>
-          </el-radio-group>
         </el-form-item>
         <el-form-item label="发布状态">
           <el-select v-model="form.status" style="width: 200px">
@@ -109,10 +123,11 @@
 </template>
 
 <script setup lang="ts" name="HlmChallengeQuestion">
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type UploadRequestOptions } from 'element-plus'
+import { computed, ref, reactive, onMounted } from 'vue'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { listChallenge, saveChallenge, removeChallenge, type HearingChallenge } from '@/api/hlm/challenge'
-import { parseMiniPage, uploadAudio } from '@/api/hlm/common'
+import { listChallengeAudio, type ChallengeAudio } from '@/api/hlm/challengeAudio'
+import { parseMiniPage } from '@/api/hlm/common'
 import { miniPreviewUrl } from '@/utils/miniRequest'
 
 const loading = ref(false)
@@ -120,6 +135,7 @@ const open = ref(false)
 const dialogTitle = ref('')
 const total = ref(0)
 const list = ref<HearingChallenge[]>([])
+const audioOptions = ref<ChallengeAudio[]>([])
 const formRef = ref<FormInstance>()
 let audioEl: HTMLAudioElement | null = null
 
@@ -134,6 +150,7 @@ const defaultForm = (): HearingChallenge => ({
   questionCode: '',
   title: '',
   description: '',
+  audioBankId: '',
   audioAssetId: '',
   nChannels: 8,
   carrier: 'noise',
@@ -156,9 +173,10 @@ const form = ref<HearingChallenge>(defaultForm())
 const rules: FormRules = {
   questionCode: [{ required: true, message: '请输入题目编码', trigger: 'blur' }],
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
-  audioAssetId: [{ required: true, message: '请上传挑战音频', trigger: 'change' }],
-  nChannels: [{ required: true, message: '请选择正确答案', trigger: 'change' }]
+  audioBankId: [{ required: true, message: '请选择模拟音频', trigger: 'change' }]
 }
+
+const selectedAudio = computed(() => audioOptions.value.find(item => String(item.id) === String(form.value.audioBankId)))
 
 function statusLabel(s?: string) {
   return ({ DRAFT: '草稿', PUBLISHED: '已发布', OFFLINE: '已下线' } as Record<string, string>)[s || ''] || s
@@ -178,23 +196,31 @@ function getList(pagination?: { page?: number; limit?: number }) {
   }).finally(() => { loading.value = false })
 }
 
+function loadAudioOptions() {
+  return listChallengeAudio({ currentPage: 1, pageSize: 500, status: 'READY' }).then((res) => {
+    audioOptions.value = parseMiniPage(res).list
+  })
+}
+
 function handleAdd() {
   form.value = defaultForm()
   dialogTitle.value = '新增挑战题目'
   open.value = true
+  loadAudioOptions()
 }
 
 function handleEdit(row: HearingChallenge) {
   form.value = { ...defaultForm(), ...row }
   dialogTitle.value = '编辑挑战题目'
   open.value = true
+  loadAudioOptions()
 }
 
-function handleUpload(options: UploadRequestOptions) {
-  uploadAudio(options.file as File).then((res) => {
-    form.value.audioAssetId = res.data.assetId
-    ElMessage.success('音频上传成功')
-  }).catch(() => options.onError?.(new Error('upload failed') as any))
+function handleAudioSelected(id?: string) {
+  const audio = audioOptions.value.find(item => String(item.id) === String(id))
+  if (!audio) return
+  form.value.audioAssetId = audio.outputAssetId
+  form.value.nChannels = audio.nChannels
 }
 
 function playAudio(assetId: string | number) {
@@ -223,14 +249,55 @@ function handleDelete(row: HearingChallenge) {
   }).catch(() => {})
 }
 
-onMounted(getList)
+onMounted(() => {
+  getList()
+  loadAudioOptions()
+})
 </script>
 
 <style scoped>
-.audio-row {
+.audio-option {
   display: flex;
-  gap: 8px;
-  width: 100%;
+  justify-content: space-between;
   align-items: center;
+  gap: 24px;
+}
+.audio-option small {
+  color: #98a4b5;
+}
+.selected-audio {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid #b7dfca;
+  border-radius: 9px;
+  background: #f2faf6;
+}
+.selected-main {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.selected-main strong,
+.selected-main small {
+  display: block;
+  line-height: 1.45;
+}
+.selected-main small {
+  color: #668173;
+}
+.channel-badge {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #d9f3e5;
+  color: #238557;
+  font-size: 18px;
+  font-weight: 700;
 }
 </style>

@@ -7,6 +7,7 @@ import com.zhs.dao.HearingChallengeDao;
 import com.zhs.dto.HearingChallengeDto;
 import com.zhs.exception.ServiceException;
 import com.zhs.model.FileAsset;
+import com.zhs.model.ChallengeAudio;
 import com.zhs.model.HearingChallenge;
 import com.zhs.util.R;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
@@ -15,6 +16,7 @@ import com.zhs.response.challenge.ChallengeQuestionItemResp;
 import com.zhs.response.challenge.ChallengeQuestionListResp;
 import com.zhs.response.challenge.ChallengeSubmitAnswerResp;
 import com.zhs.service.HearingChallengeService;
+import com.zhs.service.ChallengeAudioService;
 import com.zhs.service.IFileAssetService;
 import com.zhs.service.storage.LocalFileStorageService;
 import jakarta.annotation.Resource;
@@ -38,6 +40,9 @@ public class HearingChallengeServiceImpl extends ServiceImpl<HearingChallengeDao
     @Resource
     private LocalFileStorageService localFileStorageService;
 
+    @Resource
+    private ChallengeAudioService challengeAudioService;
+
     @Override
     public R addOrUpdate(HearingChallengeDto dto) {
         if (BeanUtil.isEmpty(dto)) {
@@ -49,15 +54,11 @@ public class HearingChallengeServiceImpl extends ServiceImpl<HearingChallengeDao
         if (StringUtils.isBlank(dto.getTitle())) {
             throw new ServiceException("题目标题不能为空");
         }
-        if (dto.getAudioAssetId() == null) {
-            throw new ServiceException("挑战音频不能为空");
-        }
-        if (dto.getNChannels() == null) {
-            throw new ServiceException("正确答案通道数不能为空");
-        }
-
+        ensureQuestionCodeUnique(dto.getQuestionCode().trim(), dto.getId());
         HearingChallenge entity = new HearingChallenge();
         BeanUtil.copyProperties(dto, entity);
+        entity.setQuestionCode(dto.getQuestionCode().trim());
+        applyAudioSnapshot(dto, entity);
         if (entity.getIsDelete() == null) {
             entity.setIsDelete(0);
         }
@@ -71,6 +72,58 @@ public class HearingChallengeServiceImpl extends ServiceImpl<HearingChallengeDao
         }
         updateById(entity);
         return R.ok("数据更新成功");
+    }
+
+    private void ensureQuestionCodeUnique(String questionCode, Long currentId) {
+        LambdaQueryWrapper<HearingChallenge> wrapper = new LambdaQueryWrapper<HearingChallenge>()
+                .eq(HearingChallenge::getQuestionCode, questionCode);
+        if (currentId != null) {
+            wrapper.ne(HearingChallenge::getId, currentId);
+        }
+        if (count(wrapper) > 0) {
+            throw new ServiceException("题目编码已存在，请更换后再保存", 409);
+        }
+    }
+
+    private void applyAudioSnapshot(HearingChallengeDto dto, HearingChallenge entity) {
+        if (dto.getAudioBankId() == null) {
+            if (dto.getId() != null) {
+                HearingChallenge existing = getById(dto.getId());
+                if (existing != null && existing.getAudioBankId() == null) {
+                    entity.setAudioAssetId(existing.getAudioAssetId());
+                    entity.setNChannels(existing.getNChannels());
+                    entity.setCarrier(existing.getCarrier());
+                    entity.setFLo(existing.getFLo());
+                    entity.setFHi(existing.getFHi());
+                    entity.setEnvCut(existing.getEnvCut());
+                    entity.setSpread(existing.getSpread());
+                    entity.setNoiseLevel(existing.getNoiseLevel());
+                    entity.setEnvAmp(existing.getEnvAmp());
+                    entity.setWetMix(existing.getWetMix());
+                    entity.setCompressEnabled(existing.getCompressEnabled());
+                    entity.setNormalizePeak(existing.getNormalizePeak());
+                    return;
+                }
+            }
+            throw new ServiceException("请选择已生成的模拟音频");
+        }
+
+        ChallengeAudio audio = challengeAudioService.getOne(new LambdaQueryWrapper<ChallengeAudio>()
+                .eq(ChallengeAudio::getId, dto.getAudioBankId())
+                .eq(ChallengeAudio::getStatus, "READY")
+                .eq(ChallengeAudio::getIsDelete, 0));
+        if (audio == null || audio.getOutputAssetId() == null) {
+            throw new ServiceException("所选模拟音频不可用，请先生成成功");
+        }
+        entity.setAudioBankId(audio.getId());
+        entity.setAudioAssetId(audio.getOutputAssetId());
+        entity.setNChannels(audio.getNChannels());
+        entity.setCarrier(audio.getCarrier());
+        entity.setFLo(audio.getFLo());
+        entity.setFHi(audio.getFHi());
+        entity.setEnvCut(audio.getEnvCut());
+        entity.setSpread(audio.getSpread());
+        entity.setNoiseLevel(audio.getNoiseLevel());
     }
 
     @Override

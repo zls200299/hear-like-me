@@ -52,10 +52,10 @@
 
 .detail-hero__visual {
   position: absolute;
-  right: -116rpx;
+  right: 0;
   bottom: 20rpx;
-  width: 370rpx;
-  height: 244rpx;
+  width: 306rpx;
+  height: 224rpx;
   opacity: 0.58;
 }
 

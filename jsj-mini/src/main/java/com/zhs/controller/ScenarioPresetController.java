@@ -43,9 +43,18 @@ public class ScenarioPresetController {
     @GetMapping("/getByPage")
     public R<Map<String, Object>> getListByPage(
         @RequestParam(value = "currentPage", required = false, defaultValue = "1")Integer currentPage,
-        @RequestParam(value = "pageSize", required = false, defaultValue = "10") Integer pageSize){
+        @RequestParam(value = "pageSize", required = false, defaultValue = "10") Integer pageSize,
+        @RequestParam(value = "scenarioCode", required = false) String scenarioCode,
+        @RequestParam(value = "nameCn", required = false) String nameCn){
         LambdaQueryWrapper<ScenarioPreset> lambda = new QueryWrapper<ScenarioPreset>().lambda();
-        lambda.eq(ScenarioPreset::getIsDelete,0).orderByAsc(ScenarioPreset::getSortOrder);
+        lambda.eq(ScenarioPreset::getIsDelete,0);
+        if (StringUtils.isNotBlank(scenarioCode)) {
+            lambda.like(ScenarioPreset::getScenarioCode, scenarioCode);
+        }
+        if (StringUtils.isNotBlank(nameCn)) {
+            lambda.like(ScenarioPreset::getNameCn, nameCn);
+        }
+        lambda.orderByAsc(ScenarioPreset::getSortOrder);
         return R.ok(PageQueryUtil.queryPage(iScenarioPresetService, currentPage, pageSize, lambda));
     }
 

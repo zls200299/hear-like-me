@@ -10,7 +10,13 @@
     <el-table v-loading="loading" :data="list">
       <el-table-column label="编码" prop="sampleCode" width="120" />
       <el-table-column label="中文名" prop="nameCn" min-width="160" />
-      <el-table-column label="生成方式" prop="generatorType" width="160" />
+      <el-table-column label="生成方式" width="160" align="center">
+        <template #default="{ row }">
+          <el-tag :type="dictTag(GENERATOR_TYPE_DICT, row.generatorType)">
+            {{ dictLabel(GENERATOR_TYPE_DICT, row.generatorType) }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="排序" prop="sortOrder" width="80" align="center" />
       <el-table-column label="启用" width="80" align="center">
         <template #default="{ row }">
@@ -52,8 +58,24 @@
             <el-option label="预生成文件" value="PREGENERATED" />
           </el-select>
         </el-form-item>
-        <el-form-item label="文件 ID" v-if="form.generatorType === 'PREGENERATED'">
-          <el-input v-model="form.assetId" placeholder="file_asset.id" />
+        <el-form-item label="音频文件" v-if="form.generatorType === 'PREGENERATED'">
+          <div class="sample-upload">
+            <el-upload
+              :show-file-list="false"
+              :http-request="handleUpload"
+              :before-upload="beforeUpload"
+              accept=".mp3,.wav,.m4a,.aac,audio/*"
+              :disabled="uploading"
+            >
+              <el-button type="primary" plain icon="Upload" :loading="uploading">
+                {{ form.assetId ? '重新上传' : '上传音频' }}
+              </el-button>
+            </el-upload>
+            <template v-if="form.assetId">
+              <span class="sample-upload-file">{{ uploadedFileName || `文件 ID：${form.assetId}` }}</span>
+              <el-button link type="primary" @click="previewUploaded">试听</el-button>
+            </template>
+          </div>
         </el-form-item>
         <el-form-item label="排序">
           <el-input-number v-model="form.sortOrder" :min="0" />
@@ -74,7 +96,9 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { listSample, saveSample, removeSample, type SampleAudio } from '@/api/hlm/sample'
-import { parseMiniPage } from '@/api/hlm/common'
+import { parseMiniPage, uploadAudio } from '@/api/hlm/common'
+import { miniPreviewUrl } from '@/utils/miniRequest'
+import { GENERATOR_TYPE_DICT, dictLabel, dictTag } from '@/utils/hlmDict'
 
 const loading = ref(false)
 const open = ref(false)
@@ -82,6 +106,8 @@ const dialogTitle = ref('')
 const total = ref(0)
 const list = ref<SampleAudio[]>([])
 const formRef = ref<FormInstance>()
+const uploading = ref(false)
+const uploadedFileName = ref('')
 
 const queryParams = reactive({ currentPage: 1, pageSize: 10 })
 
@@ -114,12 +140,14 @@ function getList(pagination?: { page?: number; limit?: number }) {
 
 function handleAdd() {
   form.value = defaultForm()
+  uploadedFileName.value = ''
   dialogTitle.value = '新增示例音'
   open.value = true
 }
 
 function handleEdit(row: SampleAudio) {
   form.value = { ...defaultForm(), ...row }
+  uploadedFileName.value = ''
   dialogTitle.value = '编辑示例音'
   open.value = true
 }
@@ -135,6 +163,40 @@ function submitForm() {
   })
 }
 
+function beforeUpload(file: File) {
+  if (!/\.(mp3|wav|m4a|aac)$/i.test(file.name)) {
+    ElMessage.error('仅支持 mp3 / wav / m4a / aac 音频')
+    return false
+  }
+  return true
+}
+
+async function handleUpload(options: any) {
+  const raw: File | undefined = options?.file?.raw ?? options?.file
+  if (!raw) {
+    options?.onError?.(new Error('未获取到文件'))
+    return
+  }
+  uploading.value = true
+  try {
+    const res = await uploadAudio(raw)
+    form.value.assetId = res.data.assetId
+    uploadedFileName.value = res.data.fileName
+    ElMessage.success('上传成功')
+    options?.onSuccess?.(res)
+  } catch (e) {
+    ElMessage.error((e as Error)?.message || '上传失败')
+    options?.onError?.(e)
+  } finally {
+    uploading.value = false
+  }
+}
+
+function previewUploaded() {
+  if (!form.value.assetId) return
+  window.open(miniPreviewUrl(form.value.assetId), '_blank')
+}
+
 function handleDelete(row: SampleAudio) {
   ElMessageBox.confirm(`确认删除示例音「${row.nameCn}」？`, '提示', { type: 'warning' }).then(() => {
     removeSample(String(row.id)).then(() => {
@@ -146,3 +208,21 @@ function handleDelete(row: SampleAudio) {
 
 onMounted(getList)
 </script>
+
+<style scoped>
+.sample-upload {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.sample-upload-file {
+  color: #909399;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
+}
+</style>

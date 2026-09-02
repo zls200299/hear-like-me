@@ -1,6 +1,7 @@
 package com.zhs.service;
 
 import com.zhs.request.auth.WxLoginReq;
+import com.zhs.request.auth.UpdateProfileReq;
 import com.zhs.response.auth.CurrentUserResp;
 import com.zhs.response.auth.WxLoginResp;
 
@@ -18,6 +19,11 @@ public interface AuthService {
      * 获取当前登录用户信息
      */
     CurrentUserResp getCurrentUser(Long userId);
+
+    /**
+     * 更新当前登录用户的昵称和头像
+     */
+    CurrentUserResp updateProfile(Long userId, UpdateProfileReq req);
 
     /**
      * 退出登录
