@@ -8,7 +8,7 @@ import com.zhs.dto.SystemConfigDto;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zhs.util.PageQueryUtil;
 import com.zhs.util.R;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -23,6 +23,7 @@ import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import jakarta.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  *
@@ -40,15 +41,12 @@ public class SystemConfigController {
 
     @ApiOperation(value = "分页查询")
     @GetMapping("/getByPage")
-    public R<IPage<SystemConfig>> getListByPage(
+    public R<Map<String, Object>> getListByPage(
         @RequestParam(value = "currentPage", required = false, defaultValue = "1")Integer currentPage,
         @RequestParam(value = "pageSize", required = false, defaultValue = "10") Integer pageSize){
-        //构建分页
-        Page<SystemConfig> page = new Page<>(currentPage, pageSize);
         LambdaQueryWrapper<SystemConfig> lambda = new QueryWrapper<SystemConfig>().lambda();
-        // 系统配置表无 is_delete 字段
-        IPage<SystemConfig> pages =  iSystemConfigService.page(page, lambda);
-        return R.ok(pages);
+        lambda.orderByAsc(SystemConfig::getConfigKey);
+        return R.ok(PageQueryUtil.queryPage(iSystemConfigService, currentPage, pageSize, lambda));
     }
 
 

@@ -5,6 +5,8 @@
     "pages/learn/index",
     "pages/learn/cochlear-basic/index",
     "pages/learn/howHear/index",
+    "pages/learn/limitations/index",
+    "pages/learn/childHearing/index",
     "pages/profile/index"
   ],
   "window": {

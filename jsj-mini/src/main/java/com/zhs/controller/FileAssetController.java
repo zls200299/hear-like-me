@@ -8,7 +8,7 @@ import com.zhs.dto.FileAssetDto;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zhs.util.PageQueryUtil;
 import com.zhs.util.R;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -23,6 +23,7 @@ import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import jakarta.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  *
@@ -40,16 +41,12 @@ public class FileAssetController {
 
     @ApiOperation(value = "分页查询")
     @GetMapping("/getByPage")
-    public R<IPage<FileAsset>> getListByPage(
+    public R<Map<String, Object>> getListByPage(
         @RequestParam(value = "currentPage", required = false, defaultValue = "1")Integer currentPage,
         @RequestParam(value = "pageSize", required = false, defaultValue = "10") Integer pageSize){
-        //构建分页
-        Page<FileAsset> page = new Page<>(currentPage, pageSize);
         LambdaQueryWrapper<FileAsset> lambda = new QueryWrapper<FileAsset>().lambda();
-        //此处可以拼条件
-        lambda.eq(FileAsset::getIsDelete,0);
-        IPage<FileAsset> pages =  iFileAssetService.page(page, lambda);
-        return R.ok(pages);
+        lambda.eq(FileAsset::getIsDelete,0).orderByDesc(FileAsset::getCreateTime);
+        return R.ok(PageQueryUtil.queryPage(iFileAssetService, currentPage, pageSize, lambda));
     }
 
 

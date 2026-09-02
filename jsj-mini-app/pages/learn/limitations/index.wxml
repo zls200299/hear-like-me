@@ -1,0 +1,113 @@
+<view class="limits-page page-with-bg">
+  <image class="page-bg" src="/assets/study-bg.png" mode="widthFix" aria-hidden="true" />
+
+  <view class="limits-content">
+    <view class="limits-head">
+      <view class="limits-title">人工耳蜗的六个局限</view>
+      <view class="limits-desc">理解技术能做什么，也理解它暂时做不到什么。</view>
+      <view class="swipe-hint"><view class="swipe-hint__line"></view><text>左右滑动查看</text></view>
+    </view>
+
+    <swiper
+      class="limit-swiper"
+      current="{{current}}"
+      previous-margin="30rpx"
+      next-margin="30rpx"
+      duration="360"
+      easing-function="easeOutCubic"
+      bindchange="onCardChange"
+    >
+      <swiper-item>
+        <view class="limit-card limit-card--music">
+          <view class="card-top"><text class="card-number">01</text><text class="card-total">/ 06</text><text class="card-category">音乐与音高</text></view>
+          <view class="card-visual music-visual" aria-hidden="true">
+            <canvas type="2d" class="limit-canvas"></canvas>
+            <view class="visual-caption">音高细节被压缩</view>
+          </view>
+          <view class="card-title">音乐与音高</view>
+          <view class="card-takeaway">节奏还能听见，旋律与和声却可能变得模糊。</view>
+          <view class="card-explain">旋律、和声和乐器音色依赖细腻的音高信息。人工耳蜗会丢失部分精细频率线索，因此音乐可能显得更平、更难分辨。</view>
+          <view class="card-tags"><text>精细音高减少</text><text>节奏相对保留</text></view>
+        </view>
+      </swiper-item>
+
+      <swiper-item>
+        <view class="limit-card limit-card--tone">
+          <view class="card-top"><text class="card-number">02</text><text class="card-total">/ 06</text><text class="card-category">声调语言</text></view>
+          <view class="card-visual tone-visual" aria-hidden="true">
+            <canvas type="2d" class="limit-canvas"></canvas>
+            <view class="visual-caption">声调轮廓逐渐变得接近</view>
+          </view>
+          <view class="card-title">声调语言</view>
+          <view class="card-takeaway">同一个音节，只换声调就可能换意思，但声调差异更难保留。</view>
+          <view class="card-explain">普通话、粤语等语言依赖音高轮廓区分词义。人工耳蜗对音高的编码较弱，因此声调辨认更具挑战。</view>
+          <view class="card-tags"><text>音高轮廓弱化</text><text>词义区分更难</text></view>
+        </view>
+      </swiper-item>
+
+      <swiper-item>
+        <view class="limit-card limit-card--noise">
+          <view class="card-top"><text class="card-number">03</text><text class="card-total">/ 06</text><text class="card-category">嘈杂环境</text></view>
+          <view class="card-visual noise-visual" aria-hidden="true">
+            <canvas type="2d" class="limit-canvas"></canvas>
+            <view class="visual-caption">目标语音被噪声包围</view>
+          </view>
+          <view class="card-title">嘈杂环境</view>
+          <view class="card-takeaway">安静时能听懂，不代表在餐厅、教室里也同样容易。</view>
+          <view class="card-explain">背景噪声或多人同时说话时，目标人声和噪声更难被分开，语音识别往往会明显下降。</view>
+          <view class="card-tags"><text>语音噪声难分离</text><text>多人场景更吃力</text></view>
+        </view>
+      </swiper-item>
+
+      <swiper-item>
+        <view class="limit-card limit-card--location">
+          <view class="card-top"><text class="card-number">04</text><text class="card-total">/ 06</text><text class="card-category">声音定位</text></view>
+          <view class="card-visual location-visual" aria-hidden="true">
+            <canvas type="2d" class="limit-canvas"></canvas>
+            <view class="visual-caption">声音究竟来自哪里？</view>
+          </view>
+          <view class="card-title">声音定位</view>
+          <view class="card-takeaway">“听到了”是一回事，“声音从哪里来”又是另一回事。</view>
+          <view class="card-explain">判断方向需要双耳间极细微的时间差和响度差。单侧植入时尤其困难，双侧植入也不一定能完全恢复。</view>
+          <view class="card-tags"><text>双耳时间差</text><text>双耳响度差</text></view>
+        </view>
+      </swiper-item>
+
+      <swiper-item>
+        <view class="limit-card limit-card--learning">
+          <view class="card-top"><text class="card-number">05</text><text class="card-total">/ 06</text><text class="card-category">重新学习</text></view>
+          <view class="card-visual learning-visual" aria-hidden="true">
+            <canvas type="2d" class="limit-canvas"></canvas>
+            <view class="visual-caption">重复输入，逐渐建立新的解码方式</view>
+          </view>
+          <view class="card-title">需要重新学习</view>
+          <view class="card-takeaway">人工耳蜗不是把原来的听力还回来，而是给大脑一种新信号。</view>
+          <view class="card-explain">大脑需要依靠可塑性逐渐学会理解电刺激。听觉训练、语言环境和使用经验都会影响适应过程。</view>
+          <view class="card-tags"><text>大脑可塑性</text><text>需要持续训练</text></view>
+        </view>
+      </swiper-item>
+
+      <swiper-item>
+        <view class="limit-card limit-card--electrode">
+          <view class="card-top"><text class="card-number">06</text><text class="card-total">/ 06</text><text class="card-category">电极与神经</text></view>
+          <view class="card-visual electrode-visual" aria-hidden="true">
+            <canvas type="2d" class="limit-canvas"></canvas>
+            <view class="visual-caption">相邻电极的电流会扩散重叠</view>
+          </view>
+          <view class="card-title">电极—神经界面</view>
+          <view class="card-takeaway">有 22 个电极，不等于大脑得到 22 条完全独立的信息。</view>
+          <view class="card-explain">相邻电极的电流会扩散、重叠；神经状态和植入位置也有差异，因此有效通道往往少于电极数量。</view>
+          <view class="card-tags"><text>电流扩散</text><text>有效通道减少</text></view>
+        </view>
+      </swiper-item>
+    </swiper>
+
+    <view class="limit-pager">
+      <view class="pager-count"><text>{{currentLabel}}</text><text>/ 06</text></view>
+      <view class="pager-dots">
+        <view wx:for="{{dots}}" wx:key="*this" class="pager-dot {{current === index ? 'pager-dot--active' : ''}}" data-index="{{index}}" bindtap="onDotTap"></view>
+      </view>
+      <view class="pager-next {{current === 5 ? 'pager-next--disabled' : ''}}" bindtap="onNext"><text>下一张</text><text class="pager-next__arrow">›</text></view>
+    </view>
+  </view>
+</view>

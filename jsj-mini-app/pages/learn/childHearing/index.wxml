@@ -1,0 +1,140 @@
+<view class="child-page page-with-bg">
+  <image class="page-bg" src="/assets/study-bg.png" mode="widthFix" aria-hidden="true" />
+
+  <view class="child-content">
+    <view class="child-hero">
+      <view class="child-hero__copy">
+        <view class="child-hero__label">儿童听力与成长支持</view>
+        <view class="child-hero__title">为什么“早”如此重要？</view>
+        <view class="child-hero__desc">婴幼儿的大脑正处在语言学习的重要阶段。越早发现听力问题、越早获得稳定的语言输入，孩子就越早得到适合自己的支持。</view>
+      </view>
+      <view class="child-hero__visual" aria-hidden="true">
+        <view class="child-hero__ring"></view>
+        <image src="/assets/icons/child-early.svg" mode="aspectFit" />
+      </view>
+    </view>
+
+    <view class="early-message">
+      <view class="early-message__label">先记住一条时间线</view>
+      <view class="early-message__number">1 · 3 · 6</view>
+      <view class="early-message__steps">
+        <text>1 月内筛查</text>
+        <text>3 月内诊断</text>
+        <text>6 月内开始干预</text>
+      </view>
+      <view class="early-message__note">约每 1,000 名新生儿中，有 1–3 名存在不同程度的先天性听力损失。筛查的意义，是让需要帮助的孩子尽早被看见。</view>
+    </view>
+
+    <view class="reading-section">
+      <view class="section-title">从发现到获得支持</view>
+      <view class="section-intro">每一步都在为孩子争取更充分的语言输入时间。</view>
+
+      <view class="timeline-list">
+        <view class="timeline-item">
+          <view class="timeline-marker"><image src="/assets/icons/child-timeline-screen.svg" mode="aspectFit" /></view>
+          <view class="timeline-copy">
+            <view class="timeline-time">出生至 1 个月</view>
+            <view class="timeline-title">完成听力筛查</view>
+            <view class="timeline-text">在出院前或 1 个月内完成初筛与必要的复筛，尽早发现可能存在的听力问题。</view>
+          </view>
+        </view>
+
+        <view class="timeline-item">
+          <view class="timeline-marker"><image src="/assets/icons/child-timeline-diagnosis.svg" mode="aspectFit" /></view>
+          <view class="timeline-copy">
+            <view class="timeline-time">3 个月内</view>
+            <view class="timeline-title">进行诊断评估</view>
+            <view class="timeline-text">通过完整的听力学检查明确听力损失的类型和程度，为后续方案提供依据。</view>
+          </view>
+        </view>
+
+        <view class="timeline-item">
+          <view class="timeline-marker"><image src="/assets/icons/child-timeline-intervene.svg" mode="aspectFit" /></view>
+          <view class="timeline-copy">
+            <view class="timeline-time">6 个月内</view>
+            <view class="timeline-title">开始适合的干预</view>
+            <view class="timeline-text">根据专业评估选择助听设备、听觉与语言训练；必要时进一步评估人工耳蜗。</view>
+          </view>
+        </view>
+
+        <view class="timeline-item">
+          <view class="timeline-marker"><image src="/assets/icons/child-timeline-family.svg" mode="aspectFit" /></view>
+          <view class="timeline-copy">
+            <view class="timeline-time">持续进行</view>
+            <view class="timeline-title">训练与家庭参与</view>
+            <view class="timeline-text">设备只是起点。日常交流、语言输入、专业训练和教育支持，都会长期影响孩子的发展。</view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="reading-section">
+      <view class="section-title">沟通方式不只有一种</view>
+      <view class="section-intro">家庭可以结合孩子的需要、专业评估与自身选择，寻找适合的语言发展路径。</view>
+
+      <view class="path-list">
+        <view class="path-item">
+          <view class="path-icon"><image src="/assets/icons/child-path-oral.svg" mode="aspectFit" /></view>
+          <view class="path-copy">
+            <view class="path-title">口语与听觉言语路径</view>
+            <view class="path-text">以听觉输入和口语训练为核心，通过设备、训练与家庭互动帮助孩子发展口语能力。</view>
+          </view>
+        </view>
+        <view class="path-item">
+          <view class="path-icon"><image src="/assets/icons/child-path-sign.svg" mode="aspectFit" /></view>
+          <view class="path-copy">
+            <view class="path-title">手语路径</view>
+            <view class="path-text">手语是一种完整的语言，也承载着聋人社群的文化与身份。</view>
+          </view>
+        </view>
+        <view class="path-item">
+          <view class="path-icon"><image src="/assets/icons/child-path-bilingual.svg" mode="aspectFit" /></view>
+          <view class="path-copy">
+            <view class="path-title">双语双模态</view>
+            <view class="path-text">同时使用口语与手语，让孩子能够通过不止一种方式获得和表达信息。</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="choice-note">没有一种路径适合所有孩子。重要的是尊重孩子与家庭，并持续与专业团队沟通。</view>
+    </view>
+
+    <view class="reading-section">
+      <view class="section-title">设备之外，同样重要</view>
+      <view class="section-intro">真实环境中的“听见”，也会受到距离、噪声、视觉信息和社会支持的影响。</view>
+
+      <view class="support-grid">
+        <view class="support-item">
+          <image src="/assets/icons/child-support-mic.svg" mode="aspectFit" />
+          <view class="support-title">远程麦克风</view>
+          <view class="support-text">让说话者的声音更直接地到达孩子的设备。</view>
+        </view>
+        <view class="support-item">
+          <image src="/assets/icons/child-support-classroom.svg" mode="aspectFit" />
+          <view class="support-title">课堂辅助系统</view>
+          <view class="support-text">在课堂噪声和距离存在时改善目标语音。</view>
+        </view>
+        <view class="support-item">
+          <image src="/assets/icons/child-support-captions.svg" mode="aspectFit" />
+          <view class="support-title">字幕与视觉线索</view>
+          <view class="support-text">利用字幕、口型和图像补充听觉信息。</view>
+        </view>
+        <view class="support-item">
+          <image src="/assets/icons/child-support-peers.svg" mode="aspectFit" />
+          <view class="support-title">同伴与社会支持</view>
+          <view class="support-text">被理解、被接纳和稳定的自我认同同样重要。</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="parent-message">
+      <view class="parent-message__icon"><image src="/assets/icons/child-parent-heart.svg" mode="aspectFit" /></view>
+      <view class="parent-message__copy">
+        <view class="parent-message__label">给家长的一句话</view>
+        <view class="parent-message__text">设备能够提供声音，但孩子更需要的是持续的交流、理解、耐心与陪伴。</view>
+      </view>
+    </view>
+
+    <view class="page-footnote">本页用于基础科普，不构成医疗建议。听力评估、设备选择与康复方案，请咨询听力学及耳鼻喉专业人员。</view>
+  </view>
+</view>

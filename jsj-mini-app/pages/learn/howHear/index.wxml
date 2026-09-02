@@ -17,12 +17,6 @@
     </view>
 
     <view class="essay-section">
-      <view class="section-kicker">
-        <view class="section-line"></view>
-        <text>02</text>
-        <text>/</text>
-        <text>原则</text>
-      </view>
       <view class="section-title">它如何“听见”</view>
       <view class="section-copy">健康的耳朵依靠耳蜗里的毛细胞形成精细的频率响应。人工耳蜗绕过受损的毛细胞，通过一排电极对听神经进行电刺激。</view>
       <view class="section-copy">它传递的信息，本质上就是把声音分成几个频段，并保留每个频段的“响度包络”。</view>
@@ -54,31 +48,7 @@
       </view>
     </view>
 
-    <view class="signal-card">
-      <view class="signal-head">
-        <view class="signal-title">信号管道</view>
-        <view class="signal-status"><view class="status-dot"></view><text>在线演示</text></view>
-      </view>
-
-      <view class="signal-visual">
-        <image
-          class="signal-diagram"
-          src="/assets/icons/learn-hear-signal-cn.svg"
-          mode="aspectFit"
-          aria-label="声音从处理器、电极到大脑的信号管道示意图"
-        />
-      </view>
-
-      <view class="signal-caption">声音从左侧进入，被拆成多个频段；每个频段只保留响度包络，再重新合成为可传递的刺激信息。</view>
-    </view>
-
     <view class="essay-section journey-section">
-      <view class="section-kicker">
-        <view class="section-line"></view>
-        <text>03</text>
-        <text>/</text>
-        <text>旅程</text>
-      </view>
       <view class="section-title section-title--mark">一句“你好”的旅程</view>
       <view class="section-copy">从空气中的声波到大脑“听到”声音，声音会经过多个阶段。跟着图中的点，看植入体如何接管原本属于耳朵的功能。</view>
     </view>
@@ -86,13 +56,68 @@
     <view class="journey-map">
       <view class="map-label">声音 · 信号 · 尖峰 · 感知</view>
 
-      <view class="journey-visual">
-        <image
-          class="journey-diagram"
-          src="/assets/icons/learn-hear-journey-cn.svg"
-          mode="aspectFit"
-          aria-label="一句你好的声音旅程示意图"
-        />
+      <view class="journey-stage">
+        <view class="journey-band">
+          <text class="journey-band__left">信息丰富</text>
+          <text class="journey-band__right">压缩成少数通道</text>
+        </view>
+
+        <view class="journey-stage__body">
+          <canvas
+            type="2d"
+            id="journeyCanvas"
+            class="journey-canvas"
+          ></canvas>
+
+          <view class="journey-nodes" aria-hidden="true">
+            <view class="journey-node" style="left: 8%;">
+              <view class="journey-node__circle journey-node__circle--sound">
+                <hlm-icon name="learn-hear-air" size="34" color="#7DC93F" />
+              </view>
+              <text class="journey-node__label">声音</text>
+            </view>
+            <view class="journey-node" style="left: 36%;">
+              <view class="journey-node__circle journey-node__circle--proc">
+                <hlm-icon name="learn-hear-processor" size="34" color="#16B9A6" />
+              </view>
+              <text class="journey-node__label">处理器</text>
+            </view>
+            <view class="journey-node" style="left: 67%;">
+              <view class="journey-node__circle journey-node__circle--elec">
+                <hlm-icon name="learn-hear-electrode" size="34" color="#F2C14E" />
+              </view>
+              <text class="journey-node__label">电极</text>
+            </view>
+            <view class="journey-node" style="left: 91%;">
+              <view class="journey-node__circle journey-node__circle--brain">
+                <hlm-icon name="learn-hear-brain" size="34" color="#1E7CC2" />
+              </view>
+              <text class="journey-node__label">大脑</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="journey-flow" aria-label="声音处理流程">
+          <view class="journey-flow__step journey-flow__step--sound">
+            <view class="journey-flow__dot"></view>
+            <text>声波进入</text>
+          </view>
+          <text class="journey-flow__arrow">›</text>
+          <view class="journey-flow__step journey-flow__step--proc">
+            <view class="journey-flow__dot"></view>
+            <text>提取包络</text>
+          </view>
+          <text class="journey-flow__arrow">›</text>
+          <view class="journey-flow__step journey-flow__step--elec">
+            <view class="journey-flow__dot"></view>
+            <text>转为电刺激</text>
+          </view>
+          <text class="journey-flow__arrow">›</text>
+          <view class="journey-flow__step journey-flow__step--brain">
+            <view class="journey-flow__dot"></view>
+            <text>大脑解码</text>
+          </view>
+        </view>
       </view>
     </view>
 

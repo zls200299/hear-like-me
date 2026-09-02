@@ -2,10 +2,14 @@ package com.zhs.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import cn.hutool.core.bean.BeanUtil;
 import com.zhs.dao.HearingChallengeDao;
+import com.zhs.dto.HearingChallengeDto;
 import com.zhs.exception.ServiceException;
 import com.zhs.model.FileAsset;
 import com.zhs.model.HearingChallenge;
+import com.zhs.util.R;
+import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.zhs.response.challenge.ChallengeQuestionDetailResp;
 import com.zhs.response.challenge.ChallengeQuestionItemResp;
 import com.zhs.response.challenge.ChallengeQuestionListResp;
@@ -16,6 +20,7 @@ import com.zhs.service.storage.LocalFileStorageService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.IntStream;
@@ -32,6 +37,41 @@ public class HearingChallengeServiceImpl extends ServiceImpl<HearingChallengeDao
 
     @Resource
     private LocalFileStorageService localFileStorageService;
+
+    @Override
+    public R addOrUpdate(HearingChallengeDto dto) {
+        if (BeanUtil.isEmpty(dto)) {
+            throw new ServiceException("数据不能为空");
+        }
+        if (StringUtils.isBlank(dto.getQuestionCode())) {
+            throw new ServiceException("题目编码不能为空");
+        }
+        if (StringUtils.isBlank(dto.getTitle())) {
+            throw new ServiceException("题目标题不能为空");
+        }
+        if (dto.getAudioAssetId() == null) {
+            throw new ServiceException("挑战音频不能为空");
+        }
+        if (dto.getNChannels() == null) {
+            throw new ServiceException("正确答案通道数不能为空");
+        }
+
+        HearingChallenge entity = new HearingChallenge();
+        BeanUtil.copyProperties(dto, entity);
+        if (entity.getIsDelete() == null) {
+            entity.setIsDelete(0);
+        }
+        if ("PUBLISHED".equals(entity.getStatus()) && entity.getPublishedTime() == null) {
+            entity.setPublishedTime(new Date());
+        }
+
+        if (dto.getId() == null) {
+            save(entity);
+            return R.ok("数据插入成功");
+        }
+        updateById(entity);
+        return R.ok("数据更新成功");
+    }
 
     @Override
     public ChallengeQuestionListResp listPublishedQuestions() {

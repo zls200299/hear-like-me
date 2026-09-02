@@ -3,9 +3,9 @@
 
   <view class="detail-content">
     <view class="detail-hero">
-      <view class="detail-kicker">入门 · 约 3 分钟</view>
-      <view class="detail-hero__title">人工耳蜗怎么帮人听见？</view>
-      <view class="detail-hero__desc">先不用记术语。你只要理解一件事：它把声音里的关键信息，换成听神经能接收的电信号。</view>
+      <view class="detail-kicker">3 分钟读懂人工耳蜗</view>
+      <view class="detail-hero__title">人工耳蜗，究竟在做什么？</view>
+      <view class="detail-hero__desc">先不用记复杂术语。理解声音如何进入大脑，就能明白它为什么可以帮助人听见。</view>
       <image
         class="detail-hero__visual"
         src="/assets/icons/learn-detail-hero.svg"
@@ -14,133 +14,89 @@
       />
     </view>
 
-    <view class="key-card">
-      <view class="key-card__icon">
-        <hlm-icon name="learn-detail-intro" size="52" color="#2be2d3" />
-      </view>
-      <view class="key-card__body">
-        <view class="section-eyebrow">先记住一句话</view>
-        <view class="key-card__title">人工耳蜗不是声音放大器</view>
-        <view class="key-card__text">助听器更像“把声音调大”，人工耳蜗更像“把声音翻译”。它把声音处理成一组电刺激，再交给听神经和大脑去学习理解。</view>
-      </view>
+    <view class="lead-block">
+      <view class="lead-block__label">先记住这一点</view>
+      <view class="lead-block__title">它不是把声音放大，而是把声音“翻译”成电信号。</view>
+      <view class="lead-block__text">助听器主要让声音更响；人工耳蜗会提取声音里的关键线索，转换成听神经可以接收的刺激，再由大脑学习理解。</view>
     </view>
 
-    <view class="section-head">
-      <view class="section-number">01</view>
-      <view>
-        <view class="section-title">它到底做了什么？</view>
-        <view class="section-desc">可以先把它想成三步：收集、整理、传递。</view>
-      </view>
-    </view>
+    <view class="reading-section">
+      <view class="reading-title">它怎样把声音送到大脑？</view>
+      <view class="reading-intro">整个过程可以理解为连续的三步。</view>
 
-    <view class="plain-list">
-      <view class="plain-item">
-        <view class="plain-item__icon">
-          <hlm-icon name="learn-detail-step-band" size="42" color="#2be2d3" />
+      <view class="process-list">
+        <view class="process-item">
+          <view class="process-marker"><text>1</text></view>
+          <view class="process-copy">
+            <view class="process-title">收集声音</view>
+            <view class="process-text">外部处理器上的麦克风，先接收周围的说话声和环境声。</view>
+          </view>
         </view>
-        <view class="plain-item__body">
-          <view class="plain-item__title">收集声音</view>
-          <view class="plain-item__text">外部处理器上的麦克风先接收周围声音。</view>
+        <view class="process-item">
+          <view class="process-marker"><text>2</text></view>
+          <view class="process-copy">
+            <view class="process-title">找出关键线索</view>
+            <view class="process-text">处理器分析声音，保留语音的强弱、节奏和主要频率信息。</view>
+          </view>
         </view>
-      </view>
-
-      <view class="plain-item">
-        <view class="plain-item__icon">
-          <hlm-icon name="learn-detail-step-envelope" size="42" color="#67b9ff" />
-        </view>
-        <view class="plain-item__body">
-          <view class="plain-item__title">挑出关键线索</view>
-          <view class="plain-item__text">系统会重点保留声音的强弱、节奏和频率范围。</view>
-        </view>
-      </view>
-
-      <view class="plain-item">
-        <view class="plain-item__icon">
-          <hlm-icon name="learn-detail-step-electrode" size="42" color="#ffbd3d" />
-        </view>
-        <view class="plain-item__body">
-          <view class="plain-item__title">传给听神经</view>
-          <view class="plain-item__text">植入体把这些线索变成电刺激，通过电极传递给听神经。</view>
+        <view class="process-item">
+          <view class="process-marker"><text>3</text></view>
+          <view class="process-copy">
+            <view class="process-title">刺激听神经</view>
+            <view class="process-text">植入体把信息变成电脉冲，通过耳蜗内的电极传给听神经。</view>
+          </view>
         </view>
       </view>
     </view>
 
-    <view class="section-head">
-      <view class="section-number">02</view>
-      <view>
-        <view class="section-title">声音的处理路径</view>
-        <view class="section-desc">从外界声音到“大脑听懂”，中间大致会经过这条路。</view>
+    <view class="reading-section">
+      <view class="reading-title">声音最后去了哪里？</view>
+      <view class="reading-intro">设备负责传递信息，真正理解声音的仍然是大脑。</view>
+
+      <view class="sound-route">
+        <view class="sound-route__line"></view>
+        <view class="sound-route__step sound-route__step--active"><view class="sound-route__dot"></view><text>声音</text></view>
+        <view class="sound-route__step"><view class="sound-route__dot"></view><text>处理器</text></view>
+        <view class="sound-route__step"><view class="sound-route__dot"></view><text>电极</text></view>
+        <view class="sound-route__step"><view class="sound-route__dot"></view><text>听神经</text></view>
+        <view class="sound-route__step"><view class="sound-route__dot"></view><text>大脑</text></view>
       </view>
+
+      <view class="reading-note">刚开始使用人工耳蜗时，一些声音可能很陌生。随着聆听训练和日常使用，大脑会逐渐学会辨认这些新信号。</view>
     </view>
 
-    <view class="path-card">
-      <view class="path-row">
-        <view class="path-node path-node--active">声音</view>
-        <view class="path-arrow">→</view>
-        <view class="path-node">处理器</view>
-      </view>
-      <view class="path-row">
-        <view class="path-node">电极</view>
-        <view class="path-arrow">→</view>
-        <view class="path-node">听神经</view>
-        <view class="path-arrow">→</view>
-        <view class="path-node">大脑</view>
-      </view>
-      <view class="path-note">真正“听懂”的部分发生在大脑。刚使用人工耳蜗时，很多声音需要重新熟悉和练习。</view>
-    </view>
+    <view class="reading-section">
+      <view class="reading-title">为什么听起来不完全一样？</view>
+      <view class="reading-intro">两者都能传递声音，但保留信息的精细程度不同。</view>
 
-    <view class="section-head">
-      <view class="section-number">03</view>
-      <view>
-        <view class="section-title">为什么听起来不完全一样？</view>
-        <view class="section-desc">自然耳蜗和人工耳蜗都在传递声音信息，但精细程度不同。</view>
-      </view>
-    </view>
-
-    <view class="compare-card">
-      <view class="compare-row">
-        <view class="compare-icon compare-icon--natural">
-          <hlm-icon name="learn-detail-compare-normal" size="42" color="#67b9ff" />
+      <view class="compare-list">
+        <view class="compare-item">
+          <view class="compare-name">自然耳蜗</view>
+          <view class="compare-text">依靠大量毛细胞分析声音，能够保留更丰富的音色、音高和细节。</view>
         </view>
-        <view class="compare-body">
-          <view class="compare-title">自然耳蜗</view>
-          <view class="compare-text">依靠大量毛细胞，把声音频率分得很细，能保留更多音色和音高细节。</view>
+        <view class="compare-item">
+          <view class="compare-name">人工耳蜗</view>
+          <view class="compare-text">通过有限数量的电极传递关键线索，更侧重帮助使用者理解语音。</view>
         </view>
       </view>
 
-      <view class="compare-row">
-        <view class="compare-icon compare-icon--ci">
-          <hlm-icon name="learn-detail-compare-ci" size="42" color="#2be2d3" />
+      <view class="frequency-block">
+        <view class="frequency-copy">
+          <view class="frequency-title">耳蜗里有一张“频率地图”</view>
+          <view class="frequency-text">不同位置负责不同频率。人工耳蜗会参考这张地图，把声音信息交给对应的电极。</view>
         </view>
-        <view class="compare-body">
-          <view class="compare-title">人工耳蜗</view>
-          <view class="compare-text">依靠有限数量的电极传递关键线索，更擅长帮助理解语音，但声音细节会被简化。</view>
-        </view>
+        <image
+          class="frequency-image"
+          src="/assets/icons/learn-detail-cochlea-map.svg"
+          mode="aspectFit"
+          aria-hidden="true"
+        />
       </view>
     </view>
 
-    <view class="map-card">
-      <view class="map-card__copy">
-        <view class="section-eyebrow">补充理解</view>
-        <view class="map-card__title">耳蜗里有一张“频率地图”</view>
-        <view class="map-card__text">高频和低频声音，会对应耳蜗里的不同位置。人工耳蜗会参考这张地图，把不同频率的信息交给不同电极。</view>
-      </view>
-      <image
-        class="map-card__image"
-        src="/assets/icons/learn-detail-cochlea-map.svg"
-        mode="aspectFit"
-        aria-hidden="true"
-      />
-    </view>
-
-    <view class="tip-card">
-      <view class="tip-card__icon">
-        <hlm-icon name="learn-warning" size="36" color="#ffbd3d" />
-      </view>
-      <view class="tip-card__body">
-        <view class="tip-card__title">科普提示</view>
-        <view class="tip-card__text">本页内容用于帮助理解原理，不代表任何个体的真实听觉效果，也不能替代专业医疗建议。</view>
-      </view>
+    <view class="page-footnote">
+      <view class="page-footnote__mark">i</view>
+      <view>本页用于帮助理解基本原理，不代表每位使用者的真实听觉感受，也不能替代专业医疗建议。</view>
     </view>
   </view>
 </view>

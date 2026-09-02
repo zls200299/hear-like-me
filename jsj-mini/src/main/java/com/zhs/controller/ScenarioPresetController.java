@@ -8,7 +8,7 @@ import com.zhs.dto.ScenarioPresetDto;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zhs.util.PageQueryUtil;
 import com.zhs.util.R;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -23,6 +23,7 @@ import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import jakarta.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  *
@@ -40,16 +41,12 @@ public class ScenarioPresetController {
 
     @ApiOperation(value = "分页查询")
     @GetMapping("/getByPage")
-    public R<IPage<ScenarioPreset>> getListByPage(
+    public R<Map<String, Object>> getListByPage(
         @RequestParam(value = "currentPage", required = false, defaultValue = "1")Integer currentPage,
         @RequestParam(value = "pageSize", required = false, defaultValue = "10") Integer pageSize){
-        //构建分页
-        Page<ScenarioPreset> page = new Page<>(currentPage, pageSize);
         LambdaQueryWrapper<ScenarioPreset> lambda = new QueryWrapper<ScenarioPreset>().lambda();
-        //此处可以拼条件
-        lambda.eq(ScenarioPreset::getIsDelete,0);
-        IPage<ScenarioPreset> pages =  iScenarioPresetService.page(page, lambda);
-        return R.ok(pages);
+        lambda.eq(ScenarioPreset::getIsDelete,0).orderByAsc(ScenarioPreset::getSortOrder);
+        return R.ok(PageQueryUtil.queryPage(iScenarioPresetService, currentPage, pageSize, lambda));
     }
 
 

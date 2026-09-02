@@ -67,24 +67,8 @@
   margin-top: 14rpx;
 }
 
-.section-kicker {
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-  color: #22cfc6;
-  font-size: 24rpx;
-  line-height: 1;
-  font-weight: 800;
-}
-
-.section-line {
-  width: 56rpx;
-  height: 2rpx;
-  background: rgba(34, 207, 198, 0.72);
-}
-
 .section-title {
-  margin-top: 28rpx;
+  margin-top: 0;
   color: #f3f8fd;
   font-size: 48rpx;
   line-height: 1.18;
@@ -154,64 +138,12 @@
   line-height: 1.65;
 }
 
-.signal-card,
 .journey-map,
 .note-card {
   margin-top: 30rpx;
   border: 1rpx solid rgba(69, 98, 132, 0.42);
   border-radius: 20rpx;
   background: rgba(14, 29, 52, 0.66);
-}
-
-.signal-card {
-  padding: 24rpx 24rpx 24rpx;
-}
-
-.signal-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  color: #73849d;
-  font-size: 22rpx;
-  line-height: 1;
-}
-
-.signal-title {
-  letter-spacing: 2rpx;
-}
-
-.signal-status {
-  display: flex;
-  align-items: center;
-  gap: 10rpx;
-  color: #1ccbc1;
-}
-
-.status-dot {
-  width: 10rpx;
-  height: 10rpx;
-  border-radius: 50%;
-  background: #1ccbc1;
-  box-shadow: 0 0 14rpx rgba(28, 203, 193, 0.55);
-}
-
-.signal-visual {
-  margin-top: 16rpx;
-}
-
-.signal-diagram {
-  width: 100%;
-  height: 186rpx;
-  display: block;
-}
-
-.signal-caption {
-  padding-top: 12rpx;
-  border-top: 1rpx solid rgba(91, 125, 160, 0.18);
-  color: #7789a2;
-  font-size: 23rpx;
-  line-height: 1.58;
-  text-align: center;
 }
 
 .journey-section {
@@ -229,14 +161,158 @@
   letter-spacing: 3rpx;
 }
 
-.journey-visual {
-  margin-top: 14rpx;
+.journey-stage {
+  margin-top: 16rpx;
 }
 
-.journey-diagram {
+.journey-band {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 8rpx 8rpx;
+}
+
+.journey-band__left,
+.journey-band__right {
+  font-size: 20rpx;
+  line-height: 1.2;
+  letter-spacing: 1rpx;
+}
+
+.journey-band__left {
+  color: rgba(125, 201, 63, 0.88);
+}
+
+.journey-band__right {
+  color: rgba(22, 185, 166, 0.9);
+}
+
+.journey-stage__body {
+  position: relative;
   width: 100%;
-  height: 322rpx;
+  height: 280rpx;
+}
+
+.journey-canvas {
+  width: 100%;
+  height: 100%;
   display: block;
+  border-radius: 12rpx;
+}
+
+.journey-nodes {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.journey-node {
+  position: absolute;
+  top: 46%;
+  /* top 对应画布中的信号轴；只回退圆半径，确保圆心与连线严格重合 */
+  transform: translate(-50%, -34rpx);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 120rpx;
+}
+
+.journey-node__circle {
+  width: 68rpx;
+  height: 68rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 节点位于画布上层，用实色遮住延伸到节点中心的通道线 */
+  background: #151f36;
+  border: 2rpx solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 0 6rpx rgba(22, 185, 166, 0.12);
+}
+
+.journey-node__circle--sound {
+  box-shadow: 0 0 0 6rpx rgba(125, 201, 63, 0.14);
+}
+
+.journey-node__circle--proc {
+  box-shadow: 0 0 0 6rpx rgba(22, 185, 166, 0.16);
+}
+
+.journey-node__circle--elec {
+  box-shadow: 0 0 0 6rpx rgba(242, 193, 78, 0.14);
+}
+
+.journey-node__circle--brain {
+  box-shadow: 0 0 0 6rpx rgba(30, 124, 194, 0.16);
+}
+
+.journey-node__label {
+  margin-top: 10rpx;
+  color: #aab7d6;
+  font-size: 22rpx;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.journey-flow {
+  margin-top: 12rpx;
+  padding: 18rpx 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1rpx solid rgba(78, 112, 151, 0.26);
+  border-radius: 16rpx;
+  background: rgba(7, 19, 36, 0.58);
+}
+
+.journey-flow__step {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  color: #b8c5d7;
+  font-size: 21rpx;
+  line-height: 1.25;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.journey-flow__dot {
+  width: 9rpx;
+  height: 9rpx;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 12rpx currentColor;
+}
+
+.journey-flow__step--sound {
+  color: #8bcd55;
+}
+
+.journey-flow__step--proc {
+  color: #2bd6c8;
+}
+
+.journey-flow__step--elec {
+  color: #e3bd54;
+}
+
+.journey-flow__step--brain {
+  color: #79aee0;
+}
+
+.journey-flow__arrow {
+  flex: 0 0 auto;
+  margin: 0 4rpx;
+  color: rgba(116, 143, 175, 0.66);
+  font-size: 30rpx;
+  line-height: 1;
+  font-weight: 300;
 }
 
 .note-card {

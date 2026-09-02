@@ -9,6 +9,8 @@
     "compileWorklet": false,
     "uglifyFileName": false,
     "uploadWithSourceMap": true,
+    "ignoreDevUnusedFiles": false,
+    "ignoreUploadUnusedFiles": false,
     "packNpmManually": false,
     "packNpmRelationList": [],
     "minifyWXSS": true,
@@ -32,7 +34,16 @@
   "simulatorPluginLibVersion": {},
   "packOptions": {
     "ignore": [],
-    "include": []
+    "include": [
+      {
+        "value": "pages/learn/limitations",
+        "type": "folder"
+      },
+      {
+        "value": "pages/learn/childHearing",
+        "type": "folder"
+      }
+    ]
   },
   "editorSetting": {}
 }

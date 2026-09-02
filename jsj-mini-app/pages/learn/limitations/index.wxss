@@ -1,0 +1,621 @@
+.limits-page {
+  min-height: 100vh;
+  overflow: hidden;
+  background: #020914;
+  color: #f4f8fd;
+}
+
+.limits-page.page-with-bg {
+  padding-bottom: calc(36rpx + env(safe-area-inset-bottom));
+}
+
+.limits-content {
+  position: relative;
+  z-index: 2;
+  padding: 18rpx 0 30rpx;
+}
+
+.limits-head {
+  padding: 8rpx 42rpx 22rpx;
+}
+
+.limits-title {
+  color: #f5f9fe;
+  font-size: 42rpx;
+  line-height: 1.22;
+  font-weight: 800;
+}
+
+.limits-desc {
+  margin-top: 10rpx;
+  color: #91a5bb;
+  font-size: 25rpx;
+  line-height: 1.55;
+}
+
+.swipe-hint {
+  margin-top: 14rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  color: #51d8d0;
+  font-size: 21rpx;
+  line-height: 1;
+}
+
+.swipe-hint__line {
+  width: 38rpx;
+  height: 1rpx;
+  background: rgba(81, 216, 208, 0.68);
+}
+
+.limit-swiper {
+  width: 100%;
+  height: 800rpx;
+}
+
+.limit-swiper swiper-item {
+  box-sizing: border-box;
+  padding: 0 10rpx 14rpx;
+}
+
+.limit-card {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  padding: 26rpx 28rpx 24rpx;
+  border: 1rpx solid rgba(89, 121, 155, 0.4);
+  border-radius: 26rpx;
+  background: linear-gradient(160deg, rgba(15, 38, 65, 0.98), rgba(5, 19, 36, 0.97));
+  box-shadow: 0 18rpx 44rpx rgba(0, 0, 0, 0.28);
+}
+
+.limit-card::before {
+  content: '';
+  position: absolute;
+  left: 34rpx;
+  right: 34rpx;
+  top: 0;
+  height: 3rpx;
+  border-radius: 0 0 3rpx 3rpx;
+  background: #2bd8cd;
+  box-shadow: 0 0 24rpx rgba(43, 216, 205, 0.42);
+}
+
+.card-top {
+  height: 42rpx;
+  display: flex;
+  align-items: baseline;
+}
+
+.card-number {
+  color: #54e1d8;
+  font-size: 31rpx;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.card-total {
+  margin-left: 7rpx;
+  color: #667b94;
+  font-size: 20rpx;
+  line-height: 1;
+}
+
+.card-category {
+  margin-left: auto;
+  color: #7f93aa;
+  font-size: 20rpx;
+  line-height: 1;
+  letter-spacing: 2rpx;
+}
+
+.card-visual {
+  position: relative;
+  height: 214rpx;
+  margin-top: 14rpx;
+  overflow: hidden;
+  border-radius: 22rpx;
+  background: rgba(3, 15, 31, 0.58);
+  border: 1rpx solid rgba(100, 132, 168, 0.14);
+}
+
+.limit-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+.visual-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12rpx;
+  color: #70869f;
+  font-size: 20rpx;
+  line-height: 1.3;
+  text-align: center;
+  letter-spacing: 1rpx;
+}
+
+.card-title {
+  margin-top: 20rpx;
+  margin-bottom: 0;
+  color: #f5f9fd;
+  font-size: 36rpx;
+  line-height: 1.24;
+  font-weight: 800;
+}
+
+.card-takeaway {
+  margin-top: 12rpx;
+  color: #e2ebf4;
+  font-size: 25rpx;
+  line-height: 1.52;
+  font-weight: 700;
+}
+
+.card-explain {
+  margin-top: 12rpx;
+  color: #9dafc1;
+  font-size: 23rpx;
+  line-height: 1.58;
+}
+
+.card-tags {
+  margin-top: 18rpx;
+  display: flex;
+  gap: 12rpx;
+}
+
+.card-tags text {
+  min-width: 0;
+  padding: 11rpx 17rpx;
+  border: 1rpx solid rgba(82, 215, 207, 0.22);
+  border-radius: 22rpx;
+  background: rgba(38, 181, 174, 0.08);
+  color: #80c9c5;
+  font-size: 20rpx;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.limit-card--music::before,
+.limit-card--music .music-bar {
+  background: #8d7bff;
+}
+
+.limit-card--music .card-number {
+  color: #a99cff;
+}
+
+.limit-card--tone::before,
+.limit-card--tone .tone-segment {
+  background: #26dbff;
+}
+
+.limit-card--tone .card-number {
+  color: #55e3ff;
+}
+
+.limit-card--noise::before {
+  background: #ff9d78;
+}
+
+.limit-card--noise .card-number {
+  color: #ffb092;
+}
+
+.limit-card--location::before {
+  background: #4b8dff;
+}
+
+.limit-card--location .card-number {
+  color: #75a8ff;
+}
+
+.limit-card--learning::before {
+  background: #73d39e;
+}
+
+.limit-card--learning .card-number {
+  color: #8fe2b2;
+}
+
+.limit-card--electrode::before {
+  background: #ffd66f;
+}
+
+.limit-card--electrode .card-number {
+  color: #ffe093;
+}
+
+/* 01 音乐与音高 */
+.music-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 26rpx;
+  padding-bottom: 34rpx;
+}
+
+.music-group {
+  height: 112rpx;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.music-group--rich {
+  opacity: 0.9;
+}
+
+.music-group--flat {
+  opacity: 0.56;
+}
+
+.music-bar {
+  width: 8rpx;
+  border-radius: 8rpx;
+  box-shadow: 0 0 13rpx rgba(141, 123, 255, 0.42);
+}
+
+.visual-arrow {
+  color: #5d718a;
+  font-size: 44rpx;
+  line-height: 1;
+}
+
+/* 02 声调语言 */
+.tone-visual {
+  padding: 38rpx 42rpx 46rpx;
+}
+
+.tone-row {
+  height: 45rpx;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  color: #698198;
+  font-size: 18rpx;
+}
+
+.tone-row text {
+  width: 54rpx;
+}
+
+.tone-segment {
+  width: 42rpx;
+  height: 4rpx;
+  border-radius: 4rpx;
+  opacity: 0.78;
+  transform-origin: center;
+}
+
+.tone-row--rise .tone-segment:nth-of-type(1),
+.tone-row--fall .tone-segment:nth-of-type(4) {
+  transform: translateY(13rpx) rotate(-12deg);
+}
+
+.tone-row--rise .tone-segment:nth-of-type(2),
+.tone-row--fall .tone-segment:nth-of-type(3) {
+  transform: translateY(5rpx) rotate(-12deg);
+}
+
+.tone-row--rise .tone-segment:nth-of-type(3),
+.tone-row--fall .tone-segment:nth-of-type(2) {
+  transform: translateY(-4rpx) rotate(-12deg);
+}
+
+.tone-row--rise .tone-segment:nth-of-type(4),
+.tone-row--fall .tone-segment:nth-of-type(1) {
+  transform: translateY(-13rpx) rotate(-12deg);
+}
+
+.tone-mask {
+  position: absolute;
+  right: 22rpx;
+  bottom: 16rpx;
+  color: #70869f;
+  font-size: 20rpx;
+}
+
+/* 03 嘈杂环境 */
+.noise-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.noise-focus {
+  position: relative;
+  z-index: 2;
+  width: 106rpx;
+  height: 106rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1rpx solid rgba(255, 157, 120, 0.62);
+  border-radius: 50%;
+  background: rgba(77, 36, 36, 0.62);
+  color: #ffd6c7;
+  font-size: 24rpx;
+  font-weight: 700;
+  box-shadow: 0 0 34rpx rgba(255, 157, 120, 0.14);
+}
+
+.noise-wave {
+  position: absolute;
+  left: 38rpx;
+  right: 38rpx;
+  top: 104rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.noise-wave view {
+  width: 5rpx;
+  height: 36rpx;
+  border-radius: 6rpx;
+  background: rgba(255, 157, 120, 0.34);
+}
+
+.noise-wave view:nth-child(2n) { height: 74rpx; }
+.noise-wave view:nth-child(3n) { height: 104rpx; }
+
+.noise-dot {
+  position: absolute;
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background: #72849a;
+  opacity: 0.62;
+}
+
+.noise-dot--1 { left: 68rpx; top: 52rpx; }
+.noise-dot--2 { right: 82rpx; top: 46rpx; }
+.noise-dot--3 { left: 104rpx; bottom: 46rpx; }
+.noise-dot--4 { right: 116rpx; bottom: 50rpx; }
+.noise-dot--5 { left: 42rpx; top: 136rpx; }
+.noise-dot--6 { right: 48rpx; top: 126rpx; }
+
+/* 04 声音定位 */
+.location-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.location-ring {
+  position: absolute;
+  border: 1rpx solid rgba(75, 141, 255, 0.2);
+  border-radius: 50%;
+}
+
+.location-ring--outer { width: 226rpx; height: 226rpx; }
+.location-ring--inner { width: 154rpx; height: 154rpx; }
+
+.location-head {
+  position: relative;
+  width: 88rpx;
+  height: 108rpx;
+  border: 2rpx solid rgba(111, 190, 255, 0.58);
+  border-radius: 48% 48% 42% 42%;
+  background: rgba(19, 52, 83, 0.72);
+}
+
+.location-ear {
+  position: absolute;
+  top: 40rpx;
+  width: 16rpx;
+  height: 27rpx;
+  border: 2rpx solid rgba(151, 194, 224, 0.56);
+  border-radius: 50%;
+}
+
+.location-ear--left { left: -10rpx; }
+.location-ear--right { right: -10rpx; }
+
+.location-source {
+  position: absolute;
+  right: 74rpx;
+  top: 52rpx;
+  width: 18rpx;
+  height: 18rpx;
+  border-radius: 50%;
+  background: #ffd66f;
+  box-shadow: 0 0 0 10rpx rgba(255, 214, 111, 0.1), 0 0 26rpx rgba(255, 214, 111, 0.38);
+}
+
+.location-question {
+  position: absolute;
+  color: #6f8399;
+  font-size: 29rpx;
+}
+
+.location-question--1 { left: 80rpx; top: 56rpx; }
+.location-question--2 { left: 100rpx; bottom: 52rpx; }
+.location-question--3 { right: 110rpx; bottom: 60rpx; }
+
+/* 05 重新学习 */
+.learning-visual {
+  position: relative;
+}
+
+.learning-node {
+  position: absolute;
+  z-index: 2;
+  width: 18rpx;
+  height: 18rpx;
+  border: 3rpx solid #73d39e;
+  border-radius: 50%;
+  background: #07182b;
+  box-shadow: 0 0 18rpx rgba(115, 211, 158, 0.22);
+}
+
+.learning-node--1 { left: 54rpx; top: 64rpx; }
+.learning-node--2 { left: 56rpx; top: 160rpx; }
+.learning-node--3 { left: 150rpx; top: 108rpx; }
+.learning-node--4 { right: 158rpx; top: 58rpx; }
+.learning-node--5 { right: 158rpx; top: 166rpx; }
+.learning-node--6 { right: 72rpx; top: 108rpx; }
+
+.learning-line {
+  position: absolute;
+  left: 68rpx;
+  width: 390rpx;
+  height: 2rpx;
+  background: rgba(115, 211, 158, 0.28);
+  transform-origin: left center;
+}
+
+.learning-line--1 { top: 74rpx; transform: rotate(8deg); }
+.learning-line--2 { top: 170rpx; transform: rotate(-8deg); }
+.learning-line--3 { top: 74rpx; transform: rotate(20deg); }
+.learning-line--4 { top: 170rpx; transform: rotate(-20deg); }
+
+.learning-brain {
+  position: absolute;
+  right: 32rpx;
+  top: 91rpx;
+  width: 76rpx;
+  height: 76rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1rpx solid rgba(115, 211, 158, 0.48);
+  border-radius: 50%;
+  background: rgba(21, 69, 62, 0.58);
+  color: #9ce5bb;
+  font-size: 20rpx;
+  font-weight: 700;
+}
+
+/* 06 电极与神经 */
+.electrode-track {
+  position: absolute;
+  left: 50rpx;
+  right: 50rpx;
+  top: 126rpx;
+  height: 14rpx;
+  border-radius: 14rpx;
+  background: rgba(104, 125, 148, 0.34);
+  transform: rotate(-8deg);
+}
+
+.electrode-point {
+  position: absolute;
+  z-index: 2;
+  width: 15rpx;
+  height: 15rpx;
+  border-radius: 50%;
+  background: #ffd66f;
+  box-shadow: 0 0 14rpx rgba(255, 214, 111, 0.34);
+}
+
+.electrode-point--1 { left: 80rpx; top: 143rpx; }
+.electrode-point--2 { left: 150rpx; top: 132rpx; }
+.electrode-point--3 { left: 220rpx; top: 121rpx; }
+.electrode-point--4 { left: 290rpx; top: 110rpx; }
+.electrode-point--5 { right: 142rpx; top: 99rpx; }
+.electrode-point--6 { right: 72rpx; top: 88rpx; }
+
+.spread {
+  position: absolute;
+  z-index: 1;
+  border: 2rpx solid rgba(255, 214, 111, 0.28);
+  border-radius: 50%;
+}
+
+.spread--1 { left: 181rpx; top: 80rpx; width: 92rpx; height: 92rpx; }
+.spread--2 { left: 248rpx; top: 63rpx; width: 106rpx; height: 106rpx; }
+.spread--3 { right: 103rpx; top: 62rpx; width: 76rpx; height: 76rpx; }
+
+.limit-pager {
+  margin: 18rpx 42rpx 0;
+  display: flex;
+  align-items: center;
+}
+
+.pager-count {
+  width: 100rpx;
+  display: flex;
+  align-items: baseline;
+  gap: 7rpx;
+  color: #657a92;
+  font-size: 20rpx;
+}
+
+.pager-count text:first-child {
+  color: #e9f1f8;
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+.pager-next {
+  min-width: 126rpx;
+  height: 54rpx;
+  margin-left: 16rpx;
+  padding: 0 16rpx 0 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  border: 1rpx solid rgba(43, 216, 205, 0.34);
+  border-radius: 27rpx;
+  color: #68ddd6;
+  font-size: 21rpx;
+}
+
+.pager-next__arrow {
+  font-size: 31rpx;
+  line-height: 1;
+}
+
+.pager-next--disabled {
+  opacity: 0.3;
+}
+
+.pager-dots {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+}
+
+.pager-dot {
+  width: 9rpx;
+  height: 9rpx;
+  border-radius: 9rpx;
+  background: rgba(119, 145, 172, 0.34);
+  transition: width 0.2s ease, background 0.2s ease;
+}
+
+.pager-dot--active {
+  width: 30rpx;
+  background: #37d7cd;
+}
+
+/* Canvas 版示意图统一占满可视区域，覆盖旧的静态图形布局 */
+.card-visual.music-visual,
+.card-visual.tone-visual,
+.card-visual.noise-visual,
+.card-visual.location-visual,
+.card-visual.learning-visual,
+.card-visual.electrode-visual {
+  display: block;
+  padding: 0;
+}
+
+.limit-canvas {
+  position: relative;
+  z-index: 1;
+}
+
+.visual-caption {
+  z-index: 2;
+  pointer-events: none;
+}

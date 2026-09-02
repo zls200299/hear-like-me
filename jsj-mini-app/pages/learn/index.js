@@ -57,6 +57,20 @@ Page({
       return
     }
 
+    if (id === 'limitations') {
+      wx.navigateTo({
+        url: '/pages/learn/limitations/index'
+      })
+      return
+    }
+
+    if (id === 'child-hearing') {
+      wx.navigateTo({
+        url: '/pages/learn/childHearing/index'
+      })
+      return
+    }
+
     wx.showToast({
       title: '专题内容即将上线',
       icon: 'none'
