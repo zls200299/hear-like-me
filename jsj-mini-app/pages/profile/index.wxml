@@ -1,5 +1,5 @@
 <view class="profile-page page-with-bg safe-bottom">
-  <page-background src="/assets/my-bg.png" tone="profile"></page-background>
+  <page-background variant="profile" tone="profile"></page-background>
   <view class="profile-grid" aria-hidden="true"></view>
 
   <view class="page-content profile-content">

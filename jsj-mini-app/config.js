@@ -1,10 +1,21 @@
 // 配置文件
 // 真机调试时请把 baseUrl 改为电脑局域网 IP，例如 http://192.168.1.100:8081
 // const baseUrl = 'http://192.168.1.4:8081'
-const baseUrl = 'https://zhanglishuai.online'
+const baseUrl = 'https://zls.ffuf.cn'
+const staticBaseUrl = `${baseUrl}/mini-assets`
+const assetVersion = '20260903-1'
+
+const backgroundUrls = {
+  home: `${staticBaseUrl}/backgrounds/home-bg.webp?v=${assetVersion}`,
+  hear: `${staticBaseUrl}/backgrounds/hear-bg.webp?v=${assetVersion}`,
+  study: `${staticBaseUrl}/backgrounds/study-bg.webp?v=${assetVersion}`,
+  profile: `${staticBaseUrl}/backgrounds/my-bg.webp?v=${assetVersion}`
+}
 
 module.exports = {
   baseUrl,
+  staticBaseUrl,
+  backgroundUrls,
   wsBaseUrl: baseUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:'),
 
   /**

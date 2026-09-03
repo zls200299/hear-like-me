@@ -2,18 +2,31 @@ import { defineConfig, loadEnv } from 'vite'
 import path from 'path'
 import createVitePlugins from './vite/plugins'
 
-const baseUrl = 'http://localhost:8080' // 后台管理后端 jsj-admin
-const miniBaseUrl = 'http://localhost:8081' // 小程序业务后端 jsj-mini
+function createRewrite(prefix: string, replacement: string) {
+  return (requestPath: string) => requestPath.startsWith(prefix)
+    ? replacement + requestPath.slice(prefix.length)
+    : requestPath
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd())
-  const { VITE_APP_ENV } = env
+  const {
+    VITE_APP_ENV,
+    VITE_APP_BASE_API = '/dev-api',
+    VITE_APP_MINI_API = '/mini-api',
+    VITE_ADMIN_PROXY_TARGET = 'http://127.0.0.1:8080',
+    VITE_MINI_PROXY_TARGET = 'http://127.0.0.1:8081',
+    VITE_ADMIN_PROXY_REWRITE = '',
+    VITE_MINI_PROXY_REWRITE = '',
+    VITE_PROXY_SECURE = 'true'
+  } = env
+  const proxySecure = VITE_PROXY_SECURE !== 'false'
   return {
     // 部署生产环境和开发环境下的URL。
     // 默认情况下，vite 会假设你的应用是被部署在一个域名的根路径上
     // 例如 https://www.ruoyi.vip/。如果应用被部署在一个子路径上，你就需要用这个选项指定这个子路径。例如，如果你的应用被部署在 https://www.ruoyi.vip/admin/，则设置 baseUrl 为 /admin/。
-    base: VITE_APP_ENV === 'production' ? '/' : '/',
+    base: VITE_APP_ENV === 'production' ? '/admin/' : '/',
     plugins: createVitePlugins(env, command === 'build'),
     resolve: {
       // https://cn.vitejs.dev/config/#resolve-alias
@@ -48,20 +61,23 @@ export default defineConfig(({ mode, command }) => {
       open: true,
       proxy: {
         // https://cn.vitejs.dev/config/#server-proxy
-        '/dev-api': {
-          target: baseUrl,
+        [VITE_APP_BASE_API]: {
+          target: VITE_ADMIN_PROXY_TARGET,
           changeOrigin: true,
-          rewrite: (p) => p.replace(/^\/dev-api/, '')
+          secure: proxySecure,
+          rewrite: createRewrite(VITE_APP_BASE_API, VITE_ADMIN_PROXY_REWRITE)
         },
-        '/mini-api': {
-          target: miniBaseUrl,
+        [VITE_APP_MINI_API]: {
+          target: VITE_MINI_PROXY_TARGET,
           changeOrigin: true,
-          rewrite: (p) => p.replace(/^\/mini-api/, '')
+          secure: proxySecure,
+          rewrite: createRewrite(VITE_APP_MINI_API, VITE_MINI_PROXY_REWRITE)
         },
          // springdoc proxy
          '^/v3/api-docs/(.*)': {
-          target: baseUrl,
+          target: VITE_ADMIN_PROXY_TARGET,
           changeOrigin: true,
+          secure: proxySecure,
         }
       }
     },

@@ -1,5 +1,5 @@
 <view class="child-page page-with-bg">
-  <page-background src="/assets/study-bg.png" tone="reading"></page-background>
+  <page-background variant="study" tone="reading"></page-background>
 
   <view class="child-content">
     <view class="child-hero">

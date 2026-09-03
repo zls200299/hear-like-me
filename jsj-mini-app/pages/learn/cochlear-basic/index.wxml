@@ -1,5 +1,5 @@
 <view class="detail-page page-with-bg">
-  <page-background src="/assets/study-bg.png" tone="reading"></page-background>
+  <page-background variant="study" tone="reading"></page-background>
 
   <view class="detail-content">
     <view class="detail-hero">

@@ -49,8 +49,6 @@ const ICONS = {
   LEARN_PILL_WAVE: `${ICON_BASE}/learn-pill-wave.svg`,
   LEARN_PILL_WARN: `${ICON_BASE}/learn-pill-warn.svg`,
   LEARN_PILL_USER: `${ICON_BASE}/learn-pill-user.svg`,
-  LEARN_EAR_VISUAL: `${ICON_BASE}/learn-ear-visual.svg`,
-  LEARN_HERO_WAVE: `${ICON_BASE}/learn-hero-wave.svg`,
   LEARN_DETAIL_INTRO: `${ICON_BASE}/learn-detail-intro.svg`,
   LEARN_DETAIL_STEP_BAND: `${ICON_BASE}/learn-detail-step-band.svg`,
   LEARN_DETAIL_STEP_ENVELOPE: `${ICON_BASE}/learn-detail-step-envelope.svg`,

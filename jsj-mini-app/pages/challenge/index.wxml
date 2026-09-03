@@ -1,5 +1,5 @@
 <view class="challenge-page page-with-bg safe-bottom">
-  <page-background src="/assets/hear-bg.png"></page-background>
+  <page-background variant="hear"></page-background>
   <view class="challenge-orbit challenge-orbit--left" aria-hidden="true"></view>
   <view class="challenge-orbit challenge-orbit--right" aria-hidden="true"></view>
 

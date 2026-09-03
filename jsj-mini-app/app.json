@@ -46,10 +46,5 @@
   "usingComponents": {
     "hlm-icon": "/components/hlm-icon/index",
     "page-background": "/components/page-background/index"
-  },
-  "permission": {
-    "scope.record": {
-      "desc": "用于实时体验人工耳蜗听觉模拟"
-    }
   }
 }

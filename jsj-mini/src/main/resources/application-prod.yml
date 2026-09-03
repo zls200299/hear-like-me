@@ -38,7 +38,7 @@ wx:
 hear-like-me:
   storage:
     root-path: ${HLM_STORAGE_ROOT:/data/hear-like-me}
-    preview-url-prefix: https://zhanglishuai.online
+    preview-url-prefix: https://zls.ffuf.cn
   engine:
     python-path: ${HLM_PYTHON_PATH:python3}
     script-path: ${HLM_ENGINE_SCRIPT:/opt/hear-like-me/audio-engine/cochlear_vocoder.py}

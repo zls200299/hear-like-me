@@ -1,5 +1,5 @@
 <view class="learn-page page-with-bg safe-bottom">
-  <page-background src="/assets/study-bg.png"></page-background>
+  <page-background variant="study"></page-background>
 
   <view class="page-content learn-content">
     <view class="learn-hero">

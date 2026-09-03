@@ -1,5 +1,11 @@
 <view class="page-background page-background--{{tone}}" aria-hidden="true">
   <view class="page-background__base"></view>
-  <image class="page-background__image" src="{{src}}" mode="aspectFill" />
+  <image
+    wx:if="{{resolvedSrc}}"
+    class="page-background__image"
+    src="{{resolvedSrc}}"
+    mode="aspectFill"
+    binderror="onImageError"
+  />
   <view class="page-background__overlay"></view>
 </view>
