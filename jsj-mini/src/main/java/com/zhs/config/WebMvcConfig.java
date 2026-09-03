@@ -11,6 +11,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Resource
     private LoginInterceptor loginInterceptor;
 
+    @Resource
+    private AdminLoginInterceptor adminLoginInterceptor;
+
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(loginInterceptor)
@@ -19,5 +22,17 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/auth/wx-login",
                         "/api/auth/test-login",
                         "/api/auth/test-users");
+
+        registry.addInterceptor(adminLoginInterceptor)
+                .addPathPatterns(
+                        "/audio/processing/**",
+                        "/content/**",
+                        "/file/asset/**",
+                        "/hearing/challenge/**",
+                        "/read/aloud/**",
+                        "/sample/audio/**",
+                        "/scenario/preset/**",
+                        "/system/config/**",
+                        "/user/**");
     }
 }
