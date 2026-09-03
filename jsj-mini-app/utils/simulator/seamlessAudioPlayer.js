@@ -14,7 +14,6 @@ function createSeamlessAudioPlayer() {
     bufferCache: new Map(),
     pollTimer: null,
     playing: false,
-    silentStop: false,
     destroyed: false,
     callbacks: {}
   }
@@ -60,16 +59,18 @@ function createSeamlessAudioPlayer() {
   }
 
   function stopInner() {
-    if (!state.inner) return
-    state.silentStop = true
-    try {
-      state.inner.stop()
-    } catch (e) {}
-    try {
-      state.inner.destroy()
-    } catch (e) {}
+    const inner = state.inner
+    if (!inner) return
+
+    // 先摘掉当前实例。微信的 onStop/onError 可能在 stop/destroy 之后异步到达，
+    // 旧实例的事件不得再修改下一段音频的播放状态。
     state.inner = null
-    state.silentStop = false
+    try {
+      inner.stop()
+    } catch (e) {}
+    try {
+      inner.destroy()
+    } catch (e) {}
   }
 
   function getCurrentTime() {
@@ -165,7 +166,7 @@ function createSeamlessAudioPlayer() {
     state.source = source
   }
 
-  function bindInner(url) {
+  function bindInner(url, generation) {
     stopInner()
     const inner = wx.createInnerAudioContext()
     inner.obeyMuteSwitch = false
@@ -173,19 +174,21 @@ function createSeamlessAudioPlayer() {
     inner.loop = true
 
     inner.onPlay(() => {
+      if (state.destroyed || state.inner !== inner || generation !== playGeneration) return
       state.playing = true
       startTimePoll()
       if (state.callbacks.onPlay) state.callbacks.onPlay()
     })
 
     inner.onStop(() => {
-      if (state.silentStop) return
+      if (state.destroyed || state.inner !== inner || generation !== playGeneration) return
       state.playing = false
       stopTimePoll()
       if (state.callbacks.onStop) state.callbacks.onStop()
     })
 
     inner.onError((err) => {
+      if (state.destroyed || state.inner !== inner || generation !== playGeneration) return
       state.playing = false
       stopTimePoll()
       if (state.callbacks.onError) state.callbacks.onError(err)
@@ -222,7 +225,7 @@ function createSeamlessAudioPlayer() {
     }
 
     if (generation !== playGeneration) return
-    bindInner(url)
+    bindInner(url, generation)
   }
 
   async function switchSrc(url) {
@@ -245,13 +248,9 @@ function createSeamlessAudioPlayer() {
     if (state.destroyed || generation !== playGeneration || !state.playing) return false
 
     if (state.inner) {
-      try {
-        state.inner.stop()
-      } catch (e) {}
-      if (state.destroyed || generation !== playGeneration || !state.playing) return false
-      state.inner.src = url
-      state.inner.loop = true
-      state.inner.play()
+      // 不复用旧 InnerAudioContext。复用时旧 src 的 onStop 可能晚于新 src 的
+      // onPlay 到达，造成“新音频刚播放就被标记停止”的竞态。
+      bindInner(url, generation)
       return true
     }
 

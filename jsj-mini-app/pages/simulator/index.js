@@ -4110,6 +4110,10 @@ Page({
   },
 
   async playOriginal() {
+    // 原声是用户此刻的明确选择。取消参数变更遗留的模拟声自动刷新，
+    // 防止异步生成在原声开始后完成并把播放器切回模拟声。
+    this._cancelAutoRefresh()
+
     if (this._fileStreamActive || this._fileStreamStarting) {
       this._stopFileStreamingProcessed()
     }
