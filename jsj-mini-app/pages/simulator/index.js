@@ -184,7 +184,7 @@ Page({
     feedbackCarrierLabel: '噪声载体',
     exportAudioState: 'idle',
     exportAudioBtnLabel: '导出当前音频（WAV）',
-    exportAudioHelperText: '生成后将打开预览，可用其他应用保存',
+    exportAudioHelperText: '生成后可发送给好友或文件传输助手',
     exportAudioErrorText: '',
     exportAudioSavedKey: '',
     exportAudioDisabled: true,
@@ -1055,7 +1055,7 @@ Page({
       exportAudioState: state
     })
     let btnLabel = '导出当前音频（WAV）'
-    let helperText = '生成后将打开预览，可用其他应用保存'
+    let helperText = '生成后可发送给好友或文件传输助手'
     let disabled = !canExport
 
     if (state === 'exporting') {
@@ -1064,7 +1064,7 @@ Page({
       disabled = true
     } else if (state === 'success') {
       btnLabel = '已导出'
-      helperText = '已打开预览，可用右上角菜单保存到手机'
+      helperText = '音频文件已发送，可再次导出'
     } else if (state === 'error') {
       helperText = overrides.exportAudioErrorText || this.data.exportAudioErrorText || '导出失败，请重试'
     }
@@ -1093,12 +1093,8 @@ Page({
   _resolveExportErrorMessage(stage) {
     if (stage === 'generate') return '模拟音频生成失败，请重试'
     if (stage === 'download') return '音频下载失败，请检查网络后重试'
-    if (stage === 'open') return '音频打开失败，请重试'
+    if (stage === 'share') return '音频发送失败，请重试'
     return '导出失败，请重试'
-  },
-
-  _buildExportFilePath() {
-    return `${wx.env.USER_DATA_PATH}/hear-like-me-export-${Date.now()}.wav`
   },
 
   _buildTaskPayloadFromSnapshot(snapshot, sourceAssetId) {
@@ -1253,7 +1249,34 @@ Page({
     }
   },
 
-  _downloadAndOpenExportFile(url, generation) {
+  _isExportCancelled(err) {
+    const message = err && err.errMsg ? err.errMsg : ''
+    return /cancel/i.test(message)
+  },
+
+  _shareExportFile(filePath) {
+    if (typeof wx.shareFileMessage !== 'function') {
+      return Promise.reject(new Error('EXPORT_SHARE_FAILED'))
+    }
+
+    return new Promise((resolve, reject) => {
+      wx.shareFileMessage({
+        filePath,
+        fileName: '人工耳蜗模拟音频.wav',
+        success: () => resolve({ method: 'share', filePath }),
+        fail: (err) => {
+          if (this._isExportCancelled(err)) {
+            resolve({ method: 'cancelled', filePath })
+            return
+          }
+          console.warn('[export-audio] shareFileMessage failed', err)
+          reject(new Error('EXPORT_SHARE_FAILED'))
+        }
+      })
+    })
+  },
+
+  _downloadAndShareExportFile(url, generation) {
     return new Promise((resolve, reject) => {
       wx.downloadFile({
         url,
@@ -1267,37 +1290,12 @@ Page({
             return
           }
 
-          const destPath = this._buildExportFilePath()
-          const fs = wx.getFileSystemManager()
-          fs.copyFile({
-            srcPath: res.tempFilePath,
-            destPath,
-            success: () => {
-              if (generation !== this._exportGeneration) {
-                reject(new Error('EXPORT_CANCELLED'))
-                return
-              }
-              wx.openDocument({
-                filePath: destPath,
-                showMenu: true,
-                success: () => {
-                  if (generation !== this._exportGeneration) {
-                    reject(new Error('EXPORT_CANCELLED'))
-                    return
-                  }
-                  resolve({ filePath: destPath })
-                },
-                fail: (err) => {
-                  console.warn('[export-audio] openDocument failed', err)
-                  reject(new Error('EXPORT_OPEN_FAILED'))
-                }
-              })
-            },
-            fail: (err) => {
-              console.warn('[export-audio] copyFile failed', err)
-              reject(new Error('EXPORT_OPEN_FAILED'))
-            }
-          })
+          this._shareExportFile(res.tempFilePath)
+            .then(resolve)
+            .catch((err) => {
+              console.warn('[export-audio] share failed', err)
+              reject(new Error('EXPORT_SHARE_FAILED'))
+            })
         },
         fail: () => {
           reject(new Error('EXPORT_DOWNLOAD_FAILED'))
@@ -1335,17 +1333,33 @@ Page({
         throw new Error('EXPORT_GENERATE_FAILED')
       }
 
-      await this._downloadAndOpenExportFile(result.processedAudioUrl, generation)
+      const exportResult = await this._downloadAndShareExportFile(result.processedAudioUrl, generation)
       if (generation !== this._exportGeneration) return
+
+      if (exportResult.method === 'cancelled') {
+        this.setData({
+          exportAudioState: 'idle',
+          exportAudioSavedKey: '',
+          exportAudioErrorText: '',
+          ...this._buildExportAudioUiPatch({
+            exportAudioState: 'idle',
+            exportAudioHelperText: '已取消导出，可再次点击'
+          })
+        })
+        return
+      }
 
       this.setData({
         exportAudioState: 'success',
         exportAudioSavedKey: processKey,
         exportAudioErrorText: '',
-        ...this._buildExportAudioUiPatch({ exportAudioState: 'success' })
+        ...this._buildExportAudioUiPatch({
+          exportAudioState: 'success',
+          exportAudioHelperText: '音频文件已发送，可在聊天中保存'
+        })
       })
       wx.showToast({
-        title: '已打开预览',
+        title: '文件已发送',
         icon: 'success'
       })
     } catch (err) {
@@ -1355,8 +1369,8 @@ Page({
       let stage = 'generate'
       if (err && err.message === 'EXPORT_DOWNLOAD_FAILED') {
         stage = 'download'
-      } else if (err && err.message === 'EXPORT_OPEN_FAILED') {
-        stage = 'open'
+      } else if (err && err.message === 'EXPORT_SHARE_FAILED') {
+        stage = 'share'
       }
 
       const errorText = this._resolveExportErrorMessage(stage)

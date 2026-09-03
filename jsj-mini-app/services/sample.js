@@ -1,4 +1,4 @@
-const { request } = require('./request.js')
+const { request, resolveResourceUrl } = require('./request.js')
 
 const mockSamples = [
   {
@@ -32,7 +32,7 @@ function normalizeSample(item) {
     description: item.description || item.descriptionCn || item.description_cn || '',
     assetId: item.assetId != null ? item.assetId : (item.asset_id != null ? item.asset_id : null),
     generatorType: item.generatorType || item.generator_type || '',
-    audioUrl: item.audioUrl || item.audio_url || ''
+    audioUrl: resolveResourceUrl(item.audioUrl || item.audio_url || '')
   }
 }
 
@@ -42,7 +42,7 @@ function normalizeSampleSource(data) {
     assetId: data.assetId != null ? String(data.assetId) : '',
     sampleCode: data.sampleCode || '',
     fileName: data.fileName || data.originalFilename || '',
-    url: data.url || '',
+    url: resolveResourceUrl(data.url || ''),
     objectKey: data.objectKey || ''
   }
 }

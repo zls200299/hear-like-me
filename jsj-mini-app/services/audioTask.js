@@ -1,4 +1,4 @@
-const { request } = require('./request.js')
+const { request, resolveResourceUrl } = require('./request.js')
 
 function extractData(response) {
   if (!response) return {}
@@ -27,11 +27,11 @@ function normalizeTask(data) {
     status: data.status || '',
     sourceAssetId: normalizeId(data.sourceAssetId),
     outputAssetId: normalizeId(data.outputAssetId),
-    processedAudioUrl: data.processedAudioUrl || data.outputUrl || '',
+    processedAudioUrl: resolveResourceUrl(data.processedAudioUrl || data.outputUrl || ''),
     clarityScore: data.clarityScore != null ? data.clarityScore : null,
     clarityGrade: data.clarityGrade || '',
     visualizationData: data.visualizationData || null,
-    visualizationUrl: data.visualizationUrl || ''
+    visualizationUrl: resolveResourceUrl(data.visualizationUrl || '')
   }
 }
 

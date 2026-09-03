@@ -1,5 +1,56 @@
+const { prepareSampleSource } = require('../../../services/sample.js')
+const { createTask } = require('../../../services/audioTask.js')
+const { createSeamlessAudioPlayer } = require('../../../utils/simulator/seamlessAudioPlayer.js')
+
 const TOTAL_CARDS = 6
 const FRAME_MS = 1000 / 30
+
+const EXPERIENCE_PRESETS = [
+  {
+    sampleCode: 'melody',
+    scenarioCode: 'music',
+    nChannels: 8,
+    carrier: 'noise',
+    fLo: 80,
+    fHi: 8000,
+    envCut: 220,
+    spread: 0.25,
+    noiseLevel: 0
+  },
+  {
+    sampleCode: 'tone',
+    scenarioCode: 'tone',
+    nChannels: 8,
+    carrier: 'noise',
+    fLo: 150,
+    fHi: 7000,
+    envCut: 120,
+    spread: 0.2,
+    noiseLevel: 0.1
+  },
+  {
+    sampleCode: 'vowel',
+    scenarioCode: 'restaurant',
+    nChannels: 8,
+    carrier: 'noise',
+    fLo: 150,
+    fHi: 7000,
+    envCut: 160,
+    spread: 0.4,
+    noiseLevel: 0.55
+  }
+]
+
+const EXPERIENCE_IDLE_TEXT = '先听原声，再听耳蜗模拟'
+
+function createExperienceData() {
+  return EXPERIENCE_PRESETS.map(() => ({
+    loading: false,
+    playing: false,
+    activeMode: '',
+    status: EXPERIENCE_IDLE_TEXT
+  }))
+}
 
 function rgba(hex, alpha) {
   const value = parseInt(hex.slice(1), 16)
@@ -276,7 +327,17 @@ Page({
   data: {
     current: 0,
     currentLabel: '01',
-    dots: [0, 1, 2, 3, 4, 5]
+    dots: [0, 1, 2, 3, 4, 5],
+    experiences: createExperienceData()
+  },
+
+  onLoad() {
+    this._experiencePlayer = createSeamlessAudioPlayer()
+    this._experienceCache = EXPERIENCE_PRESETS.map(() => ({}))
+    this._experiencePreparePromises = {}
+    this._experienceProcessPromises = {}
+    this._experienceGeneration = 0
+    this._activeExperience = null
   },
 
   onReady() {
@@ -293,11 +354,17 @@ Page({
 
   onHide() {
     this._stopLimitLoop()
+    this._stopExperiencePlayback()
   },
 
   onUnload() {
     this._limitsAlive = false
     this._stopLimitLoop()
+    this._stopExperiencePlayback()
+    if (this._experiencePlayer) {
+      this._experiencePlayer.destroy()
+      this._experiencePlayer = null
+    }
     this._limitCanvases = null
   },
 
@@ -321,11 +388,203 @@ Page({
   _setCurrent(current) {
     const safeCurrent = Math.max(0, Math.min(TOTAL_CARDS - 1, current))
     const displayNumber = safeCurrent + 1
+    if (safeCurrent !== this.data.current) {
+      this._stopExperiencePlayback()
+    }
     this.setData({
       current: safeCurrent,
       currentLabel: displayNumber < 10 ? `0${displayNumber}` : String(displayNumber)
     }, () => {
       this._drawLimitVisual(safeCurrent, (Date.now() - (this._limitStartMs || Date.now())) / 1000)
+    })
+  },
+
+  async onExperienceTap(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const mode = e.currentTarget.dataset.mode
+    if (!Number.isInteger(index) || index < 0 || index >= EXPERIENCE_PRESETS.length) return
+    if (mode !== 'original' && mode !== 'processed') return
+
+    const experience = this.data.experiences[index]
+    if (!experience || experience.loading) return
+
+    const playingSameAudio = experience.playing
+      && experience.activeMode === mode
+      && this._experiencePlayer
+      && this._experiencePlayer.isPlaying()
+
+    if (playingSameAudio) {
+      this._stopExperiencePlayback('已暂停，点击可继续试听')
+      return
+    }
+
+    this._stopExperiencePlayback()
+    const generation = this._experienceGeneration
+    const loadingText = mode === 'original' ? '正在加载原声…' : '正在生成耳蜗模拟…'
+    this._setExperienceState(index, {
+      loading: true,
+      playing: false,
+      activeMode: mode,
+      status: loadingText
+    })
+
+    try {
+      const url = await this._resolveExperienceUrl(index, mode)
+      if (generation !== this._experienceGeneration || this.data.current !== index) return
+      if (!url) throw new Error('没有可播放的音频')
+
+      this._activeExperience = { index, mode }
+      await this._experiencePlayer.play(url, {
+        onPlay: () => {
+          if (generation !== this._experienceGeneration) return
+          this._setExperienceState(index, {
+            loading: false,
+            playing: true,
+            activeMode: mode,
+            status: mode === 'original' ? '正在播放原声' : '正在播放耳蜗模拟'
+          })
+        },
+        onStop: () => {
+          if (generation !== this._experienceGeneration) return
+          this._activeExperience = null
+          this._setExperienceState(index, {
+            loading: false,
+            playing: false,
+            activeMode: '',
+            status: '播放已停止，可继续对比'
+          })
+        },
+        onError: () => {
+          if (generation !== this._experienceGeneration) return
+          this._handleExperienceError(index, new Error('音频播放失败'))
+        }
+      })
+
+      // InnerAudio 的 onPlay 可能稍后触发，先结束按钮的加载态。
+      if (generation === this._experienceGeneration && !this.data.experiences[index].playing) {
+        this._setExperienceState(index, { loading: false })
+      }
+    } catch (error) {
+      if (generation !== this._experienceGeneration) return
+      this._handleExperienceError(index, error)
+    }
+  },
+
+  async _resolveExperienceUrl(index, mode) {
+    const source = await this._prepareExperienceSource(index)
+    if (mode === 'original') return source.url
+
+    const cache = this._experienceCache[index]
+    if (cache.processedUrl) return cache.processedUrl
+
+    if (this._experienceProcessPromises[index]) {
+      return this._experienceProcessPromises[index]
+    }
+
+    const preset = EXPERIENCE_PRESETS[index]
+    const processPromise = createTask({
+        sourceType: 'SAMPLE',
+        sourceAssetId: source.assetId,
+        sampleCode: preset.sampleCode,
+        scenarioCode: preset.scenarioCode,
+        nChannels: preset.nChannels,
+        carrier: preset.carrier,
+        fLo: preset.fLo,
+        fHi: preset.fHi,
+        envCut: preset.envCut,
+        spread: preset.spread,
+        noiseLevel: preset.noiseLevel
+      })
+      .then((result) => {
+        if (!result || result.status !== 'SUCCESS' || !result.processedAudioUrl) {
+          throw new Error('模拟音频生成失败')
+        }
+        cache.processedUrl = result.processedAudioUrl
+        return cache.processedUrl
+      })
+
+    this._experienceProcessPromises[index] = processPromise
+    try {
+      return await processPromise
+    } finally {
+      delete this._experienceProcessPromises[index]
+    }
+  },
+
+  async _prepareExperienceSource(index) {
+    const cache = this._experienceCache[index]
+    if (cache.source && cache.source.assetId && cache.source.url) {
+      return cache.source
+    }
+
+    if (this._experiencePreparePromises[index]) {
+      return this._experiencePreparePromises[index]
+    }
+
+    const preparePromise = prepareSampleSource(EXPERIENCE_PRESETS[index].sampleCode)
+      .then((source) => {
+        cache.source = source
+        return source
+      })
+
+    this._experiencePreparePromises[index] = preparePromise
+    try {
+      return await preparePromise
+    } finally {
+      delete this._experiencePreparePromises[index]
+    }
+  },
+
+  _setExperienceState(index, patch) {
+    if (!this.data.experiences || !this.data.experiences[index]) return
+    const next = { ...this.data.experiences[index], ...patch }
+    this.setData({ [`experiences[${index}]`]: next })
+  },
+
+  _stopExperiencePlayback(statusText = EXPERIENCE_IDLE_TEXT) {
+    this._experienceGeneration = (this._experienceGeneration || 0) + 1
+    if (this._experiencePlayer) {
+      this._experiencePlayer.stop({ silent: true })
+    }
+
+    const active = this._activeExperience
+    this._activeExperience = null
+    if (active && this.data.experiences && this.data.experiences[active.index]) {
+      this._setExperienceState(active.index, {
+        loading: false,
+        playing: false,
+        activeMode: '',
+        status: statusText
+      })
+      return
+    }
+
+    const loadingIndex = (this.data.experiences || []).findIndex((item) => item.loading)
+    if (loadingIndex >= 0) {
+      this._setExperienceState(loadingIndex, {
+        loading: false,
+        playing: false,
+        activeMode: '',
+        status: statusText
+      })
+    }
+  },
+
+  _handleExperienceError(index, error) {
+    this._activeExperience = null
+    if (this._experiencePlayer) {
+      this._experiencePlayer.stop({ silent: true })
+    }
+    this._setExperienceState(index, {
+      loading: false,
+      playing: false,
+      activeMode: '',
+      status: '加载失败，请稍后重试'
+    })
+    console.warn('[limitations] 试听失败', error)
+    wx.showToast({
+      title: error && error.message ? error.message : '试听失败，请重试',
+      icon: 'none'
     })
   },
 

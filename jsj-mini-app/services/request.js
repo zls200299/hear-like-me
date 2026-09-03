@@ -1,5 +1,28 @@
 const config = require('../config.js')
 
+function resolveResourceUrl(value) {
+  if (!value) return ''
+
+  const url = String(value).trim()
+  if (!url) return ''
+
+  // 后端曾经返回过带旧域名的绝对地址。资源接口统一跟随当前 baseUrl，
+  // 这样切换域名或本地/线上环境后，历史响应也不会继续请求旧主机。
+  if (/^https?:\/\//i.test(url)) {
+    return url.replace(/^https?:\/\/[^/]+(?=\/api\/)/i, config.baseUrl)
+  }
+
+  if (url.startsWith('/')) {
+    return `${config.baseUrl}${url}`
+  }
+
+  if (url.startsWith('api/')) {
+    return `${config.baseUrl}/${url}`
+  }
+
+  return url
+}
+
 function clearStoredSession() {
   try {
     const app = getApp()
@@ -121,5 +144,6 @@ function request(options = {}) {
 }
 
 module.exports = {
-  request
+  request,
+  resolveResourceUrl
 }

@@ -28,6 +28,20 @@
           <view class="card-takeaway">节奏还能听见，旋律与和声却可能变得模糊。</view>
           <view class="card-explain">旋律、和声和乐器音色依赖细腻的音高信息。人工耳蜗会丢失部分精细频率线索，因此音乐可能显得更平、更难分辨。</view>
           <view class="card-tags"><text>精细音高减少</text><text>节奏相对保留</text></view>
+          <view class="listen-panel">
+            <view class="listen-panel__head">
+              <view class="listen-panel__title"><view class="listen-panel__pulse"></view><text>亲自听一听</text></view>
+              <text class="listen-panel__status">{{experiences[0].status}}</text>
+            </view>
+            <view class="listen-panel__actions">
+              <view class="listen-button {{experiences[0].activeMode === 'original' ? 'listen-button--active' : ''}}" data-index="0" data-mode="original" catchtap="onExperienceTap" role="button" aria-label="播放音乐原声">
+                <text class="listen-button__icon">{{experiences[0].loading && experiences[0].activeMode === 'original' ? '…' : (experiences[0].playing && experiences[0].activeMode === 'original' ? '■' : '▶')}}</text><text>原声</text>
+              </view>
+              <view class="listen-button {{experiences[0].activeMode === 'processed' ? 'listen-button--active' : ''}}" data-index="0" data-mode="processed" catchtap="onExperienceTap" role="button" aria-label="播放音乐的人工耳蜗模拟">
+                <text class="listen-button__icon">{{experiences[0].loading && experiences[0].activeMode === 'processed' ? '…' : (experiences[0].playing && experiences[0].activeMode === 'processed' ? '■' : '▶')}}</text><text>耳蜗模拟</text>
+              </view>
+            </view>
+          </view>
         </view>
       </swiper-item>
 
@@ -42,6 +56,20 @@
           <view class="card-takeaway">同一个音节，只换声调就可能换意思，但声调差异更难保留。</view>
           <view class="card-explain">普通话、粤语等语言依赖音高轮廓区分词义。人工耳蜗对音高的编码较弱，因此声调辨认更具挑战。</view>
           <view class="card-tags"><text>音高轮廓弱化</text><text>词义区分更难</text></view>
+          <view class="listen-panel">
+            <view class="listen-panel__head">
+              <view class="listen-panel__title"><view class="listen-panel__pulse"></view><text>亲自听一听</text></view>
+              <text class="listen-panel__status">{{experiences[1].status}}</text>
+            </view>
+            <view class="listen-panel__actions">
+              <view class="listen-button {{experiences[1].activeMode === 'original' ? 'listen-button--active' : ''}}" data-index="1" data-mode="original" catchtap="onExperienceTap" role="button" aria-label="播放声调原声">
+                <text class="listen-button__icon">{{experiences[1].loading && experiences[1].activeMode === 'original' ? '…' : (experiences[1].playing && experiences[1].activeMode === 'original' ? '■' : '▶')}}</text><text>原声</text>
+              </view>
+              <view class="listen-button {{experiences[1].activeMode === 'processed' ? 'listen-button--active' : ''}}" data-index="1" data-mode="processed" catchtap="onExperienceTap" role="button" aria-label="播放声调的人工耳蜗模拟">
+                <text class="listen-button__icon">{{experiences[1].loading && experiences[1].activeMode === 'processed' ? '…' : (experiences[1].playing && experiences[1].activeMode === 'processed' ? '■' : '▶')}}</text><text>耳蜗模拟</text>
+              </view>
+            </view>
+          </view>
         </view>
       </swiper-item>
 
@@ -56,6 +84,20 @@
           <view class="card-takeaway">安静时能听懂，不代表在餐厅、教室里也同样容易。</view>
           <view class="card-explain">背景噪声或多人同时说话时，目标人声和噪声更难被分开，语音识别往往会明显下降。</view>
           <view class="card-tags"><text>语音噪声难分离</text><text>多人场景更吃力</text></view>
+          <view class="listen-panel">
+            <view class="listen-panel__head">
+              <view class="listen-panel__title"><view class="listen-panel__pulse"></view><text>亲自听一听</text></view>
+              <text class="listen-panel__status">{{experiences[2].status}}</text>
+            </view>
+            <view class="listen-panel__actions">
+              <view class="listen-button {{experiences[2].activeMode === 'original' ? 'listen-button--active' : ''}}" data-index="2" data-mode="original" catchtap="onExperienceTap" role="button" aria-label="播放安静人声">
+                <text class="listen-button__icon">{{experiences[2].loading && experiences[2].activeMode === 'original' ? '…' : (experiences[2].playing && experiences[2].activeMode === 'original' ? '■' : '▶')}}</text><text>安静人声</text>
+              </view>
+              <view class="listen-button {{experiences[2].activeMode === 'processed' ? 'listen-button--active' : ''}}" data-index="2" data-mode="processed" catchtap="onExperienceTap" role="button" aria-label="播放嘈杂环境的人工耳蜗模拟">
+                <text class="listen-button__icon">{{experiences[2].loading && experiences[2].activeMode === 'processed' ? '…' : (experiences[2].playing && experiences[2].activeMode === 'processed' ? '■' : '▶')}}</text><text>嘈杂模拟</text>
+              </view>
+            </view>
+          </view>
         </view>
       </swiper-item>
 
