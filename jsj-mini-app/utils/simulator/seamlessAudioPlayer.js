@@ -3,6 +3,8 @@ const TIME_POLL_MS = 100
 
 function createSeamlessAudioPlayer() {
   let playGeneration = 0
+  let preloadGeneration = 0
+  let decodeQueue = Promise.resolve()
 
   const state = {
     useWebAudio: typeof wx.createWebAudioContext === 'function',
@@ -15,7 +17,8 @@ function createSeamlessAudioPlayer() {
     pollTimer: null,
     playing: false,
     destroyed: false,
-    callbacks: {}
+    callbacks: {},
+    pendingPreloadUrl: null
   }
 
   function trimCache() {
@@ -121,17 +124,18 @@ function createSeamlessAudioPlayer() {
     return state.webCtx
   }
 
-  function loadBuffer(url) {
-    if (state.bufferCache.has(url)) {
-      return Promise.resolve(state.bufferCache.get(url))
-    }
-
+  function loadBufferOnce(url, options = {}) {
+    const { preloadGen = null } = options
     const webCtx = ensureWebCtx()
     return new Promise((resolve, reject) => {
       wx.request({
         url,
         responseType: 'arraybuffer',
         success(res) {
+          if (preloadGen != null && preloadGen !== preloadGeneration) {
+            reject(new Error('PRELOAD_CANCELLED'))
+            return
+          }
           if (!res || !res.data) {
             reject(new Error('音频数据为空'))
             return
@@ -139,6 +143,10 @@ function createSeamlessAudioPlayer() {
           webCtx.decodeAudioData(
             res.data,
             (buffer) => {
+              if (preloadGen != null && preloadGen !== preloadGeneration) {
+                reject(new Error('PRELOAD_CANCELLED'))
+                return
+              }
               state.bufferCache.set(url, buffer)
               trimCache()
               resolve(buffer)
@@ -153,10 +161,41 @@ function createSeamlessAudioPlayer() {
     })
   }
 
+  function loadBuffer(url, options = {}) {
+    if (state.bufferCache.has(url)) {
+      return Promise.resolve(state.bufferCache.get(url))
+    }
+
+    const run = decodeQueue.then(() => loadBufferOnce(url, options))
+    decodeQueue = run.catch(() => {})
+    return run
+  }
+
+  function flushPendingPreload() {
+    if (state.destroyed || state.playing || !state.pendingPreloadUrl) return
+    const url = state.pendingPreloadUrl
+    state.pendingPreloadUrl = null
+    preload(url).catch((err) => {
+      if (err && err.message !== 'PRELOAD_CANCELLED') {
+        console.warn('[seamlessAudio] pending preload failed', err)
+      }
+    })
+  }
+
+  function cancelPreload() {
+    preloadGeneration++
+    state.pendingPreloadUrl = null
+  }
+
   function startWebSource(buffer) {
     stopWebSource()
     state.buffer = buffer
     const webCtx = ensureWebCtx()
+    try {
+      if (typeof webCtx.resume === 'function') {
+        webCtx.resume()
+      }
+    } catch (e) {}
     const source = webCtx.createBufferSource()
     source.buffer = buffer
     source.loop = true
@@ -198,23 +237,45 @@ function createSeamlessAudioPlayer() {
     inner.play()
   }
 
+  function beginPlayback(callbacks) {
+    cancelPreload()
+    playGeneration++
+    const generation = playGeneration
+    state.playing = false
+    stopTimePoll()
+    stopWebSource()
+    stopInner()
+    state.callbacks = callbacks || {}
+    return generation
+  }
+
   async function preload(url) {
     if (!url || state.destroyed) return
     if (!state.useWebAudio) return
-    await loadBuffer(url)
+    if (state.playing) {
+      state.pendingPreloadUrl = url
+      return
+    }
+
+    const generation = ++preloadGeneration
+    try {
+      await loadBuffer(url, { preloadGen: generation })
+    } catch (err) {
+      if (err && err.message === 'PRELOAD_CANCELLED') return
+      throw err
+    }
   }
 
   async function play(url, callbacks = {}) {
     if (state.destroyed) return
-    stop({ silent: true })
-    const generation = playGeneration
-    state.callbacks = callbacks || {}
+    const generation = beginPlayback(callbacks)
 
     if (state.useWebAudio) {
       try {
         const buffer = await loadBuffer(url)
         if (state.destroyed || generation !== playGeneration) return
         startWebSource(buffer)
+        if (state.destroyed || generation !== playGeneration) return
         state.playing = true
         startTimePoll()
         if (state.callbacks.onPlay) state.callbacks.onPlay()
@@ -230,8 +291,8 @@ function createSeamlessAudioPlayer() {
 
   async function switchSrc(url) {
     if (state.destroyed || !state.playing) return false
-    // 每次切换独立 bump，保证「最后一次选择」获胜，旧的 decode/start 全部失效
     const generation = ++playGeneration
+    cancelPreload()
 
     if (state.useWebAudio && state.webCtx) {
       try {
@@ -248,8 +309,6 @@ function createSeamlessAudioPlayer() {
     if (state.destroyed || generation !== playGeneration || !state.playing) return false
 
     if (state.inner) {
-      // 不复用旧 InnerAudioContext。复用时旧 src 的 onStop 可能晚于新 src 的
-      // onPlay 到达，造成“新音频刚播放就被标记停止”的竞态。
       bindInner(url, generation)
       return true
     }
@@ -269,13 +328,22 @@ function createSeamlessAudioPlayer() {
     if (!silent && wasPlaying && state.callbacks.onStop) {
       state.callbacks.onStop()
     }
+
+    if (!silent) {
+      flushPendingPreload()
+    }
   }
 
   function destroy() {
     if (state.destroyed) return
 
     state.destroyed = true
-    stop({ silent: true })
+    cancelPreload()
+    playGeneration++
+    state.playing = false
+    stopTimePoll()
+    stopWebSource()
+    stopInner()
     state.bufferCache.clear()
     state.webCtx = null
     state.callbacks = {}
@@ -288,6 +356,7 @@ function createSeamlessAudioPlayer() {
   return {
     play,
     preload,
+    cancelPreload,
     switchSrc,
     stop,
     destroy,

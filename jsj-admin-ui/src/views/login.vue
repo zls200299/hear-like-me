@@ -81,8 +81,8 @@ const router = useRouter()
 const { proxy } = getCurrentInstance()
 
 const loginForm = ref<LoginForm>({
-  username: "admin",
-  password: "admin123",
+  username: "",
+  password: "",
   rememberMe: false,
   code: "",
   uuid: ""
@@ -157,8 +157,8 @@ function getCookie(): void {
   const password = Cookies.get("password")
   const rememberMe = Cookies.get("rememberMe")
   loginForm.value = {
-    username: username === undefined ? loginForm.value.username : username,
-    password: password === undefined ? loginForm.value.password : decrypt(password),
+    username: rememberMe && username ? username : "",
+    password: rememberMe && password ? decrypt(password) : "",
     rememberMe: rememberMe === undefined ? false : Boolean(rememberMe)
   }
 }

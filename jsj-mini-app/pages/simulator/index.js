@@ -3,6 +3,7 @@ const { listSamples, prepareSampleSource } = require('../../services/sample.js')
 const { uploadAudio } = require('../../services/file.js')
 const { createTask } = require('../../services/audioTask.js')
 const { createSeamlessAudioPlayer } = require('../../utils/simulator/seamlessAudioPlayer.js')
+const { createInnerLoopPlayer } = require('../../utils/simulator/innerLoopPlayer.js')
 const { createRealtimePcmPlayer } = require('../../utils/simulator/realtimePcmPlayer.js')
 const { createFilePcmSource } = require('../../utils/simulator/filePcmSource.js')
 const {
@@ -240,8 +241,10 @@ Page({
   _shouldAutoPlayProcessed: false,
   _prefetchTimer: null,
   _prefetchSeq: 0,
+  _deferredProcessedPreloadUrl: '',
   _runtimeParams: null,
   _audioPlayer: null,
+  _originalPlayer: null,
   _processedResultCache: null,
   _exportGeneration: 0,
   _recorderManager: null,
@@ -299,7 +302,6 @@ Page({
   _fileStreamParamHold: false,
 
   onLoad() {
-    this._audioPlayer = createSeamlessAudioPlayer()
     this._ensurePageState()
     this._initRealtimeRecorder()
     this._scenarioPresets = { ...SCENARIO_PRESETS }
@@ -308,7 +310,6 @@ Page({
     this._loadRemoteData().then(() => {
       this._syncRuntimeParamsFromData()
       this._refreshVisualFeedback()
-      this._schedulePrefetchProcessed(400)
       this._syncSourceDetailUI()
       this.setData(this._midSliderPercents())
     })
@@ -369,6 +370,10 @@ Page({
     if (this._audioPlayer) {
       this._audioPlayer.destroy()
       this._audioPlayer = null
+    }
+    if (this._originalPlayer) {
+      this._originalPlayer.destroy()
+      this._originalPlayer = null
     }
     if (this._processedResultCache) {
       this._processedResultCache.clear()
@@ -905,12 +910,41 @@ Page({
     return this._visualPanel
   },
 
+  _ensureProcessedPlayer() {
+    if (!this._audioPlayer) {
+      this._audioPlayer = createSeamlessAudioPlayer()
+    }
+    return this._audioPlayer
+  },
+
+  _ensureOriginalPlayer() {
+    if (!this._originalPlayer) {
+      this._originalPlayer = createInnerLoopPlayer()
+    }
+    return this._originalPlayer
+  },
+
+  _getLoopPlayerForKind(kind) {
+    return kind === 'original' ? this._ensureOriginalPlayer() : this._ensureProcessedPlayer()
+  },
+
+  _stopOtherLoopPlayer(kind) {
+    if (kind === 'original') {
+      if (this._audioPlayer) this._audioPlayer.stop({ silent: true })
+      return
+    }
+    if (this._originalPlayer) this._originalPlayer.stop({ silent: true })
+  },
+
   _syncVisualPlaybackState() {
     const panel = this._getVisualPanel()
     if (!panel) return
     const patch = {}
-    if (this._audioPlayer && this._audioPlayer.isPlaying()) {
-      patch.audioSeekSec = this._audioPlayer.getCurrentTime()
+    const activePlayer = this.data.playingKind === 'original'
+      ? this._originalPlayer
+      : this._audioPlayer
+    if (activePlayer && activePlayer.isPlaying()) {
+      patch.audioSeekSec = activePlayer.getCurrentTime()
     }
     if (Object.keys(patch).length) {
       this.setData(patch, () => panel.syncPlaybackState())
@@ -1803,7 +1837,7 @@ Page({
       }, () => {
         this._refreshVisualFeedback()
       })
-      this._preloadProcessedAudio(result.processedAudioUrl)
+      // 后台 prefetch 只缓存结果，不在进页时预解码 WebAudio，避免与首次播放原声争用。
       return
     }
 
@@ -2604,7 +2638,7 @@ Page({
   },
 
   async _startUploadStreamingProcessed() {
-    if (!this.data.originalAudioUrl) {
+    if (this.data.uploadUiState !== 'success' || !this.data.originalAudioUrl) {
       wx.showToast({
         title: '请先上传音频',
         icon: 'none'
@@ -3363,6 +3397,9 @@ Page({
   },
 
   _stopAudio(statusText = '已停止播放') {
+    if (this._originalPlayer) {
+      this._originalPlayer.stop()
+    }
     if (this._audioPlayer) {
       this._audioPlayer.stop()
     }
@@ -3382,11 +3419,26 @@ Page({
   },
 
   _switchPlayback(url, kind, onPlayText) {
-    if (!url || !this._audioPlayer || !this._audioPlayer.isPlaying() || this.data.playingKind !== kind) {
+    if (!url || this.data.playingKind !== kind) {
       return false
     }
 
-    this._audioPlayer.switchSrc(url).then((ok) => {
+    const player = this._getLoopPlayerForKind(kind)
+    if (!player || !player.isPlaying()) {
+      return false
+    }
+
+    if (kind === 'original') {
+      const ok = player.switchSrc(url)
+      if (!ok || this._unloaded) return ok
+      this.setData({ statusText: onPlayText }, () => {
+        this._refreshVisualFeedback()
+        this._syncVisualPlaybackState()
+      })
+      return true
+    }
+
+    player.switchSrc(url).then((ok) => {
       if (!ok || this._unloaded) return
       this.setData({ statusText: onPlayText }, () => {
         this._refreshVisualFeedback()
@@ -3411,20 +3463,27 @@ Page({
       return
     }
 
-    if (!this._audioPlayer) {
-      this._audioPlayer = createSeamlessAudioPlayer()
+    if (!this._audioPlayer && kind !== 'original') {
+      this._ensureProcessedPlayer()
     }
+    if (!this._originalPlayer && kind === 'original') {
+      this._ensureOriginalPlayer()
+    }
+
+    const player = this._getLoopPlayerForKind(kind)
 
     if (this.data.isAudioPlaying && this.data.playingKind === kind) {
       if (options.forceRestart) {
-        if (this._audioPlayer) this._audioPlayer.stop({ silent: true })
+        player.stop({ silent: true })
       } else {
         this._stopAudio(onStopText || '已停止播放')
         return
       }
-    } else {
+    } else if (this.data.isAudioPlaying) {
       this._stopAudio('')
     }
+
+    this._stopOtherLoopPlayer(kind)
 
     if (kind === 'processed' && options.visualizationData !== undefined) {
       this._applyVisualizationData(options.visualizationData)
@@ -3457,6 +3516,10 @@ Page({
           statusText: onStopText || '已停止播放'
         }, () => {
           this._refreshVisualFeedback()
+          this._flushDeferredProcessedPreload()
+          if (kind === 'original' && this.data.sourceType !== 'realtime') {
+            this._schedulePrefetchProcessed(1500)
+          }
         })
       },
       onError: (err) => {
@@ -3483,31 +3546,24 @@ Page({
       if (panel && panel.clearRealtimePcm) {
         panel.clearRealtimePcm()
       }
-      playerCallbacks.onPcmFrame = (frame) => {
-        if (
-          this._unloaded
-          || kind !== 'original'
-          || !frame
-          || !frame.samples
-          || !frame.samples.length
-        ) {
-          return
-        }
-        const visualPanel = this._getVisualPanel()
-        if (visualPanel && visualPanel.applyOriginalPcm) {
-          visualPanel.applyOriginalPcm(frame.samples, {
-            sampleRate: frame.sampleRate,
-            currentTime: frame.currentTime
-          })
-        }
-      }
     } else {
       this._clearOriginalVisualPcm()
     }
 
-    this._audioPlayer.play(url, playerCallbacks).catch((err) => {
-      console.error(err)
-    })
+    const startPlayback = () => {
+      if (kind === 'original') {
+        player.play(url, playerCallbacks)
+        return
+      }
+      player.play(url, playerCallbacks).catch((err) => {
+        console.error(err)
+        if (playerCallbacks.onError) {
+          playerCallbacks.onError(err)
+        }
+      })
+    }
+
+    startPlayback()
   },
 
   selectSource(e) {
@@ -3529,6 +3585,7 @@ Page({
     if (type === 'upload') {
       this._stopAudio('已停止播放')
       this._cancelAutoRefresh()
+      this._cancelPrefetch()
 
       const snap = this._uploadSourceSnapshot
       const hasSuccess = !!(snap && snap.sourceAssetId && snap.originalAudioUrl)
@@ -3553,13 +3610,20 @@ Page({
         nextData.statusText = '音频上传成功，可以播放原声或模拟声'
         nextData.errorMessage = ''
       } else if (keepError) {
+        nextData.sourceAssetId = null
+        nextData.originalAudioUrl = ''
         nextData.uploadUiState = 'error'
         nextData.uploadUiText = this.data.uploadUiText || '上传失败'
         nextData.uploadErrorText = this.data.uploadErrorText || ''
         nextData.uploadedFileName = this.data.uploadedFileName || ''
+        nextData.uploadedObjectKey = ''
         nextData.taskStatus = 'idle'
         nextData.statusText = '音频上传失败，请重试'
       } else {
+        nextData.sourceAssetId = null
+        nextData.originalAudioUrl = ''
+        nextData.uploadedFileName = ''
+        nextData.uploadedObjectKey = ''
         nextData.uploadUiState = 'idle'
         nextData.uploadUiText = ''
         nextData.uploadErrorText = ''
@@ -3569,10 +3633,11 @@ Page({
 
       this._applyRuntimePatch({
         sourceType: 'upload',
-        sourceAssetId: hasSuccess ? snap.sourceAssetId : (this.data.sourceAssetId || ''),
+        sourceAssetId: hasSuccess ? snap.sourceAssetId : '',
         selectedScenario: ''
       })
       this.setData(nextData, () => {
+        this._invalidateProcessedResult({ autoRefresh: false })
         this._invalidateExportTask()
         this._syncSourceDetailUI()
         this._refreshVisualFeedback()
@@ -4109,18 +4174,35 @@ Page({
     }
   },
 
-  async playOriginal() {
-    // 原声是用户此刻的明确选择。取消参数变更遗留的模拟声自动刷新，
-    // 防止异步生成在原声开始后完成并把播放器切回模拟声。
+  _cancelPlaybackInterference() {
     this._cancelAutoRefresh()
+    this._cancelPrefetch()
+    if (this._audioPlayer && typeof this._audioPlayer.cancelPreload === 'function') {
+      this._audioPlayer.cancelPreload()
+    }
+  },
+
+  async playOriginal() {
+    if (this.data.isAudioPlaying && this.data.playingKind === 'original') {
+      this._stopAudio('已停止原声播放')
+      return
+    }
+
+    this._cancelPlaybackInterference()
 
     if (this._fileStreamActive || this._fileStreamStarting) {
       this._stopFileStreamingProcessed()
     }
 
     if (this.data.sourceType === 'sample') {
+      this.setData({ statusText: '正在准备原声示例...' })
       try {
         const sampleSource = await this._ensureSampleSource()
+        if (this._unloaded || this.data.sourceType !== 'sample') return
+        if (!sampleSource || !sampleSource.url) {
+          wx.showToast({ title: '示例原声不可用', icon: 'none' })
+          return
+        }
         this._playAudio(
           sampleSource.url,
           'original',
@@ -4145,7 +4227,7 @@ Page({
     }
 
     if (this.data.sourceType === 'upload') {
-      if (!this.data.originalAudioUrl) {
+      if (this.data.uploadUiState !== 'success' || !this.data.originalAudioUrl) {
         wx.showToast({
           title: '请先上传音频',
           icon: 'none'
@@ -4169,12 +4251,31 @@ Page({
     }
   },
 
+  _isOriginalPlaybackActive() {
+    return !!(this.data.isAudioPlaying && this.data.playingKind === 'original')
+  },
+
   _preloadProcessedAudio(url) {
     if (!url || !this._audioPlayer || typeof this._audioPlayer.preload !== 'function') {
       return
     }
+    if (this._isOriginalPlaybackActive()) {
+      this._deferredProcessedPreloadUrl = url
+      return
+    }
+    this._deferredProcessedPreloadUrl = ''
     this._audioPlayer.preload(url).catch((err) => {
       console.warn('[processed-prefetch] audio preload failed', err)
+    })
+  },
+
+  _flushDeferredProcessedPreload() {
+    if (this._unloaded || this._isOriginalPlaybackActive()) return
+    const url = this._deferredProcessedPreloadUrl
+    if (!url) return
+    this._deferredProcessedPreloadUrl = ''
+    this._audioPlayer.preload(url).catch((err) => {
+      console.warn('[processed-prefetch] deferred audio preload failed', err)
     })
   },
 
@@ -4195,6 +4296,7 @@ Page({
     if (this.data.sourceType === 'realtime') return
     if (this._fileStreamActive || this._fileStreamStarting) return
     if (this.data.isProcessing) return
+    if (this._isOriginalPlaybackActive()) return
 
     if (this._prefetchTimer) {
       clearTimeout(this._prefetchTimer)
@@ -4210,6 +4312,7 @@ Page({
     if (this._unloaded || this.data.isProcessing) return
     if (this.data.sourceType === 'realtime') return
     if (this._fileStreamActive || this._fileStreamStarting) return
+    if (this._isOriginalPlaybackActive()) return
 
     const key = this._buildProcessKey()
     if (this.data.processedKey === key && this.data.processedAudioUrl) {

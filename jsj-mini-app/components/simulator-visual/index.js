@@ -528,12 +528,12 @@ Component({
     _syncBadgeModeText() {
       const { isAudioPlaying, playingKind, realtimeActive } = this.properties
       let badgeModeText = '当前模式：等待播放'
-      if (realtimeActive) {
-        badgeModeText = '当前模式：实时麦克风'
-      } else if (isAudioPlaying && playingKind === 'processed') {
+      if (isAudioPlaying && playingKind === 'processed') {
         badgeModeText = '当前模式：播放模拟声'
       } else if (isAudioPlaying && playingKind === 'original') {
         badgeModeText = '当前模式：播放原声'
+      } else if (realtimeActive) {
+        badgeModeText = '当前模式：实时麦克风'
       }
       if (this.data.badgeModeText !== badgeModeText) {
         this.setData({ badgeModeText })
