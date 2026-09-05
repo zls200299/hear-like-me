@@ -3,6 +3,7 @@
     "pages/simulator/index",
     "pages/challenge/index",
     "pages/learn/index",
+    "pages/learn/read-aloud/index",
     "pages/learn/cochlear-basic/index",
     "pages/learn/howHear/index",
     "pages/learn/limitations/index",

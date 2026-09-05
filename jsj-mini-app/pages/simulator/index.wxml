@@ -116,15 +116,17 @@
     <view class="top-card__title">试听</view>
     <view class="listen-actions">
       <view
-        class="play-btn {{isAudioPlaying && playingKind === 'original' ? 'play-btn--active' : ''}}"
+        class="play-btn {{originalUiState === 'preparing' || (isAudioPlaying && playingKind === 'original') ? 'play-btn--active' : ''}} {{originalUiSpinning ? 'play-btn--disabled' : ''}}"
         bindtap="playOriginal"
       >
+        <view wx:if="{{originalUiSpinning}}" class="play-btn__spinner"></view>
         <hlm-icon
+          wx:else
           name="waveform"
           size="48"
-          color="{{isAudioPlaying && playingKind === 'original' ? '#28e0c2' : '#f7f9fc'}}"
+          color="{{originalUiState === 'preparing' || (isAudioPlaying && playingKind === 'original') ? '#28e0c2' : '#f7f9fc'}}"
         />
-        <text>{{isAudioPlaying && playingKind === 'original' ? '停止原声' : '播放原声'}}</text>
+        <text>{{originalBtnLabel}}</text>
       </view>
       <view
         class="play-btn play-btn--primary {{(processedUiBusy || isProcessing) ? 'play-btn--disabled' : ''}} {{processedUiState === 'playing' || (isAudioPlaying && playingKind === 'processed' && processedUiState !== 'starting' && processedUiState !== 'switching') ? 'play-btn--active' : ''}}"
@@ -140,7 +142,12 @@
         <text>{{processedBtnLabel}}</text>
       </view>
     </view>
-    <view wx:if="{{processedUiText}}" class="processed-status processed-status--{{processedUiState}}">
+    <view wx:if="{{originalUiText}}" class="processed-status processed-status--{{originalUiState === 'playing' ? 'playing' : 'starting'}}">
+      <view wx:if="{{originalUiSpinning}}" class="processed-status__dot processed-status__dot--pending"></view>
+      <view wx:elif="{{originalUiState === 'playing'}}" class="processed-status__dot processed-status__dot--live"></view>
+      <text class="processed-status__text">{{originalUiText}}</text>
+    </view>
+    <view wx:elif="{{processedUiText}}" class="processed-status processed-status--{{processedUiState}}">
       <view wx:if="{{processedUiSpinning}}" class="processed-status__dot processed-status__dot--pending"></view>
       <view wx:elif="{{processedUiState === 'playing'}}" class="processed-status__dot processed-status__dot--live"></view>
       <view wx:elif="{{processedUiState === 'error'}}" class="processed-status__dot processed-status__dot--error"></view>

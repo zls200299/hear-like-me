@@ -1,42 +1,43 @@
+const icons = require('../../assets/learn/index.js')
+
 Page({
   data: {
+    icons,
     topics: [
       {
         id: 'cochlear-basic',
-        icon: 'learn-topic-cochlear',
+        icon: 'ear',
         title: '认识人工耳蜗',
-        desc: '了解人工耳蜗的组成、工作原理和声音处理方式'
+        lines: ['了解组成、工作原理', '与声音处理方式']
       },
       {
         id: 'how-hear',
-        icon: 'learn-topic-hear',
+        icon: 'chat',
         title: '声音是怎样被听见的',
-        desc: '跟随声音走过耳朵、听觉神经，最终被大脑理解'
+        lines: ['跟随声音走过耳朵与听觉神经，', '最终被大脑理解']
       },
       {
         id: 'limitations',
-        icon: 'learn-topic-limit',
+        icon: 'wave',
         title: '人工耳蜗的能力与局限',
-        desc: '认识音质、声调、噪声环境和声音定位上的差异'
+        lines: ['认识音质、声调、噪声环境', '和声音定位上的差异']
       },
       {
         id: 'child-hearing',
-        icon: 'learn-topic-child',
+        icon: 'child',
         title: '儿童听力与成长支持',
-        desc: '了解听力筛查、专业评估、早期干预和家庭支持'
+        lines: ['了解听力筛查、早期干预', '与家庭支持']
       }
-    ],
-    pills: [
-      { icon: 'learn-pill-cochlear', label: '认识人工耳蜗' },
-      { icon: 'learn-pill-wave', label: '理解声音处理' },
-      { icon: 'learn-pill-warn', label: '了解技术局限' },
-      { icon: 'learn-pill-user', label: '关注儿童听觉' }
     ]
   },
 
   onShow() {
     const { setTabBarSelected, TAB_INDEX } = require('../../utils/tabBar.js')
     setTabBarSelected(this, TAB_INDEX.LEARN)
+  },
+
+  onReadAloudTap() {
+    wx.navigateTo({ url: '/pages/learn/read-aloud/index' })
   },
 
   onTopicTap(e) {

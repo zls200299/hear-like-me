@@ -1,0 +1,45 @@
+.read-aloud-page {
+  min-height: 100vh;
+  padding: 43rpx 34rpx calc(50rpx + env(safe-area-inset-bottom));
+  color: #f1f5fc;
+  background: radial-gradient(ellipse at 70% 0%, #093040, #040c19 70%);
+}
+
+.read-aloud-title {
+  font-size: 43rpx;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.read-aloud-subtitle {
+  margin-top: 18rpx;
+  color: #a7b9cb;
+  font-size: 25rpx;
+  line-height: 1.9;
+}
+
+.read-aloud-empty {
+  margin-top: 100rpx;
+  text-align: center;
+}
+
+.read-aloud-empty__illustration {
+  width: 200rpx;
+  height: 200rpx;
+  margin: 0 auto 34rpx;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.read-aloud-empty__title {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.read-aloud-empty__desc {
+  margin-top: 16rpx;
+  color: #9cacbf;
+  font-size: 24rpx;
+  line-height: 1.7;
+}

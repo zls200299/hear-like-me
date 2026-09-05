@@ -1,56 +1,30 @@
 <view class="learn-page page-with-bg safe-bottom">
   <page-background variant="study"></page-background>
-
   <view class="page-content learn-content">
     <view class="learn-hero">
-      <view class="learn-hero__copy">
-        <view class="learn-hero__title">听觉知识库</view>
-        <view class="learn-hero__heading">了解听觉，也理解人工耳蜗</view>
-        <view class="learn-hero__desc">把复杂原理讲清楚，把听觉体验讲明白。</view>
-      </view>
-      <view class="learn-warning">
-        <view class="learn-warning__icon">
-          <hlm-icon name="learn-warning" size="40" color="#ffbb3e" />
-        </view>
-        <text class="learn-warning__text">本模块用于听觉与人工耳蜗相关知识科普，不替代专业医疗建议。</text>
-      </view>
+      <view class="learn-hero__title">听觉知识库</view>
+      <view class="learn-hero__heading">了解听觉，也理解人工耳蜗</view>
     </view>
-
-    <view class="learn-section-title">学习专题</view>
-
+    <view class="learn-warning">
+      <view class="learn-svg learn-warning__icon" style="background-image: url('{{icons.warning}}');" aria-hidden="true"></view>
+      <view class="learn-warning__text">本模块用于听觉与人工耳蜗知识科普，<view>不替代专业医疗建议。</view></view>
+    </view>
+    <view class="learn-entry" hover-class="learn-entry--pressed" bindtap="onReadAloudTap" role="button" aria-label="进入点读学习">
+      <view class="learn-entry__tag">听见 · 认识 · 学习</view>
+      <view class="learn-entry__title">点读学习</view>
+      <view class="learn-entry__desc">点一点图片或文字，<view>听听对应的声音。</view></view>
+      <view class="learn-entry__cta"><text>开始点读</text><view class="learn-svg learn-entry__arrow" style="background-image: url('{{icons.arrow}}');" aria-hidden="true"></view></view>
+      <view class="learn-svg learn-entry__illustration" style="background-image: url('{{icons['read-aloud']}}');" aria-hidden="true"></view>
+    </view>
+    <view class="learn-section-heading"><view class="learn-section-title">科普专题</view><text class="learn-section-caption">读懂声音的世界</text></view>
     <view class="learn-topic-grid">
-      <view
-        wx:for="{{topics}}"
-        wx:key="id"
-        class="learn-topic"
-        data-id="{{item.id}}"
-        bindtap="onTopicTap"
-      >
-        <view class="learn-topic__icon">
-          <hlm-icon name="{{item.icon}}" size="64" color="#28e0d0" />
-        </view>
+      <view wx:for="{{topics}}" wx:key="id" class="learn-topic" hover-class="learn-topic--pressed" data-id="{{item.id}}" bindtap="onTopicTap" role="button" aria-label="{{item.title}}">
+        <view class="learn-topic__icon"><view class="learn-svg learn-topic__symbol" style="background-image: url('{{icons[item.icon]}}');" aria-hidden="true"></view></view>
         <view class="learn-topic__body">
           <view class="learn-topic__title">{{item.title}}</view>
-          <view class="learn-topic__desc">{{item.desc}}</view>
+          <view class="learn-topic__desc"><view wx:for="{{item.lines}}" wx:for-item="line" wx:key="*this">{{line}}</view></view>
         </view>
-        <view class="learn-topic__enter">
-          <text>进入</text>
-          <hlm-icon name="learn-enter" size="30" color="#28e0d0" />
-        </view>
-      </view>
-    </view>
-
-    <view class="learn-harvest">
-      <view class="learn-harvest__title">学习收获</view>
-      <view class="learn-harvest__pills">
-        <view
-          wx:for="{{pills}}"
-          wx:key="label"
-          class="learn-pill"
-        >
-          <hlm-icon name="{{item.icon}}" size="32" color="#28e0d0" />
-          <text>{{item.label}}</text>
-        </view>
+        <view class="learn-svg learn-topic__arrow" style="background-image: url('{{icons.arrow}}');" aria-hidden="true"></view>
       </view>
     </view>
   </view>

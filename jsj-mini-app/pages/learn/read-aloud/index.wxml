@@ -1,0 +1,9 @@
+<view class="read-aloud-page">
+  <view class="read-aloud-title">点一点，听一听</view>
+  <view class="read-aloud-subtitle">从熟悉的词语与声音开始，认识身边的声音。</view>
+  <view class="read-aloud-empty">
+    <view class="read-aloud-empty__illustration" style="background-image: url('{{illustration}}');" aria-hidden="true"></view>
+    <view class="read-aloud-empty__title">点读内容准备中</view>
+    <view class="read-aloud-empty__desc">更多词语与声音，即将与你见面。</view>
+  </view>
+</view>

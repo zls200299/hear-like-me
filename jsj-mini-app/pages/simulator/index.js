@@ -4,6 +4,7 @@ const { uploadAudio } = require('../../services/file.js')
 const { createTask } = require('../../services/audioTask.js')
 const { createSeamlessAudioPlayer } = require('../../utils/simulator/seamlessAudioPlayer.js')
 const { createInnerLoopPlayer } = require('../../utils/simulator/innerLoopPlayer.js')
+const { createOriginalPcmCache } = require('../../utils/simulator/originalPcmCache.js')
 const { createRealtimePcmPlayer } = require('../../utils/simulator/realtimePcmPlayer.js')
 const { createFilePcmSource } = require('../../utils/simulator/filePcmSource.js')
 const {
@@ -228,7 +229,11 @@ Page({
     processedUiText: '',
     processedUiBusy: false,
     processedUiSpinning: false,
-    processedBtnLabel: '播放模拟声'
+    processedBtnLabel: '播放模拟声',
+    originalUiState: 'idle',
+    originalUiText: '',
+    originalUiSpinning: false,
+    originalBtnLabel: '播放原声'
   },
 
   _scenarioPresets: null,
@@ -245,6 +250,8 @@ Page({
   _runtimeParams: null,
   _audioPlayer: null,
   _originalPlayer: null,
+  _originalPcmCache: null,
+  _activeOriginalPcmUrl: '',
   _processedResultCache: null,
   _exportGeneration: 0,
   _recorderManager: null,
@@ -300,6 +307,7 @@ Page({
   _realtimeAppliedStructuralKey: null,
   _realtimeStructuralTransitionActive: false,
   _fileStreamParamHold: false,
+  _originalPrepareSeq: 0,
 
   onLoad() {
     this._ensurePageState()
@@ -375,6 +383,11 @@ Page({
       this._originalPlayer.destroy()
       this._originalPlayer = null
     }
+    if (this._originalPcmCache) {
+      this._originalPcmCache.destroy()
+      this._originalPcmCache = null
+    }
+    this._activeOriginalPcmUrl = ''
     if (this._processedResultCache) {
       this._processedResultCache.clear()
       this._processedResultCache = null
@@ -768,6 +781,70 @@ Page({
     return PROCESSED_UI_TEXT[state] || ''
   },
 
+  _isSampleSourceCached(sampleCode) {
+    this._ensurePageState()
+    const code = sampleCode || this.data.selectedSample
+    return !!(code && this._sampleSourceCache && this._sampleSourceCache[code])
+  },
+
+  _resolveOriginalUiText(state, options = {}) {
+    const { firstLoad = false } = options
+    if (state === 'preparing') {
+      if (this.data.sourceType === 'upload') {
+        return firstLoad
+          ? '首次加载上传原声并准备可视化，请稍候…'
+          : '正在加载上传原声，请稍候…'
+      }
+      return firstLoad
+        ? '首次加载示例原声并准备可视化，请稍候…'
+        : '正在准备原声，请稍候…'
+    }
+    if (state === 'playing') {
+      if (this.data.sourceType === 'upload') {
+        return '正在循环播放原声'
+      }
+      return '正在循环播放原声示例'
+    }
+    return ''
+  },
+
+  _buildOriginalUiView(state, options = {}) {
+    const spinning = state === 'preparing'
+    let originalBtnLabel = '播放原声'
+    if (state === 'preparing') {
+      originalBtnLabel = '准备中…'
+    } else if (state === 'playing') {
+      originalBtnLabel = '停止原声'
+    }
+
+    return {
+      originalUiState: state,
+      originalUiText: this._resolveOriginalUiText(state, options),
+      originalUiSpinning: spinning,
+      originalBtnLabel
+    }
+  },
+
+  _clearOriginalUi() {
+    if (this.data.originalUiState === 'idle' && !this.data.originalUiText) return
+    this.setData(this._buildOriginalUiView('idle'))
+  },
+
+  _beginOriginalPrepare(options = {}) {
+    const seq = ++this._originalPrepareSeq
+    const firstLoad = options.firstLoad === true
+    const statusText = this._resolveOriginalUiText('preparing', { firstLoad })
+    this.setData({
+      ...this._buildOriginalUiView('preparing', { firstLoad }),
+      statusText
+    })
+    return seq
+  },
+
+  _isOriginalPrepareStale(seq) {
+    return seq !== this._originalPrepareSeq
+  },
+
   _buildProcessedUiView(state, displayName) {
     const busy = state === 'starting' || state === 'switching' || state === 'stopping'
     const spinning = state === 'starting' || state === 'switching'
@@ -924,6 +1001,40 @@ Page({
     return this._originalPlayer
   },
 
+  _ensureOriginalPcmCacheStore() {
+    if (!this._originalPcmCache) {
+      this._originalPcmCache = createOriginalPcmCache()
+    }
+    return this._originalPcmCache
+  },
+
+  async _ensureOriginalPcmReady(url) {
+    if (!url) return null
+    const store = this._ensureOriginalPcmCacheStore()
+    try {
+      return await store.ensure(url)
+    } catch (err) {
+      if (err && err.message === 'PCM_CACHE_DESTROYED') return null
+      console.warn('[original-pcm] ensure failed', err)
+      return null
+    }
+  },
+
+  _feedOriginalVisualPcm(url, currentTime) {
+    if (this._unloaded || this.data.playingKind !== 'original') return
+    const store = this._originalPcmCache
+    if (!store) return
+    const frame = store.getWindow(url || this._activeOriginalPcmUrl, currentTime)
+    if (!frame) return
+    const panel = this._getVisualPanel()
+    if (panel && panel.applyOriginalPcm) {
+      panel.applyOriginalPcm(frame.samples, {
+        sampleRate: frame.sampleRate,
+        currentTime: frame.currentTime
+      })
+    }
+  },
+
   _getLoopPlayerForKind(kind) {
     return kind === 'original' ? this._ensureOriginalPlayer() : this._ensureProcessedPlayer()
   },
@@ -1020,7 +1131,7 @@ Page({
   },
 
   _resolveListenHint() {
-    if (this.data.processedUiText) {
+    if (this.data.originalUiText || this.data.processedUiText) {
       return ''
     }
     if (this.data.isProcessing && this.data.isAudioPlaying && this.data.playingKind === 'processed') {
@@ -3397,6 +3508,8 @@ Page({
   },
 
   _stopAudio(statusText = '已停止播放') {
+    this._originalPrepareSeq += 1
+    this._activeOriginalPcmUrl = ''
     if (this._originalPlayer) {
       this._originalPlayer.stop()
     }
@@ -3407,6 +3520,7 @@ Page({
     if (this._unloaded) return
 
     this._clearOriginalVisualPcm()
+    this._clearOriginalUi()
 
     this.setData({
       isAudioPlaying: false,
@@ -3493,28 +3607,46 @@ Page({
       onTimeUpdate: (currentTime) => {
         if (this._unloaded) return
         this.setData({ audioSeekSec: currentTime })
+        if (kind === 'original') {
+          this._feedOriginalVisualPcm(url, currentTime)
+        }
       },
       onPlay: () => {
         if (this._unloaded) return
-        this.setData({
+        const patch = {
           isAudioPlaying: true,
           playingKind: kind,
           statusText: onPlayText,
           audioSeekSec: 0
-        }, () => {
+        }
+        if (kind === 'original') {
+          this._activeOriginalPcmUrl = url
+          Object.assign(patch, this._buildOriginalUiView('playing'))
+        }
+        this.setData(patch, () => {
           this._refreshVisualFeedback()
           this._syncVisualPlaybackState()
+          if (kind === 'original') {
+            this._feedOriginalVisualPcm(url, 0)
+          }
         })
       },
       onStop: () => {
         if (this._unloaded) return
+        if (kind === 'original') {
+          this._activeOriginalPcmUrl = ''
+        }
         this._clearOriginalVisualPcm()
         this._syncVisualPlaybackState()
-        this.setData({
+        const patch = {
           isAudioPlaying: false,
           playingKind: '',
           statusText: onStopText || '已停止播放'
-        }, () => {
+        }
+        if (kind === 'original') {
+          Object.assign(patch, this._buildOriginalUiView('idle'))
+        }
+        this.setData(patch, () => {
           this._refreshVisualFeedback()
           this._flushDeferredProcessedPreload()
           if (kind === 'original' && this.data.sourceType !== 'realtime') {
@@ -3525,13 +3657,20 @@ Page({
       onError: (err) => {
         console.error(err)
         if (this._unloaded) return
+        if (kind === 'original') {
+          this._activeOriginalPcmUrl = ''
+        }
         this._clearOriginalVisualPcm()
         this._syncVisualPlaybackState()
-        this.setData({
+        const patch = {
           isAudioPlaying: false,
           playingKind: '',
           statusText: onErrorText
-        }, () => {
+        }
+        if (kind === 'original') {
+          Object.assign(patch, this._buildOriginalUiView('idle'))
+        }
+        this.setData(patch, () => {
           this._refreshVisualFeedback()
         })
         wx.showToast({
@@ -3730,6 +3869,11 @@ Page({
   async _continueOriginalAfterSampleSwitch(cache, label) {
     try {
       const sampleSource = cache || await this._ensureSampleSource()
+      if (!sampleSource || !sampleSource.url) {
+        throw new Error('示例原声不可用')
+      }
+      await this._ensureOriginalPcmReady(sampleSource.url)
+      if (this._unloaded || this.data.sourceType !== 'sample') return
       const playText = `正在循环播放${label}`
       if (!this._switchPlayback(sampleSource.url, 'original', playText)) {
         this._playAudio(
@@ -3740,6 +3884,9 @@ Page({
           '原声示例播放失败',
           { forceRestart: true }
         )
+      } else {
+        this._activeOriginalPcmUrl = sampleSource.url
+        this._feedOriginalVisualPcm(sampleSource.url, 0)
       }
     } catch (err) {
       console.error(err)
@@ -4183,6 +4330,8 @@ Page({
   },
 
   async playOriginal() {
+    if (this.data.originalUiState === 'preparing') return
+
     if (this.data.isAudioPlaying && this.data.playingKind === 'original') {
       this._stopAudio('已停止原声播放')
       return
@@ -4195,12 +4344,29 @@ Page({
     }
 
     if (this.data.sourceType === 'sample') {
-      this.setData({ statusText: '正在准备原声示例...' })
+      const store = this._ensureOriginalPcmCacheStore()
+      const cachedSample = this._isSampleSourceCached()
+      const cachedUrl = cachedSample
+        ? (this._sampleSourceCache[this.data.selectedSample] || {}).url
+        : ''
+      const firstLoad = !cachedSample || !cachedUrl || !store.has(cachedUrl)
+      const prepareSeq = this._beginOriginalPrepare({ firstLoad })
       try {
         const sampleSource = await this._ensureSampleSource()
-        if (this._unloaded || this.data.sourceType !== 'sample') return
+        if (this._isOriginalPrepareStale(prepareSeq)) return
+        if (this._unloaded || this.data.sourceType !== 'sample') {
+          this._clearOriginalUi()
+          return
+        }
         if (!sampleSource || !sampleSource.url) {
+          this._clearOriginalUi()
           wx.showToast({ title: '示例原声不可用', icon: 'none' })
+          return
+        }
+        await this._ensureOriginalPcmReady(sampleSource.url)
+        if (this._isOriginalPrepareStale(prepareSeq)) return
+        if (this._unloaded || this.data.sourceType !== 'sample') {
+          this._clearOriginalUi()
           return
         }
         this._playAudio(
@@ -4211,7 +4377,9 @@ Page({
           '原声示例播放失败'
         )
       } catch (err) {
+        if (this._isOriginalPrepareStale(prepareSeq)) return
         console.error(err)
+        this._clearOriginalUi()
         const errorMessage = this._formatErrorMessage(err)
         this.setData({
           taskStatus: 'failed',
@@ -4235,13 +4403,34 @@ Page({
         return
       }
 
-      this._playAudio(
-        this.data.originalAudioUrl,
-        'original',
-        '正在循环播放原声',
-        '已停止原声播放',
-        '原声播放失败，请检查文件地址'
-      )
+      const url = this.data.originalAudioUrl
+      const store = this._ensureOriginalPcmCacheStore()
+      const prepareSeq = this._beginOriginalPrepare({
+        firstLoad: !store.has(url)
+      })
+      try {
+        await this._ensureOriginalPcmReady(url)
+        if (this._isOriginalPrepareStale(prepareSeq)) return
+        if (this._unloaded || this.data.sourceType !== 'upload') {
+          this._clearOriginalUi()
+          return
+        }
+        this._playAudio(
+          url,
+          'original',
+          '正在循环播放原声',
+          '已停止原声播放',
+          '原声播放失败，请检查文件地址'
+        )
+      } catch (err) {
+        if (this._isOriginalPrepareStale(prepareSeq)) return
+        console.error(err)
+        this._clearOriginalUi()
+        wx.showToast({
+          title: '原声准备失败',
+          icon: 'none'
+        })
+      }
       return
     }
 
