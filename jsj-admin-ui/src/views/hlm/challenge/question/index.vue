@@ -66,35 +66,72 @@
         <el-form-item label="备注说明">
           <el-input v-model="form.description" type="textarea" :rows="2" />
         </el-form-item>
-        <el-form-item label="模拟音频" prop="audioBankId">
-          <el-select
-            v-model="form.audioBankId"
-            filterable
-            placeholder="从模拟音频库选择已生成的音频"
-            style="width: 100%"
-            @change="handleAudioSelected"
-          >
-            <el-option
-              v-for="audio in audioOptions"
-              :key="audio.id"
-              :label="`${audio.title} · ${audio.nChannels} 通道`"
-              :value="audio.id"
-            >
-              <div class="audio-option">
-                <span>{{ audio.title }}</span>
-                <small>{{ audio.audioCode }} · {{ audio.nChannels }} 通道</small>
+        <el-form-item label="模拟音频" required>
+          <div class="audio-source">
+            <el-radio-group v-model="audioSource" class="mb8">
+              <el-radio-button value="library">挑战音频库</el-radio-button>
+              <el-radio-button value="upload">本地上传</el-radio-button>
+            </el-radio-group>
+
+            <template v-if="audioSource === 'library'">
+              <el-select
+                v-model="form.audioBankId"
+                filterable
+                clearable
+                placeholder="从挑战音频库选择已生成的音频"
+                style="width: 100%"
+                @change="handleAudioSelected"
+              >
+                <el-option
+                  v-for="audio in audioOptions"
+                  :key="audio.id"
+                  :label="`${audio.title} · ${audio.nChannels} 通道`"
+                  :value="audio.id"
+                >
+                  <div class="audio-option">
+                    <span>{{ audio.title }}</span>
+                    <small>{{ audio.audioCode }} · {{ audio.nChannels }} 通道</small>
+                  </div>
+                </el-option>
+              </el-select>
+              <div v-if="selectedAudio" class="selected-audio">
+                <div class="selected-main">
+                  <span class="channel-badge">{{ selectedAudio.nChannels }}</span>
+                  <div>
+                    <strong>{{ selectedAudio.title }}</strong>
+                    <small>正确答案已自动锁定为 {{ selectedAudio.nChannels }} 通道</small>
+                  </div>
+                </div>
+                <el-button link type="primary" @click="playAudio(selectedAudio.outputAssetId!)">试听模拟音</el-button>
               </div>
-            </el-option>
-          </el-select>
-          <div v-if="selectedAudio" class="selected-audio">
-            <div class="selected-main">
-              <span class="channel-badge">{{ selectedAudio.nChannels }}</span>
-              <div>
-                <strong>{{ selectedAudio.title }}</strong>
-                <small>正确答案已自动锁定为 {{ selectedAudio.nChannels }} 通道</small>
+            </template>
+
+            <template v-else>
+              <div class="upload-row">
+                <el-upload
+                  :show-file-list="false"
+                  :http-request="handleAudioUpload"
+                  :before-upload="beforeAudioUpload"
+                  accept=".mp3,.wav,.m4a,.aac,audio/*"
+                  :disabled="audioUploading"
+                >
+                  <el-button type="primary" plain icon="Upload" :loading="audioUploading">
+                    {{ form.audioAssetId ? '重新上传' : '上传模拟音频' }}
+                  </el-button>
+                </el-upload>
+                <template v-if="form.audioAssetId">
+                  <span class="upload-file">{{ audioFileName || `文件 ID：${form.audioAssetId}` }}</span>
+                  <el-button link type="primary" @click="playAudio(form.audioAssetId!)">试听</el-button>
+                  <el-button link type="danger" @click="clearUploadedAudio">清除</el-button>
+                </template>
               </div>
-            </div>
-            <el-button link type="primary" @click="playAudio(selectedAudio.outputAssetId)">试听模拟音</el-button>
+              <div class="channel-pick">
+                <span class="channel-pick-label">正确答案通道</span>
+                <el-radio-group v-model="form.nChannels">
+                  <el-radio-button v-for="n in channelOptions" :key="n" :value="n">{{ n }} 通道</el-radio-button>
+                </el-radio-group>
+              </div>
+            </template>
           </div>
         </el-form-item>
         <el-form-item label="发布状态">
@@ -127,9 +164,10 @@ import { computed, ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { listChallenge, saveChallenge, removeChallenge, type HearingChallenge } from '@/api/hlm/challenge'
 import { listChallengeAudio, type ChallengeAudio } from '@/api/hlm/challengeAudio'
-import { parseMiniPage } from '@/api/hlm/common'
-import { miniPreviewUrl } from '@/utils/miniRequest'
+import { parseMiniPage, uploadAudio } from '@/api/hlm/common'
+import { togglePreviewByAssetId } from '@/utils/hlmAudioPreview'
 
+const channelOptions = [2, 4, 8, 16]
 const loading = ref(false)
 const open = ref(false)
 const dialogTitle = ref('')
@@ -137,7 +175,9 @@ const total = ref(0)
 const list = ref<HearingChallenge[]>([])
 const audioOptions = ref<ChallengeAudio[]>([])
 const formRef = ref<FormInstance>()
-let audioEl: HTMLAudioElement | null = null
+const audioSource = ref<'library' | 'upload'>('library')
+const audioUploading = ref(false)
+const audioFileName = ref('')
 
 const queryParams = reactive({
   currentPage: 1,
@@ -172,8 +212,7 @@ const defaultForm = (): HearingChallenge => ({
 const form = ref<HearingChallenge>(defaultForm())
 const rules: FormRules = {
   questionCode: [{ required: true, message: '请输入题目编码', trigger: 'blur' }],
-  title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
-  audioBankId: [{ required: true, message: '请选择模拟音频', trigger: 'change' }]
+  title: [{ required: true, message: '请输入标题', trigger: 'blur' }]
 }
 
 const selectedAudio = computed(() => audioOptions.value.find(item => String(item.id) === String(form.value.audioBankId)))
@@ -204,6 +243,8 @@ function loadAudioOptions() {
 
 function handleAdd() {
   form.value = defaultForm()
+  audioSource.value = 'library'
+  audioFileName.value = ''
   dialogTitle.value = '新增挑战题目'
   open.value = true
   loadAudioOptions()
@@ -211,28 +252,83 @@ function handleAdd() {
 
 function handleEdit(row: HearingChallenge) {
   form.value = { ...defaultForm(), ...row }
+  audioSource.value = row.audioBankId ? 'library' : 'upload'
+  audioFileName.value = ''
   dialogTitle.value = '编辑挑战题目'
   open.value = true
   loadAudioOptions()
 }
 
 function handleAudioSelected(id?: string) {
+  if (!id) {
+    form.value.audioAssetId = ''
+    return
+  }
   const audio = audioOptions.value.find(item => String(item.id) === String(id))
   if (!audio) return
   form.value.audioAssetId = audio.outputAssetId
   form.value.nChannels = audio.nChannels
 }
 
+function beforeAudioUpload(file: File) {
+  if (!/\.(mp3|wav|m4a|aac)$/i.test(file.name)) {
+    ElMessage.error('仅支持 mp3 / wav / m4a / aac 音频')
+    return false
+  }
+  return true
+}
+
+async function handleAudioUpload(options: any) {
+  const raw: File | undefined = options?.file?.raw ?? options?.file
+  if (!raw) {
+    options?.onError?.(new Error('未获取到文件'))
+    return
+  }
+  audioUploading.value = true
+  try {
+    const res = await uploadAudio(raw)
+    form.value.audioBankId = ''
+    form.value.audioAssetId = res.data.assetId
+    audioFileName.value = res.data.fileName
+    ElMessage.success('音频上传成功')
+    options?.onSuccess?.(res)
+  } catch (e) {
+    ElMessage.error((e as Error)?.message || '上传失败')
+    options?.onError?.(e)
+  } finally {
+    audioUploading.value = false
+  }
+}
+
+function clearUploadedAudio() {
+  form.value.audioAssetId = ''
+  audioFileName.value = ''
+}
+
 function playAudio(assetId: string | number) {
-  if (!audioEl) audioEl = new Audio()
-  audioEl.src = miniPreviewUrl(assetId)
-  audioEl.play().catch(() => ElMessage.warning('无法播放，请确认 jsj-mini 已启动'))
+  togglePreviewByAssetId(assetId, () => ElMessage.warning('无法播放，请确认 jsj-mini 已启动'))
 }
 
 function submitForm() {
   formRef.value?.validate((valid) => {
     if (!valid) return
-    saveChallenge(form.value).then(() => {
+    if (audioSource.value === 'library') {
+      if (!form.value.audioBankId) {
+        ElMessage.warning('请从挑战音频库选择模拟音频')
+        return
+      }
+    } else if (!form.value.audioAssetId) {
+      ElMessage.warning('请上传模拟音频')
+      return
+    } else if (![2, 4, 8, 16].includes(Number(form.value.nChannels))) {
+      ElMessage.warning('请选择正确答案通道数')
+      return
+    }
+    const payload: HearingChallenge = {
+      ...form.value,
+      audioBankId: audioSource.value === 'library' ? form.value.audioBankId : undefined
+    }
+    saveChallenge(payload).then(() => {
       ElMessage.success('保存成功')
       open.value = false
       getList()
@@ -251,11 +347,41 @@ function handleDelete(row: HearingChallenge) {
 
 onMounted(() => {
   getList()
-  loadAudioOptions()
 })
 </script>
 
 <style scoped>
+.audio-source {
+  width: 100%;
+}
+.mb8 {
+  margin-bottom: 10px;
+}
+.upload-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+.upload-file {
+  color: #909399;
+  font-size: 13px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.channel-pick {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.channel-pick-label {
+  color: #606266;
+  font-size: 13px;
+}
 .audio-option {
   display: flex;
   justify-content: space-between;

@@ -57,6 +57,10 @@ public class ReadAloudItemDto implements Serializable {
         private Long imageAssetId;
 
         @JsonSerialize(using = ToStringSerializer.class)
+        @ApiModelProperty(value = "引用的点读音频库记录")
+        private Long audioBankId;
+
+        @JsonSerialize(using = ToStringSerializer.class)
         @ApiModelProperty(value = "普通中文点读音频")
         private Long audioAssetId;
 

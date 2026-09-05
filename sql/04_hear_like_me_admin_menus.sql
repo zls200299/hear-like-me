@@ -28,31 +28,32 @@ INSERT INTO sys_menu VALUES
 -- P0：听音挑战
 INSERT INTO sys_menu VALUES
 ('2004', '听音挑战', '2000', '2', 'challenge', NULL, '', '', 1, 0, 'M', '0', '0', '', 'question', 'admin', sysdate(), '', NULL, '听音挑战'),
-('2026', '模拟音频库', '2004', '1', 'audio', 'hlm/challenge/audio/index', '', 'HlmChallengeAudio', 1, 0, 'C', '0', '0', 'hlm:challenge:audio:list', 'radio', 'admin', sysdate(), '', NULL, '挑战模拟音频生产与管理'),
+('2026', '挑战音频库', '2004', '1', 'audio', 'hlm/challenge/audio/index', '', 'HlmChallengeAudio', 1, 0, 'C', '0', '0', 'hlm:challenge:audio:list', 'radio', 'admin', sysdate(), '', NULL, '听音挑战音频生产与管理'),
 ('2005', '题目管理', '2004', '2', 'question', 'hlm/challenge/question/index', '', 'HlmChallengeQuestion', 1, 0, 'C', '0', '0', 'hlm:challenge:list', 'list', 'admin', sysdate(), '', NULL, 'P0-挑战题目');
 
 -- P0：资源与配置
 INSERT INTO sys_menu VALUES
 ('2006', '资源管理', '2000', '3', 'resource', NULL, '', '', 1, 0, 'M', '0', '0', '', 'upload', 'admin', sysdate(), '', NULL, '文件资源'),
 ('2007', '文件资源', '2006', '1', 'file', 'hlm/file/asset/index', '', 'HlmFileAsset', 1, 0, 'C', '0', '0', 'hlm:file:list', 'documentation', 'admin', sysdate(), '', NULL, 'P0-文件资源'),
-('2008', '业务设置', '2000', '4', 'biz-settings', NULL, '', '', 1, 0, 'M', '0', '0', '', 'system', 'admin', sysdate(), '', NULL, '业务系统配置'),
+('2008', '业务设置', '2000', '5', 'biz-settings', NULL, '', '', 1, 0, 'M', '0', '0', '', 'system', 'admin', sysdate(), '', NULL, '业务系统配置'),
 ('2009', '业务配置', '2008', '1', 'config', 'hlm/config/biz/index', '', 'HlmBizConfig', 1, 0, 'C', '0', '0', 'hlm:config:list', 'edit', 'admin', sysdate(), '', NULL, 'P0-业务配置');
 
 -- P1：占位（用户、统计、科普、音频任务）
 INSERT INTO sys_menu VALUES
-('2010', '用户管理', '2000', '5', 'user-mgmt', NULL, '', '', 1, 0, 'M', '0', '0', '', 'user', 'admin', sysdate(), '', NULL, 'P1-小程序用户'),
+('2010', '用户管理', '2000', '6', 'user-mgmt', NULL, '', '', 1, 0, 'M', '0', '0', '', 'user', 'admin', sysdate(), '', NULL, 'P1-小程序用户'),
 ('2011', '小程序用户', '2010', '1', 'mini-user', 'hlm/user/mini/index', '', 'HlmMiniUser', 1, 0, 'C', '0', '0', 'hlm:miniuser:list', 'peoples', 'admin', sysdate(), '', NULL, '小程序用户管理'),
-('2012', '数据统计', '2000', '6', 'stats', 'hlm/placeholder/index', '{"phase":"P1","module":"stats"}', 'HlmStats', 1, 0, 'C', '0', '0', 'hlm:stats:list', 'chart', 'admin', sysdate(), '', NULL, 'P1-占位'),
-('2013', '科普学习', '2000', '7', 'learn', NULL, '', '', 1, 0, 'M', '0', '0', '', 'documentation', 'admin', sysdate(), '', NULL, 'P1-科普'),
+('2012', '数据统计', '2000', '7', 'stats', 'hlm/placeholder/index', '{"phase":"P1","module":"stats"}', 'HlmStats', 1, 0, 'C', '0', '0', 'hlm:stats:list', 'chart', 'admin', sysdate(), '', NULL, 'P1-占位'),
+('2013', '科普学习', '2000', '8', 'learn', NULL, '', '', 1, 0, 'M', '0', '0', '', 'documentation', 'admin', sysdate(), '', NULL, 'P1-科普'),
 ('2014', '内容分类', '2013', '1', 'category', 'hlm/placeholder/index', '{"phase":"P1","module":"content-category"}', 'HlmContentCategory', 1, 0, 'C', '0', '0', 'hlm:content:category', 'tree', 'admin', sysdate(), '', NULL, 'P1-占位'),
 ('2015', '文章管理', '2013', '2', 'article', 'hlm/placeholder/index', '{"phase":"P1","module":"content-article"}', 'HlmContentArticle', 1, 0, 'C', '0', '0', 'hlm:content:article', 'edit', 'admin', sysdate(), '', NULL, 'P1-占位'),
-('2016', '音频任务', '2000', '8', 'audio-task', 'hlm/placeholder/index', '{"phase":"P1","module":"audio-task"}', 'HlmAudioTask', 1, 0, 'C', '0', '0', 'hlm:task:list', 'log', 'admin', sysdate(), '', NULL, 'P1-占位');
+('2016', '音频任务', '2000', '9', 'audio-task', 'hlm/placeholder/index', '{"phase":"P1","module":"audio-task"}', 'HlmAudioTask', 1, 0, 'C', '0', '0', 'hlm:task:list', 'log', 'admin', sysdate(), '', NULL, 'P1-占位');
 
--- P2：占位（点读、用户历史）
+-- P2：点读管理 + 用户历史占位
 INSERT INTO sys_menu VALUES
-('2020', '点读内容', '2000', '9', 'read-aloud', NULL, '', '', 1, 0, 'M', '0', '0', '', 'table', 'admin', sysdate(), '', NULL, 'P2-点读'),
-('2021', '点读分类', '2020', '1', 'read-category', 'hlm/placeholder/index', '{"phase":"P2","module":"read-category"}', 'HlmReadCategory', 1, 0, 'C', '0', '0', 'hlm:read:category', 'tree-table', 'admin', sysdate(), '', NULL, 'P2-占位'),
-('2022', '点读卡片', '2020', '2', 'read-item', 'hlm/placeholder/index', '{"phase":"P2","module":"read-item"}', 'HlmReadItem', 1, 0, 'C', '0', '0', 'hlm:read:item', 'tab', 'admin', sysdate(), '', NULL, 'P2-占位'),
+('2020', '点读管理', '2000', '4', 'read-aloud', NULL, '', '', 1, 0, 'M', '0', '0', '', 'table', 'admin', sysdate(), '', NULL, 'P2-点读'),
+('2021', '点读分类', '2020', '1', 'read-category', 'hlm/read-aloud/category/index', '', 'HlmReadCategory', 1, 0, 'C', '0', '0', 'hlm:read:category', 'tree-table', 'admin', sysdate(), '', NULL, '点读分类'),
+('2022', '点读卡片', '2020', '2', 'read-item', 'hlm/read-aloud/item/index', '', 'HlmReadItem', 1, 0, 'C', '0', '0', 'hlm:read:item', 'tab', 'admin', sysdate(), '', NULL, '点读卡片'),
+('2027', '点读音频库', '2020', '3', 'read-audio', 'hlm/read-aloud/audio/index', '', 'HlmReadAudio', 1, 0, 'C', '0', '0', 'hlm:read:audio', 'radio', 'admin', sysdate(), '', NULL, '点读模拟音频生产与管理'),
 ('2023', '用户历史', '2000', '10', 'history', NULL, '', '', 1, 0, 'M', '0', '0', '', 'time', 'admin', sysdate(), '', NULL, 'P2-用户历史'),
 ('2024', '挑战记录', '2023', '1', 'challenge-history', 'hlm/placeholder/index', '{"phase":"P2","module":"challenge-history"}', 'HlmChallengeHistory', 1, 0, 'C', '0', '0', 'hlm:history:challenge', 'skill', 'admin', sysdate(), '', NULL, 'P2-占位'),
 ('2025', '模拟历史', '2023', '2', 'sim-history', 'hlm/placeholder/index', '{"phase":"P2","module":"sim-history"}', 'HlmSimHistory', 1, 0, 'C', '0', '0', 'hlm:history:sim', 'date', 'admin', sysdate(), '', NULL, 'P2-占位');

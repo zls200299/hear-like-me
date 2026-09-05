@@ -36,14 +36,14 @@ CREATE TABLE `challenge_audio_bank` (
   CONSTRAINT `chk_challenge_audio_channels` CHECK (`n_channels` IN (2,4,8,16)),
   CONSTRAINT `chk_challenge_audio_carrier` CHECK (`carrier` IN ('noise','sine')),
   CONSTRAINT `chk_challenge_audio_status` CHECK (`status` IN ('DRAFT','PROCESSING','READY','FAILED','DISABLED'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='听音挑战模拟音频库';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='听音挑战音频库';
 
 CREATE TABLE `hearing_challenge` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `question_code` varchar(64) NOT NULL COMMENT '题目唯一编码，如 vowel-8ch-001',
   `title` varchar(150) NOT NULL COMMENT '后台题目名称，如 元音示例·8通道',
   `description` varchar(500) DEFAULT NULL COMMENT '题目/素材备注，仅用于后台管理或前端辅助说明',
-  `audio_bank_id` bigint NOT NULL COMMENT '引用的模拟音频库记录',
+  `audio_bank_id` bigint DEFAULT NULL COMMENT '引用的挑战音频库记录；本地直传模拟音时可为空',
   `audio_asset_id` bigint NOT NULL COMMENT '挑战最终音频，对应 file_asset.id',
   `n_channels` tinyint NOT NULL COMMENT '有效通道数；第一版仅允许 2/4/8/16，也是本题正确答案',
   `carrier` varchar(20) NOT NULL DEFAULT 'noise' COMMENT '载体类型：noise/sine',

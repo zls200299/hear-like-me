@@ -71,6 +71,13 @@ public class HearingChallengeServiceImpl extends ServiceImpl<HearingChallengeDao
             return R.ok("数据插入成功");
         }
         updateById(entity);
+        // updateById 默认忽略 null，本地上传时需显式清空 audio_bank_id
+        if (dto.getAudioBankId() == null) {
+            lambdaUpdate()
+                    .eq(HearingChallenge::getId, entity.getId())
+                    .set(HearingChallenge::getAudioBankId, null)
+                    .update();
+        }
         return R.ok("数据更新成功");
     }
 
@@ -86,44 +93,44 @@ public class HearingChallengeServiceImpl extends ServiceImpl<HearingChallengeDao
     }
 
     private void applyAudioSnapshot(HearingChallengeDto dto, HearingChallenge entity) {
-        if (dto.getAudioBankId() == null) {
-            if (dto.getId() != null) {
-                HearingChallenge existing = getById(dto.getId());
-                if (existing != null && existing.getAudioBankId() == null) {
-                    entity.setAudioAssetId(existing.getAudioAssetId());
-                    entity.setNChannels(existing.getNChannels());
-                    entity.setCarrier(existing.getCarrier());
-                    entity.setFLo(existing.getFLo());
-                    entity.setFHi(existing.getFHi());
-                    entity.setEnvCut(existing.getEnvCut());
-                    entity.setSpread(existing.getSpread());
-                    entity.setNoiseLevel(existing.getNoiseLevel());
-                    entity.setEnvAmp(existing.getEnvAmp());
-                    entity.setWetMix(existing.getWetMix());
-                    entity.setCompressEnabled(existing.getCompressEnabled());
-                    entity.setNormalizePeak(existing.getNormalizePeak());
-                    return;
-                }
+        // 路径一：从挑战音频库选择（自动同步通道与参数）
+        if (dto.getAudioBankId() != null) {
+            ChallengeAudio audio = challengeAudioService.getOne(new LambdaQueryWrapper<ChallengeAudio>()
+                    .eq(ChallengeAudio::getId, dto.getAudioBankId())
+                    .eq(ChallengeAudio::getStatus, "READY")
+                    .eq(ChallengeAudio::getIsDelete, 0));
+            if (audio == null || audio.getOutputAssetId() == null) {
+                throw new ServiceException("所选模拟音频不可用，请先生成成功");
             }
-            throw new ServiceException("请选择已生成的模拟音频");
+            entity.setAudioBankId(audio.getId());
+            entity.setAudioAssetId(audio.getOutputAssetId());
+            entity.setNChannels(audio.getNChannels());
+            entity.setCarrier(audio.getCarrier());
+            entity.setFLo(audio.getFLo());
+            entity.setFHi(audio.getFHi());
+            entity.setEnvCut(audio.getEnvCut());
+            entity.setSpread(audio.getSpread());
+            entity.setNoiseLevel(audio.getNoiseLevel());
+            return;
         }
 
-        ChallengeAudio audio = challengeAudioService.getOne(new LambdaQueryWrapper<ChallengeAudio>()
-                .eq(ChallengeAudio::getId, dto.getAudioBankId())
-                .eq(ChallengeAudio::getStatus, "READY")
-                .eq(ChallengeAudio::getIsDelete, 0));
-        if (audio == null || audio.getOutputAssetId() == null) {
-            throw new ServiceException("所选模拟音频不可用，请先生成成功");
+        // 路径二：本地上传成品模拟音，需手填正确答案通道数
+        if (dto.getAudioAssetId() == null) {
+            throw new ServiceException("请从挑战音频库选择或本地上传模拟音频");
         }
-        entity.setAudioBankId(audio.getId());
-        entity.setAudioAssetId(audio.getOutputAssetId());
-        entity.setNChannels(audio.getNChannels());
-        entity.setCarrier(audio.getCarrier());
-        entity.setFLo(audio.getFLo());
-        entity.setFHi(audio.getFHi());
-        entity.setEnvCut(audio.getEnvCut());
-        entity.setSpread(audio.getSpread());
-        entity.setNoiseLevel(audio.getNoiseLevel());
+        FileAsset asset = fileAssetService.getById(dto.getAudioAssetId());
+        if (asset == null || Integer.valueOf(1).equals(asset.getIsDelete())) {
+            throw new ServiceException("模拟音频文件不存在");
+        }
+        if (dto.getNChannels() == null || !ALLOWED_CHANNELS.contains(dto.getNChannels())) {
+            throw new ServiceException("本地上传时请选择正确答案通道数（2/4/8/16）");
+        }
+        entity.setAudioBankId(null);
+        entity.setAudioAssetId(dto.getAudioAssetId());
+        entity.setNChannels(dto.getNChannels());
+        if (StringUtils.isBlank(entity.getCarrier())) {
+            entity.setCarrier("noise");
+        }
     }
 
     @Override

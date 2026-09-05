@@ -8,25 +8,25 @@ Page({
         id: 'cochlear-basic',
         icon: 'ear',
         title: '认识人工耳蜗',
-        lines: ['了解组成、工作原理', '与声音处理方式']
+        desc: '了解组成、工作原理与声音处理方式'
       },
       {
         id: 'how-hear',
         icon: 'chat',
         title: '声音是怎样被听见的',
-        lines: ['跟随声音走过耳朵与听觉神经，', '最终被大脑理解']
+        desc: '跟随声音走过耳朵与听觉神经，最终被大脑理解'
       },
       {
         id: 'limitations',
         icon: 'wave',
         title: '人工耳蜗的能力与局限',
-        lines: ['认识音质、声调、噪声环境', '和声音定位上的差异']
+        desc: '认识音质、声调、噪声环境和声音定位上的差异'
       },
       {
         id: 'child-hearing',
         icon: 'child',
         title: '儿童听力与成长支持',
-        lines: ['了解听力筛查、早期干预', '与家庭支持']
+        desc: '了解听力筛查、早期干预与家庭支持'
       }
     ]
   },

@@ -15,11 +15,11 @@ import java.math.BigDecimal;
 import java.util.Date;
 
 /**
- * 听音挑战音频库。
+ * 点读音频库。
  */
 @Data
-@TableName("challenge_audio_bank")
-public class ChallengeAudio implements Serializable {
+@TableName("read_aloud_audio_bank")
+public class ReadAloudAudio implements Serializable {
 
     @JsonSerialize(using = ToStringSerializer.class)
     @TableId(value = "id", type = IdType.AUTO)

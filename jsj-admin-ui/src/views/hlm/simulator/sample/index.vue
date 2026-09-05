@@ -97,7 +97,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { listSample, saveSample, removeSample, type SampleAudio } from '@/api/hlm/sample'
 import { parseMiniPage, uploadAudio } from '@/api/hlm/common'
-import { miniPreviewUrl } from '@/utils/miniRequest'
+import { togglePreviewByAssetId } from '@/utils/hlmAudioPreview'
 import { GENERATOR_TYPE_DICT, dictLabel, dictTag } from '@/utils/hlmDict'
 
 const loading = ref(false)
@@ -194,7 +194,7 @@ async function handleUpload(options: any) {
 
 function previewUploaded() {
   if (!form.value.assetId) return
-  window.open(miniPreviewUrl(form.value.assetId), '_blank')
+  togglePreviewByAssetId(form.value.assetId, () => ElMessage.warning('无法播放，请确认 jsj-mini 已启动'))
 }
 
 function handleDelete(row: SampleAudio) {

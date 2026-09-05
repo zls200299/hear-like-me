@@ -61,3 +61,14 @@ export function uploadAudio(file: File) {
     headers: { 'Content-Type': 'multipart/form-data' }
   }) as Promise<{ data: { assetId: string; fileName: string; url: string } }>
 }
+
+export function uploadImage(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return miniRequest({
+    url: '/api/files/image',
+    method: 'post',
+    data: formData,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }) as Promise<{ data: { assetId: string; fileName: string; url: string } }>
+}

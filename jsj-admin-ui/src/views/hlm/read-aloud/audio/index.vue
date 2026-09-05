@@ -2,8 +2,8 @@
   <div class="app-container audio-library">
     <div class="page-head">
       <div>
-        <h2>挑战音频库</h2>
-        <p>先把原始声音处理成可复用的人工耳蜗模拟音频，再用于听音挑战题目。</p>
+        <h2>点读音频库</h2>
+        <p>先把原始声音处理成可复用的人工耳蜗模拟音频，再用于点读卡片。</p>
       </div>
       <el-button type="primary" icon="Plus" @click="handleAdd">新增音频</el-button>
     </div>
@@ -91,7 +91,7 @@
               <el-input v-model="form.audioCode" placeholder="例如 vowel-a-8ch" />
             </el-form-item>
             <el-form-item label="音频名称" prop="title">
-              <el-input v-model="form.title" placeholder="方便在题目中选择" />
+              <el-input v-model="form.title" placeholder="方便在点读卡片中选择" />
             </el-form-item>
           </div>
           <el-form-item label="备注说明">
@@ -116,7 +116,7 @@
 
         <section class="form-section">
           <div class="section-title"><span>2</span>模拟参数</div>
-          <el-alert title="题目的正确答案将自动采用这里设置的通道数" type="info" :closable="false" show-icon />
+          <el-alert title="通道数仅用于制作模拟声，不会作为答题答案" type="info" :closable="false" show-icon />
           <el-form-item label="有效通道数" prop="nChannels" class="channel-field">
             <el-radio-group v-model="form.nChannels">
               <el-radio-button v-for="item in channelOptions" :key="item" :value="item">{{ item }} 通道</el-radio-button>
@@ -172,38 +172,38 @@
   </div>
 </template>
 
-<script setup lang="ts" name="HlmChallengeAudio">
+<script setup lang="ts" name="HlmReadAudio">
 import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type UploadRequestOptions } from 'element-plus'
 import { Headset } from '@element-plus/icons-vue'
 import { parseMiniPage, uploadAudio } from '@/api/hlm/common'
 import {
-  generateChallengeAudio,
-  listChallengeAudio,
-  removeChallengeAudio,
-  saveChallengeAudio,
-  type ChallengeAudio
-} from '@/api/hlm/challengeAudio'
+  generateReadAudio,
+  listReadAudio,
+  removeReadAudio,
+  saveReadAudio,
+  type ReadAloudAudio
+} from '@/api/hlm/readAudio'
 import { stopPreviewAudio, togglePreviewByAssetId } from '@/utils/hlmAudioPreview'
 
 const channelOptions = [2, 4, 8, 16]
 const loading = ref(false)
 const open = ref(false)
 const total = ref(0)
-const list = ref<ChallengeAudio[]>([])
+const list = ref<ReadAloudAudio[]>([])
 const formRef = ref<FormInstance>()
-const dialogTitle = ref('新增模拟音频')
+const dialogTitle = ref('新增点读音频')
 const uploadedFileName = ref('')
 const generatingId = ref<string>()
 const savingAndGenerating = ref(false)
 
 const queryParams = reactive({ currentPage: 1, pageSize: 10, keyword: '', status: '', nChannels: undefined as number | undefined })
-const defaultForm = (): ChallengeAudio => ({
+const defaultForm = (): ReadAloudAudio => ({
   audioCode: '', title: '', description: '', sourceAssetId: '', outputAssetId: '',
   nChannels: 8, carrier: 'noise', fLo: 150, fHi: 7000, envCut: 160, spread: 0.15,
   noiseLevel: 0, status: 'DRAFT', versionNo: 0
 })
-const form = ref<ChallengeAudio>(defaultForm())
+const form = ref<ReadAloudAudio>(defaultForm())
 const rules: FormRules = {
   audioCode: [{ required: true, message: '请输入音频编码', trigger: 'blur' }],
   title: [{ required: true, message: '请输入音频名称', trigger: 'blur' }],
@@ -222,7 +222,7 @@ function getList(pagination?: { page?: number; limit?: number }) {
   if (pagination?.page != null) queryParams.currentPage = pagination.page
   if (pagination?.limit != null) queryParams.pageSize = pagination.limit
   loading.value = true
-  listChallengeAudio({ ...queryParams }).then((res) => {
+  listReadAudio({ ...queryParams }).then((res) => {
     const page = parseMiniPage(res)
     list.value = page.list
     total.value = page.total
@@ -238,13 +238,13 @@ function resetQuery() {
 function handleAdd() {
   form.value = defaultForm()
   uploadedFileName.value = ''
-  dialogTitle.value = '新增模拟音频'
+  dialogTitle.value = '新增点读音频'
   open.value = true
 }
-function handleEdit(row: ChallengeAudio) {
+function handleEdit(row: ReadAloudAudio) {
   form.value = { ...defaultForm(), ...row }
   uploadedFileName.value = ''
-  dialogTitle.value = '编辑模拟音频'
+  dialogTitle.value = '编辑点读音频'
   open.value = true
 }
 function handleUpload(options: UploadRequestOptions) {
@@ -260,13 +260,13 @@ function submitForm(generateAfterSave: boolean) {
     if (!valid) return
     savingAndGenerating.value = generateAfterSave
     try {
-      const res = await saveChallengeAudio(form.value) as { data: ChallengeAudio }
+      const res = await saveReadAudio(form.value) as { data: ReadAloudAudio }
       const saved = res.data
       form.value = { ...form.value, ...saved }
       if (generateAfterSave && saved.id) {
-        const generated = await generateChallengeAudio(String(saved.id))
+        const generated = await generateReadAudio(String(saved.id))
         form.value = { ...form.value, ...generated.data }
-        ElMessage.success('模拟音频已生成，可以在题目中使用')
+        ElMessage.success('模拟音频已生成，可以在点读卡片中使用')
       } else {
         ElMessage.success('素材已保存')
       }
@@ -277,13 +277,15 @@ function submitForm(generateAfterSave: boolean) {
     }
   })
 }
-function handleGenerate(row: ChallengeAudio) {
+function handleGenerate(row: ReadAloudAudio) {
   if (!row.id) return
-  const action = row.outputAssetId ? '重新生成后，新的题目将使用新版本；已发布题目仍保留原音频。是否继续？' : '确认按当前参数生成模拟音频？'
+  const action = row.outputAssetId
+    ? '重新生成后，新选择该音频的卡片将使用新版本；已发布卡片仍保留原音频文件。是否继续？'
+    : '确认按当前参数生成模拟音频？'
   ElMessageBox.confirm(action, '生成模拟音频', { type: 'warning' }).then(async () => {
     generatingId.value = row.id
     try {
-      await generateChallengeAudio(String(row.id))
+      await generateReadAudio(String(row.id))
       ElMessage.success('模拟音频生成成功')
       getList()
     } finally {
@@ -291,9 +293,9 @@ function handleGenerate(row: ChallengeAudio) {
     }
   }).catch(() => {})
 }
-function handleDelete(row: ChallengeAudio) {
+function handleDelete(row: ReadAloudAudio) {
   ElMessageBox.confirm(`确认删除音频「${row.title}」？`, '提示', { type: 'warning' }).then(async () => {
-    await removeChallengeAudio(String(row.id))
+    await removeReadAudio(String(row.id))
     ElMessage.success('删除成功')
     getList()
   }).catch(() => {})

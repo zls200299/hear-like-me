@@ -42,13 +42,21 @@ public class ReadAloudCategoryController {
     @GetMapping("/getByPage")
     public R<IPage<ReadAloudCategory>> getListByPage(
         @RequestParam(value = "currentPage", required = false, defaultValue = "1")Integer currentPage,
-        @RequestParam(value = "pageSize", required = false, defaultValue = "10") Integer pageSize){
-        //构建分页
+        @RequestParam(value = "pageSize", required = false, defaultValue = "10") Integer pageSize,
+        @RequestParam(value = "keyword", required = false) String keyword,
+        @RequestParam(value = "enabled", required = false) Integer enabled){
         Page<ReadAloudCategory> page = new Page<>(currentPage, pageSize);
-        LambdaQueryWrapper<ReadAloudCategory> lambda = new QueryWrapper<ReadAloudCategory>().lambda();
-        //此处可以拼条件
-        lambda.eq(ReadAloudCategory::getIsDelete,0);
-        IPage<ReadAloudCategory> pages =  iReadAloudCategoryService.page(page, lambda);
+        LambdaQueryWrapper<ReadAloudCategory> lambda = new QueryWrapper<ReadAloudCategory>().lambda()
+                .eq(ReadAloudCategory::getIsDelete, 0);
+        if (StringUtils.isNotBlank(keyword)) {
+            lambda.and(w -> w.like(ReadAloudCategory::getNameCn, keyword)
+                    .or().like(ReadAloudCategory::getCategoryCode, keyword));
+        }
+        if (enabled != null) {
+            lambda.eq(ReadAloudCategory::getEnabled, enabled);
+        }
+        lambda.orderByAsc(ReadAloudCategory::getSortOrder).orderByAsc(ReadAloudCategory::getId);
+        IPage<ReadAloudCategory> pages = iReadAloudCategoryService.page(page, lambda);
         return R.ok(pages);
     }
 
@@ -67,13 +75,7 @@ public class ReadAloudCategoryController {
     @Transactional
     public R deleteById(@PathVariable("id") String id){
         if (StringUtils.isBlank(id)) throw new ServiceException("id不能为空");
-        //逻辑删除
-        LambdaQueryWrapper<ReadAloudCategory> query = new QueryWrapper<ReadAloudCategory>().lambda().eq(ReadAloudCategory::getId, id).eq(ReadAloudCategory::getIsDelete, 0);
-        ReadAloudCategory readAloudCategory = iReadAloudCategoryService.getOne(query);
-        if(ObjectUtils.isEmpty(readAloudCategory)) throw new ServiceException("该数据不存在或者已经被删除");
-        readAloudCategory.setIsDelete(1);
-        iReadAloudCategoryService.updateById(readAloudCategory);
-        return R.ok("数据删除成功");
+        return iReadAloudCategoryService.deleteByIdSafe(id);
     }
 
 

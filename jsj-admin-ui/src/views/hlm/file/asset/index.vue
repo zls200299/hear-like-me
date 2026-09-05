@@ -61,13 +61,12 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listFileAsset, removeFileAsset, type FileAsset } from '@/api/hlm/fileAsset'
 import { parseMiniPage, formatDateTime } from '@/api/hlm/common'
-import { miniPreviewUrl } from '@/utils/miniRequest'
+import { togglePreviewByAssetId } from '@/utils/hlmAudioPreview'
 import { ASSET_TYPE_DICT, FILE_STATUS_DICT, dictLabel, dictTag } from '@/utils/hlmDict'
 
 const loading = ref(false)
 const total = ref(0)
 const list = ref<FileAsset[]>([])
-let audioEl: HTMLAudioElement | null = null
 
 const assetTypeOptions = Object.keys(ASSET_TYPE_DICT).map((value) => ({
   value,
@@ -114,10 +113,7 @@ function getList(pagination?: { page?: number; limit?: number }) {
 }
 
 function play(id?: string) {
-  if (!id) return
-  if (!audioEl) audioEl = new Audio()
-  audioEl.src = miniPreviewUrl(id)
-  audioEl.play().catch(() => ElMessage.warning('无法播放'))
+  togglePreviewByAssetId(id, () => ElMessage.warning('无法播放'))
 }
 
 function handleDelete(row: FileAsset) {

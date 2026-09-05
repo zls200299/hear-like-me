@@ -16,4 +16,6 @@ import com.zhs.util.R;
 
 public interface IReadAloudCategoryService extends IService<ReadAloudCategory> {
     R addOrUpdate(ReadAloudCategoryDto readAloudCategoryDto);
+
+    R deleteByIdSafe(String id);
 }

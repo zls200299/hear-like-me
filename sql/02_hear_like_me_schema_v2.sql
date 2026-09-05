@@ -421,6 +421,43 @@ CREATE TABLE IF NOT EXISTS `read_aloud_category` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='图片点读分类';
 
 -- ============================================================================
+-- 12a. 点读音频库（原声 → 生成模拟声，供点读卡片引用）
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS `read_aloud_audio_bank` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `audio_code` varchar(64) NOT NULL COMMENT '音频唯一编码',
+  `title` varchar(150) NOT NULL COMMENT '音频名称',
+  `description` varchar(500) DEFAULT NULL COMMENT '素材说明',
+  `source_asset_id` bigint NOT NULL COMMENT '原始音频 file_asset.id',
+  `output_asset_id` bigint DEFAULT NULL COMMENT '生成后的模拟音频 file_asset.id',
+  `processing_task_no` varchar(64) DEFAULT NULL COMMENT '最近一次处理任务编号',
+  `n_channels` tinyint NOT NULL DEFAULT 8 COMMENT '有效通道数（制作参数）',
+  `carrier` varchar(20) NOT NULL DEFAULT 'noise' COMMENT 'noise/sine',
+  `f_lo` decimal(10,2) NOT NULL DEFAULT '150.00' COMMENT '频率下限 Hz',
+  `f_hi` decimal(10,2) NOT NULL DEFAULT '7000.00' COMMENT '频率上限 Hz',
+  `env_cut` decimal(10,2) NOT NULL DEFAULT '160.00' COMMENT '包络低通截止 Hz',
+  `spread` decimal(6,4) NOT NULL DEFAULT '0.1500' COMMENT '电流扩散 0-1',
+  `noise_level` decimal(6,4) NOT NULL DEFAULT '0.0000' COMMENT '背景噪声 0-1',
+  `version_no` int NOT NULL DEFAULT '0' COMMENT '成功生成版本号',
+  `status` varchar(20) NOT NULL DEFAULT 'DRAFT' COMMENT 'DRAFT/PROCESSING/READY/FAILED/DISABLED',
+  `error_message` varchar(500) DEFAULT NULL COMMENT '最近一次生成失败原因',
+  `generated_time` datetime DEFAULT NULL COMMENT '最近生成成功时间',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `is_delete` tinyint NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_read_audio_code` (`audio_code`),
+  KEY `idx_read_audio_status` (`status`,`is_delete`),
+  KEY `idx_read_audio_source` (`source_asset_id`),
+  KEY `idx_read_audio_output` (`output_asset_id`),
+  CONSTRAINT `fk_read_audio_source` FOREIGN KEY (`source_asset_id`) REFERENCES `file_asset` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_read_audio_output` FOREIGN KEY (`output_asset_id`) REFERENCES `file_asset` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `chk_read_audio_channels` CHECK (`n_channels` IN (2,4,8,16)),
+  CONSTRAINT `chk_read_audio_carrier` CHECK (`carrier` IN ('noise','sine')),
+  CONSTRAINT `chk_read_audio_status` CHECK (`status` IN ('DRAFT','PROCESSING','READY','FAILED','DISABLED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='点读音频库';
+
+-- ============================================================================
 -- 12. 图片点读内容
 --     当前按“一张图片 = 一个点读内容”设计。
 --     play_mode 预留：
@@ -440,6 +477,7 @@ CREATE TABLE IF NOT EXISTS `read_aloud_item` (
     `description_en`           VARCHAR(500) DEFAULT NULL COMMENT '英文说明',
 
     `image_asset_id`           BIGINT DEFAULT NULL COMMENT '点读图片',
+    `audio_bank_id`            BIGINT DEFAULT NULL COMMENT '引用的点读音频库记录',
     `audio_asset_id`           BIGINT DEFAULT NULL COMMENT '普通中文点读音频',
     `processed_audio_asset_id` BIGINT DEFAULT NULL COMMENT '预生成的人工耳蜗模拟音频；可为空',
     `play_mode`                VARCHAR(20) NOT NULL DEFAULT 'ORIGINAL' COMMENT 'ORIGINAL/PROCESSED/BOTH',
@@ -456,6 +494,7 @@ CREATE TABLE IF NOT EXISTS `read_aloud_item` (
     KEY `idx_read_item_category` (`category_id`),
     KEY `idx_read_item_status_sort` (`status`, `sort_order`),
     KEY `idx_read_item_image` (`image_asset_id`),
+    KEY `idx_read_item_audio_bank` (`audio_bank_id`),
     KEY `idx_read_item_audio` (`audio_asset_id`),
     KEY `idx_read_item_processed_audio` (`processed_audio_asset_id`),
 
@@ -464,6 +503,9 @@ CREATE TABLE IF NOT EXISTS `read_aloud_item` (
         ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT `fk_read_item_image`
         FOREIGN KEY (`image_asset_id`) REFERENCES `file_asset` (`id`)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT `fk_read_item_audio_bank`
+        FOREIGN KEY (`audio_bank_id`) REFERENCES `read_aloud_audio_bank` (`id`)
         ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT `fk_read_item_audio`
         FOREIGN KEY (`audio_asset_id`) REFERENCES `file_asset` (`id`)
@@ -566,7 +608,7 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO `system_config`
 (`config_key`,`config_value`,`value_type`,`description`,`enabled`)
 VALUES
-('audio.max_upload_mb','50','INT','单个音频最大上传大小 MB；后续可根据服务器配置调整',1),
+('audio.max_upload_mb','50','INT','单个音频最大上传大小 MB；与 Spring multipart 硬上限一致',1),
 ('audio.max_duration_sec','600','INT','单个音频最大时长（秒），默认 10 分钟',1),
 ('audio.normalized_sample_rate','44100','INT','FFmpeg 标准化采样率 Hz',1),
 ('audio.normalized_channels','1','INT','FFmpeg 标准化声道数；1=单声道',1),

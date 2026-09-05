@@ -7,6 +7,10 @@ spring:
   # 本地开发用 dev，部署服务器时改为 prod
   profiles:
     active: prod
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 55MB
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml

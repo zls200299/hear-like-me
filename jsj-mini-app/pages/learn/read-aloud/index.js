@@ -1,51 +1,144 @@
 const icons = require('../../../assets/read-aloud/index.js')
-const { categories, items } = require('./demo-content.js')
-
-function formatTime(seconds) {
-  return '0:' + String(Math.max(0, Math.floor(seconds))).padStart(2, '0')
-}
+const { listCategories, listItems } = require('../../../services/readAloud.js')
 
 Page({
   data: {
     icons,
-    categories,
-    selectedCategory: 'words',
-    categoryName: categories[0].name,
-    categoryCaption: categories[0].caption,
-    cards: items.filter(item => item.category === 'words'),
+    loading: true,
+    loadError: '',
+    categories: [],
+    selectedCategory: '',
+    categoryName: '',
+    cards: [],
+    cardSwiperCurrent: 0,
     categoryScrollIntoView: '',
     categoryScrollable: false,
     categoryHasMoreLeft: false,
     categoryHasMoreRight: false,
     activeId: '',
-    activeTitle: '',
-    activeIcon: '',
-    progress: 0,
-    elapsedLabel: '0:00',
-    durationLabel: '0:00',
     waveBars: [0, 1, 2, 3, 4]
+  },
+
+  onLoad() {
+    this._unloaded = false
+    this.initAudio()
+    this.loadCatalog()
   },
 
   onReady() {
     wx.nextTick(() => this.measureCategoryScroll())
   },
 
+  onHide() {
+    this.stopPlayback()
+  },
+
+  onUnload() {
+    this._unloaded = true
+    this.destroyAudio()
+  },
+
+  initAudio() {
+    this.audio = wx.createInnerAudioContext()
+    this.audio.obeyMuteSwitch = false
+    this.audio.onEnded(() => {
+      this.stopPlayback()
+    })
+    this.audio.onError(() => {
+      this.stopPlayback()
+      wx.showToast({ title: '音频播放失败', icon: 'none' })
+    })
+  },
+
+  destroyAudio() {
+    this.stopPlayback(false)
+    if (this.audio) {
+      try {
+        this.audio.destroy()
+      } catch (e) {
+        // ignore
+      }
+      this.audio = null
+    }
+  },
+
+  async loadCatalog() {
+    this.setData({ loading: true, loadError: '' })
+    try {
+      const categories = await listCategories()
+      if (this._unloaded) return
+      if (!categories.length) {
+        this.setData({
+          loading: false,
+          categories: [],
+          selectedCategory: '',
+          categoryName: '',
+          cards: [],
+          loadError: '暂无点读分类，请先在后台配置'
+        })
+        return
+      }
+      const first = categories[0]
+      this.setData({
+        loading: false,
+        categories,
+        selectedCategory: first.id,
+        categoryName: first.name
+      })
+      await this.loadCards(first.id)
+      wx.nextTick(() => this.measureCategoryScroll())
+    } catch (e) {
+      if (this._unloaded) return
+      this.setData({
+        loading: false,
+        loadError: (e && e.message) || '加载失败，请稍后重试'
+      })
+    }
+  },
+
+  async loadCards(categoryId) {
+    if (!categoryId) {
+      this.setData({ cards: [] })
+      return
+    }
+    try {
+      const cards = await listItems(categoryId)
+      if (this._unloaded) return
+      this.setData({ cards, cardSwiperCurrent: 0 })
+    } catch (e) {
+      if (this._unloaded) return
+      this.setData({ cards: [], cardSwiperCurrent: 0 })
+      wx.showToast({ title: (e && e.message) || '加载卡片失败', icon: 'none' })
+    }
+  },
+
+  onCardSwiperChange(event) {
+    const current = Number(event.detail.current) || 0
+    const prev = this.data.cardSwiperCurrent
+    if (current === prev) return
+    const leaving = this.data.cards[prev]
+    if (leaving && leaving.id === this.data.activeId) {
+      this.stopPlayback()
+    }
+    this.setData({ cardSwiperCurrent: current })
+  },
   onCategoryTap(event) {
-    const category = categories.find(item => item.id === event.currentTarget.dataset.id)
+    const id = event.currentTarget.dataset.id
+    const category = this.data.categories.find(item => item.id === id)
     if (!category || category.id === this.data.selectedCategory) return
-    this.stopPreview()
+    this.stopPlayback()
     this.setData({
       selectedCategory: category.id,
       categoryName: category.name,
-      categoryCaption: category.caption,
-      cards: items.filter(item => item.category === category.id),
-      categoryScrollIntoView: 'cat-' + category.id
+      categoryScrollIntoView: 'cat-' + category.id,
+      cards: [],
+      cardSwiperCurrent: 0
     }, () => {
-      // 清空后再设，避免同 id 无法再次触发滚动
       setTimeout(() => {
         if (!this._unloaded) this.setData({ categoryScrollIntoView: '' })
       }, 320)
     })
+    this.loadCards(category.id)
   },
 
   onCategoryScroll(event) {
@@ -101,53 +194,41 @@ Page({
     const item = this.data.cards.find(card => card.id === event.currentTarget.dataset.id)
     if (!item) return
     if (item.id === this.data.activeId) {
-      this.stopPreview()
+      this.stopPlayback()
       return
     }
-    this.startPreview(item)
+    this.startPlayback(item)
   },
 
-  // 仅演示单条播放、进度与切换状态；当前不创建音频播放器，也不请求音频。
-  startPreview(item) {
-    this.stopPreview()
-    const startedAt = Date.now()
-    this.setData({
-      activeId: item.id,
-      activeTitle: item.title,
-      activeIcon: item.icon,
-      durationLabel: formatTime(item.duration)
-    })
-    this._previewTimer = setInterval(() => {
-      const elapsed = (Date.now() - startedAt) / 1000
-      if (elapsed >= item.duration) {
-        this.stopPreview()
-        return
-      }
-      this.setData({
-        progress: Math.min(100, elapsed / item.duration * 100),
-        elapsedLabel: formatTime(elapsed)
-      })
-    }, 100)
-  },
-
-  stopPreview() {
-    this.clearPreviewTimer()
-    this.setData({
-      activeId: '', activeTitle: '', activeIcon: '', progress: 0,
-      elapsedLabel: '0:00', durationLabel: '0:00'
-    })
-  },
-
-  clearPreviewTimer() {
-    if (this._previewTimer != null) {
-      clearInterval(this._previewTimer)
-      this._previewTimer = null
+  startPlayback(item) {
+    if (!item.audioUrl) {
+      wx.showToast({ title: '暂无模拟音频', icon: 'none' })
+      return
     }
+    this.stopPlayback(false)
+    this.setData({
+      activeId: item.id
+    })
+    if (!this.audio) this.initAudio()
+    this.audio.src = item.audioUrl
+    this.audio.play()
   },
 
-  onHide() { this.stopPreview() },
-  onUnload() {
-    this._unloaded = true
-    this.clearPreviewTimer()
+  stopPlayback(updateUi = true) {
+    if (this.audio) {
+      try {
+        this.audio.stop()
+      } catch (e) {
+        // ignore
+      }
+    }
+    if (!updateUi || this._unloaded) return
+    this.setData({
+      activeId: ''
+    })
+  },
+
+  onRetryTap() {
+    this.loadCatalog()
   }
 })

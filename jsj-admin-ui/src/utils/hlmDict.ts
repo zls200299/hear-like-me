@@ -60,6 +60,13 @@ export const CHALLENGE_STATUS_DICT: Record<string, DictItem> = {
   OFFLINE: { label: '已下线', tag: 'warning' }
 }
 
+/** 点读内容状态 read_aloud_item.status */
+export const READ_ITEM_STATUS_DICT: Record<string, DictItem> = {
+  DRAFT: { label: '草稿', tag: 'info' },
+  PUBLISHED: { label: '已发布', tag: 'success' },
+  OFFLINE: { label: '已下架', tag: 'warning' }
+}
+
 /** 字典里没有的值返回原值；空值返回 '-' */
 export function dictLabel(dict: Record<string, DictItem>, value?: string | number | null): string {
   if (value == null || value === '') return '-'

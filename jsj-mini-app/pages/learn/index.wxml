@@ -7,12 +7,12 @@
     </view>
     <view class="learn-warning">
       <view class="learn-svg learn-warning__icon" style="background-image: url('{{icons.warning}}');" aria-hidden="true"></view>
-      <view class="learn-warning__text">本模块用于听觉与人工耳蜗知识科普，<view>不替代专业医疗建议。</view></view>
+      <view class="learn-warning__text">本模块用于听觉与人工耳蜗知识科普，不替代专业医疗建议。</view>
     </view>
     <view class="learn-entry" hover-class="learn-entry--pressed" bindtap="onReadAloudTap" role="button" aria-label="进入点读学习">
       <view class="learn-entry__tag">听见 · 认识 · 学习</view>
       <view class="learn-entry__title">点读学习</view>
-      <view class="learn-entry__desc">点一点图片或文字，<view>听听对应的声音。</view></view>
+      <view class="learn-entry__desc">点一点图片或文字，听听对应的声音。</view>
       <view class="learn-entry__cta"><text>开始点读</text><view class="learn-svg learn-entry__arrow" style="background-image: url('{{icons.arrow}}');" aria-hidden="true"></view></view>
       <view class="learn-svg learn-entry__illustration" style="background-image: url('{{icons['read-aloud']}}');" aria-hidden="true"></view>
     </view>
@@ -22,7 +22,7 @@
         <view class="learn-topic__icon"><view class="learn-svg learn-topic__symbol" style="background-image: url('{{icons[item.icon]}}');" aria-hidden="true"></view></view>
         <view class="learn-topic__body">
           <view class="learn-topic__title">{{item.title}}</view>
-          <view class="learn-topic__desc"><view wx:for="{{item.lines}}" wx:for-item="line" wx:key="*this">{{line}}</view></view>
+          <view class="learn-topic__desc">{{item.desc}}</view>
         </view>
         <view class="learn-svg learn-topic__arrow" style="background-image: url('{{icons.arrow}}');" aria-hidden="true"></view>
       </view>

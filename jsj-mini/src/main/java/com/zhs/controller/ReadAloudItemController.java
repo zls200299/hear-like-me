@@ -42,13 +42,25 @@ public class ReadAloudItemController {
     @GetMapping("/getByPage")
     public R<IPage<ReadAloudItem>> getListByPage(
         @RequestParam(value = "currentPage", required = false, defaultValue = "1")Integer currentPage,
-        @RequestParam(value = "pageSize", required = false, defaultValue = "10") Integer pageSize){
-        //构建分页
+        @RequestParam(value = "pageSize", required = false, defaultValue = "10") Integer pageSize,
+        @RequestParam(value = "categoryId", required = false) Long categoryId,
+        @RequestParam(value = "status", required = false) String status,
+        @RequestParam(value = "keyword", required = false) String keyword){
         Page<ReadAloudItem> page = new Page<>(currentPage, pageSize);
-        LambdaQueryWrapper<ReadAloudItem> lambda = new QueryWrapper<ReadAloudItem>().lambda();
-        //此处可以拼条件
-        lambda.eq(ReadAloudItem::getIsDelete,0);
-        IPage<ReadAloudItem> pages =  iReadAloudItemService.page(page, lambda);
+        LambdaQueryWrapper<ReadAloudItem> lambda = new QueryWrapper<ReadAloudItem>().lambda()
+                .eq(ReadAloudItem::getIsDelete, 0);
+        if (categoryId != null) {
+            lambda.eq(ReadAloudItem::getCategoryId, categoryId);
+        }
+        if (StringUtils.isNotBlank(status)) {
+            lambda.eq(ReadAloudItem::getStatus, status);
+        }
+        if (StringUtils.isNotBlank(keyword)) {
+            lambda.and(w -> w.like(ReadAloudItem::getTitleCn, keyword)
+                    .or().like(ReadAloudItem::getItemCode, keyword));
+        }
+        lambda.orderByAsc(ReadAloudItem::getSortOrder).orderByAsc(ReadAloudItem::getId);
+        IPage<ReadAloudItem> pages = iReadAloudItemService.page(page, lambda);
         return R.ok(pages);
     }
 
