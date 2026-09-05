@@ -1,9 +1,78 @@
-<view class="read-aloud-page">
-  <view class="read-aloud-title">点一点，听一听</view>
-  <view class="read-aloud-subtitle">从熟悉的词语与声音开始，认识身边的声音。</view>
-  <view class="read-aloud-empty">
-    <view class="read-aloud-empty__illustration" style="background-image: url('{{illustration}}');" aria-hidden="true"></view>
-    <view class="read-aloud-empty__title">点读内容准备中</view>
-    <view class="read-aloud-empty__desc">更多词语与声音，即将与你见面。</view>
+<view class="read-aloud-page page-with-bg {{activeId ? 'has-player' : ''}}">
+  <page-background variant="study"></page-background>
+  <view class="page-content read-aloud-content">
+    <view class="read-aloud-hero">
+      <view class="read-aloud-eyebrow">听见 · 认识 · 学习</view>
+      <view class="read-aloud-title">点一点，听一听</view>
+      <view class="read-aloud-subtitle">点击卡片，感受人工耳蜗模拟后的声音。</view>
+      <view class="read-aloud-hero__art ra-svg" style="background-image: url('{{icons['hero']}}');" aria-hidden="true"></view>
+    </view>
+
+    <view class="read-aloud-categories-wrap {{categoryHasMoreRight ? 'has-more-right' : ''}} {{categoryHasMoreLeft ? 'has-more-left' : ''}}">
+      <scroll-view
+        class="read-aloud-categories"
+        scroll-x
+        enable-flex
+        enhanced
+        show-scrollbar="{{false}}"
+        scroll-with-animation
+        scroll-into-view="{{categoryScrollIntoView}}"
+        bindscroll="onCategoryScroll"
+        aria-label="声音分类，可左右滑动"
+      >
+        <view class="read-aloud-categories__inner">
+          <button
+            wx:for="{{categories}}"
+            wx:key="id"
+            id="cat-{{item.id}}"
+            class="read-aloud-category {{selectedCategory === item.id ? 'is-selected' : ''}}"
+            data-id="{{item.id}}"
+            bindtap="onCategoryTap"
+            hover-class="ra-pressed"
+            aria-pressed="{{selectedCategory === item.id}}"
+          >
+            <view class="ra-svg read-aloud-category__icon" style="background-image: url('{{icons[item.icon]}}');" aria-hidden="true"></view>
+            <text>{{item.name}}</text>
+          </button>
+        </view>
+      </scroll-view>
+      <view class="read-aloud-categories__fade read-aloud-categories__fade--left" wx:if="{{categoryHasMoreLeft}}" aria-hidden="true"></view>
+      <view class="read-aloud-categories__fade read-aloud-categories__fade--right" wx:if="{{categoryHasMoreRight}}" aria-hidden="true"></view>
+    </view>
+    <view class="read-aloud-categories-hint" wx:if="{{categoryScrollable}}">左右滑动，查看更多分类</view>
+
+    <view class="read-aloud-section-heading"><view class="read-aloud-section-title">{{categoryName}}</view><text class="read-aloud-count">{{cards.length}} 个声音</text></view>
+    <view class="read-aloud-section-caption">{{categoryCaption}}</view>
+
+    <view class="read-aloud-grid">
+      <button wx:for="{{cards}}" wx:key="id" class="read-aloud-card {{activeId === item.id ? 'is-playing' : ''}}" data-id="{{item.id}}" bindtap="onCardTap" hover-class="read-aloud-card--pressed" aria-label="{{item.title}}，{{activeId === item.id ? '停止播放演示' : '开始播放模拟声'}}" aria-pressed="{{activeId === item.id}}">
+        <view class="read-aloud-card__art"><view class="ra-svg read-aloud-card__illustration" style="background-image: url('{{icons[item.icon]}}');" aria-hidden="true"></view></view>
+        <view class="read-aloud-card__title">{{item.title}}</view>
+        <view class="read-aloud-card__subtitle">{{item.subtitle}}</view>
+        <view class="read-aloud-card__footer">
+          <view class="read-aloud-card__action">
+            <view wx:if="{{activeId === item.id}}" class="read-aloud-wave" aria-hidden="true"><view wx:for="{{waveBars}}" wx:key="*this" wx:for-item="bar" class="read-aloud-wave__bar read-aloud-wave__bar--{{bar}}"></view></view>
+            <view wx:else class="ra-svg read-aloud-card__play" style="background-image: url('{{icons.play}}');" aria-hidden="true"></view>
+            <text>{{activeId === item.id ? '播放中' : '点击聆听'}}</text>
+          </view>
+          <view class="read-aloud-card__status" wx:if="{{activeId === item.id}}">模拟声</view>
+          <view class="ra-svg read-aloud-card__sound" wx:else style="background-image: url('{{icons.wave}}');" aria-hidden="true"></view>
+        </view>
+      </button>
+    </view>
+
+    <view class="read-aloud-tip"><view class="ra-svg read-aloud-tip__icon" style="background-image: url('{{icons.touch}}');" aria-hidden="true"></view><text>点击卡片聆听模拟声，再点一次即可停止</text></view>
+    <view class="read-aloud-demo-note">示例体验 · 仅展示播放效果，暂不播放真实音频</view>
+  </view>
+
+  <view wx:if="{{activeId}}" class="read-aloud-player">
+    <view class="read-aloud-player__content">
+      <view class="read-aloud-player__top">
+        <view class="read-aloud-player__art ra-svg" style="background-image: url('{{icons[activeIcon]}}');" aria-hidden="true"></view>
+        <view class="read-aloud-player__copy"><view class="read-aloud-player__title">{{activeTitle}}</view><view class="read-aloud-player__subtitle">人工耳蜗模拟声 · 播放效果演示</view></view>
+        <button class="read-aloud-player__stop" bindtap="stopPreview" hover-class="ra-pressed" aria-label="停止播放演示"><view class="ra-svg" style="background-image: url('{{icons.stop}}');" aria-hidden="true"></view></button>
+      </view>
+      <view class="read-aloud-player__timeline"><text>{{elapsedLabel}}</text><view class="read-aloud-player__track"><view class="read-aloud-player__progress" style="width: {{progress}}%;"></view></view><text>{{durationLabel}}</text></view>
+    </view>
   </view>
 </view>
