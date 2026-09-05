@@ -221,17 +221,27 @@ Page({
   },
 
   onNicknameInput(e) {
-    this._updateSheetNickname(e.detail && e.detail.value)
+    const value = e.detail && e.detail.value
+    if (value == null) return
+    this._updateSheetNickname(value)
   },
 
   onNicknameBlur(e) {
-    this._updateSheetNickname(e.detail && e.detail.value)
+    const value = e.detail && e.detail.value
+    if (value == null) return
+    this._updateSheetNickname(value)
   },
 
   onNicknameReview(e) {
     const detail = e.detail || {}
-    if (detail.pass) {
-      this._updateSheetNickname(detail.value)
+    // 官方仅返回 pass / timeout，不含昵称；不通过时提示即可，勿用 detail.value 覆盖
+    if (detail.timeout) {
+      wx.showToast({ title: '昵称校验超时，请重试', icon: 'none' })
+      return
+    }
+    if (detail.pass === false) {
+      wx.showToast({ title: '昵称未通过安全检测，请修改', icon: 'none' })
+      this._updateSheetNickname('')
     }
   },
 
@@ -241,17 +251,11 @@ Page({
     })
   },
 
-  _readSheetNickname() {
-    return new Promise((resolve) => {
-      this.createSelectorQuery()
-        .select('#loginNicknameInput')
-        .fields({ properties: ['value'] })
-        .exec((res) => {
-          const fromDom = res && res[0] && res[0].value
-          const nickname = String(fromDom != null ? fromDom : (this.data.sheetNickname || '')).trim()
-          resolve(nickname)
-        })
-    })
+  _resolveNicknameFromSubmit(e) {
+    const formValue = e && e.detail && e.detail.value ? e.detail.value : {}
+    const fromForm = formValue.nickname != null ? String(formValue.nickname).trim() : ''
+    if (fromForm) return fromForm
+    return String(this.data.sheetNickname || '').trim()
   },
 
   _setTabBarHidden(hidden) {
@@ -325,91 +329,90 @@ Page({
     })
   },
 
-  onProfileSubmit() {
+  onProfileFormSubmit(e) {
+    const nickname = this._resolveNicknameFromSubmit(e)
     if (this.data.profileSheetMode === 'edit') {
-      this.onSaveProfile()
+      this.onSaveProfile(nickname)
       return
     }
-    this.onLogin()
+    this.onLogin(nickname)
   },
 
-  onLogin() {
+  onLogin(nickname) {
     if (this.data.loggingIn || this.data.preparingAvatar) return
 
-    const { wxLoginWithProfile } = getAuthService()
-    this._readSheetNickname().then((nickname) => {
-      if (!nickname) {
-        wx.showToast({ title: '请先填写昵称', icon: 'none' })
-        return
-      }
+    const name = String(nickname || '').trim()
+    if (!name) {
+      wx.showToast({ title: '请先填写昵称', icon: 'none' })
+      return
+    }
 
-      const selectedAvatarUrl = this.data.sheetAvatarUrl
-      this.setData({ loggingIn: true, sheetNickname: nickname })
-      wxLoginWithProfile({
-        nickname,
-        avatarPath: selectedAvatarUrl
-      })
-        .then((userInfo) => {
-          this._finishLogin({
-            ...userInfo,
-            nickname: userInfo.nickname || nickname,
-            avatar: userInfo.avatar || selectedAvatarUrl
-          })
-        })
-        .catch((err) => {
-          this.setData({ loggingIn: false })
-          wx.showToast({
-            title: (err && err.message) ? err.message : '登录失败',
-            icon: 'none'
-          })
-        })
+    const { wxLoginWithProfile } = getAuthService()
+    const selectedAvatarUrl = this.data.sheetAvatarUrl
+    this.setData({ loggingIn: true, sheetNickname: name })
+    wxLoginWithProfile({
+      nickname: name,
+      avatarPath: selectedAvatarUrl
     })
+      .then((userInfo) => {
+        this._finishLogin({
+          ...userInfo,
+          nickname: userInfo.nickname || name,
+          avatar: userInfo.avatar || selectedAvatarUrl
+        })
+      })
+      .catch((err) => {
+        this.setData({ loggingIn: false })
+        wx.showToast({
+          title: (err && err.message) ? err.message : '登录失败',
+          icon: 'none'
+        })
+      })
   },
 
-  onSaveProfile() {
+  onSaveProfile(nickname) {
     if (this.data.savingProfile || this.data.preparingAvatar) return
 
+    const name = String(nickname || '').trim()
+    if (!name) {
+      wx.showToast({ title: '昵称不能为空', icon: 'none' })
+      return
+    }
+
     const { updateProfile } = getAuthService()
-    this._readSheetNickname().then((nickname) => {
-      if (!nickname) {
-        wx.showToast({ title: '昵称不能为空', icon: 'none' })
-        return
-      }
+    const avatarPath = this.data.sheetAvatarUrl || this.data.avatarUrl
+    if (name === this.data.nickname && avatarPath === this.data.avatarUrl) {
+      this.onCloseLoginSheet()
+      wx.showToast({ title: '资料没有变化', icon: 'none' })
+      return
+    }
 
-      const avatarPath = this.data.sheetAvatarUrl || this.data.avatarUrl
-      if (nickname === this.data.nickname && avatarPath === this.data.avatarUrl) {
-        this.onCloseLoginSheet()
-        wx.showToast({ title: '资料没有变化', icon: 'none' })
-        return
-      }
-
-      this.setData({ savingProfile: true, sheetNickname: nickname })
-      updateProfile({ nickname, avatarPath })
-        .then((userInfo) => {
-          const persistedAvatar = userInfo.avatar || avatarPath
-          this.setData({
-            loggedIn: true,
-            userId: userInfo.userId || this.data.userId,
-            nickname: userInfo.nickname || nickname,
-            avatarUrl: persistedAvatar,
-            savingProfile: false,
-            loginSheetVisible: false,
-            profileSheetMode: 'login',
-            sheetNickname: '',
-            sheetAvatarUrl: '',
-            preparingAvatar: false
-          })
-          this._setTabBarHidden(false)
-          wx.showToast({ title: '资料已更新', icon: 'success' })
+    this.setData({ savingProfile: true, sheetNickname: name })
+    updateProfile({ nickname: name, avatarPath })
+      .then((userInfo) => {
+        const persistedAvatar = userInfo.avatar || avatarPath
+        this.setData({
+          loggedIn: true,
+          userId: userInfo.userId || this.data.userId,
+          nickname: userInfo.nickname || name,
+          avatarUrl: persistedAvatar,
+          savingProfile: false,
+          loginSheetVisible: false,
+          profileSheetMode: 'login',
+          sheetNickname: '',
+          sheetAvatarUrl: '',
+          preparingAvatar: false
         })
-        .catch((err) => {
-          this.setData({ savingProfile: false })
-          wx.showToast({
-            title: (err && err.message) ? err.message : '保存失败',
-            icon: 'none'
-          })
+        this._setTabBarHidden(false)
+        wx.showToast({ title: '资料已更新', icon: 'success' })
+      })
+      .catch((err) => {
+        this.setData({ savingProfile: false })
+        wx.showToast({
+          title: (err && err.message) ? err.message : '保存失败',
+          icon: 'none'
         })
-    })
+      })
   },
 
   onLogout() {

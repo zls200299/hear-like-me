@@ -1,6 +1,8 @@
 package com.zhs.controller.api;
 
 import com.zhs.common.NoLoginRequest;
+import com.zhs.common.RequireLogin;
+import com.zhs.common.UserContext;
 import com.zhs.request.challenge.ChallengeSubmitAnswerReq;
 import com.zhs.response.challenge.ChallengeQuestionDetailResp;
 import com.zhs.response.challenge.ChallengeQuestionListResp;
@@ -52,13 +54,16 @@ public class ChallengeController {
     }
 
     /**
-     * 提交答案
+     * 提交答案（必须登录，便于后续写入答题记录）
      */
+    @RequireLogin
     @PostMapping("/answer")
     public R<ChallengeSubmitAnswerResp> submitAnswer(@RequestBody ChallengeSubmitAnswerReq req) {
         if (req == null) {
             return R.fail("请求体不能为空");
         }
+        // 提前校验登录态，业务层后续落库可直接 UserContext.requireUserId()
+        UserContext.requireUserId();
         return R.ok(hearingChallengeService.submitAnswer(req.getQuestionId(), req.getSelectedChannels()));
     }
 }

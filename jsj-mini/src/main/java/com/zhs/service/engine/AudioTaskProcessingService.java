@@ -2,6 +2,7 @@ package com.zhs.service.engine;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.zhs.common.UserContext;
 import com.zhs.config.EngineProperties;
 import com.zhs.exception.ServiceException;
 import com.zhs.model.AudioProcessingTask;
@@ -140,7 +141,9 @@ public class AudioTaskProcessingService {
             task.setProgress(100);
             task.setClarityScore(clarityScore);
             task.setClarityGrade(clarityGrade);
-            task.setProcessingFinishedTime(new Date());
+            Date finishedAt = new Date();
+            task.setProcessingFinishedTime(finishedAt);
+            task.setProcessingMs(elapsedMs(task.getProcessingStartedTime(), finishedAt));
             audioProcessingTaskService.updateById(task);
 
             log.info("任务成功 taskNo={}, outputAssetId={}, outputObjectKey={}",
@@ -204,7 +207,9 @@ public class AudioTaskProcessingService {
         task.setTaskStatus("FAILED");
         task.setProgress(0);
         task.setErrorMessage(truncateError(e.getMessage()));
-        task.setProcessingFinishedTime(new Date());
+        Date finishedAt = new Date();
+        task.setProcessingFinishedTime(finishedAt);
+        task.setProcessingMs(elapsedMs(task.getProcessingStartedTime(), finishedAt));
         audioProcessingTaskService.updateById(task);
         log.warn("任务失败 taskNo={}, error={}", task.getTaskNo(), task.getErrorMessage());
     }
@@ -212,7 +217,8 @@ public class AudioTaskProcessingService {
     private AudioProcessingTask buildTask(AudioTaskCreateReq req, String taskNo, Date now) {
         AudioProcessingTask task = new AudioProcessingTask();
         task.setTaskNo(taskNo);
-        task.setUserId(null);
+        Long userId = UserContext.getUserId();
+        task.setUserId(userId);
         task.setSourceType(req.getSourceType() != null ? req.getSourceType() : "UPLOAD");
         task.setSourceAssetId(req.getSourceAssetId());
         if (StringUtils.hasText(req.getSampleCode())) {
@@ -279,6 +285,14 @@ public class AudioTaskProcessingService {
         } catch (Exception e) {
             return 0L;
         }
+    }
+
+    private static Long elapsedMs(Date startedAt, Date finishedAt) {
+        if (startedAt == null || finishedAt == null) {
+            return null;
+        }
+        long ms = finishedAt.getTime() - startedAt.getTime();
+        return Math.max(ms, 0L);
     }
 
     private static String truncateError(String message) {

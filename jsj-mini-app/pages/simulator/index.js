@@ -252,6 +252,7 @@ Page({
   _originalPlayer: null,
   _originalPcmCache: null,
   _activeOriginalPcmUrl: '',
+  _lastOriginalSeekSetAt: 0,
   _processedResultCache: null,
   _exportGeneration: 0,
   _recorderManager: null,
@@ -1012,7 +1013,11 @@ Page({
     if (!url) return null
     const store = this._ensureOriginalPcmCacheStore()
     try {
-      return await store.ensure(url)
+      const ensurePromise = store.ensure(url)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('ORIGINAL_PCM_TIMEOUT')), 15000)
+      })
+      return await Promise.race([ensurePromise, timeoutPromise])
     } catch (err) {
       if (err && err.message === 'PCM_CACHE_DESTROYED') return null
       console.warn('[original-pcm] ensure failed', err)
@@ -3606,10 +3611,15 @@ Page({
     const playerCallbacks = {
       onTimeUpdate: (currentTime) => {
         if (this._unloaded) return
-        this.setData({ audioSeekSec: currentTime })
+        // 原声：勿在播放中拉 PCM / 高频 setData，避免与 InnerAudio 争用导致无声卡死
         if (kind === 'original') {
-          this._feedOriginalVisualPcm(url, currentTime)
+          const now = Date.now()
+          if (now - (this._lastOriginalSeekSetAt || 0) < 250) return
+          this._lastOriginalSeekSetAt = now
+          this.setData({ audioSeekSec: currentTime })
+          return
         }
+        this.setData({ audioSeekSec: currentTime })
       },
       onPlay: () => {
         if (this._unloaded) return
@@ -3621,14 +3631,12 @@ Page({
         }
         if (kind === 'original') {
           this._activeOriginalPcmUrl = url
+          this._lastOriginalSeekSetAt = 0
           Object.assign(patch, this._buildOriginalUiView('playing'))
         }
         this.setData(patch, () => {
           this._refreshVisualFeedback()
           this._syncVisualPlaybackState()
-          if (kind === 'original') {
-            this._feedOriginalVisualPcm(url, 0)
-          }
         })
       },
       onStop: () => {
@@ -3872,7 +3880,6 @@ Page({
       if (!sampleSource || !sampleSource.url) {
         throw new Error('示例原声不可用')
       }
-      await this._ensureOriginalPcmReady(sampleSource.url)
       if (this._unloaded || this.data.sourceType !== 'sample') return
       const playText = `正在循环播放${label}`
       if (!this._switchPlayback(sampleSource.url, 'original', playText)) {
@@ -3886,7 +3893,6 @@ Page({
         )
       } else {
         this._activeOriginalPcmUrl = sampleSource.url
-        this._feedOriginalVisualPcm(sampleSource.url, 0)
       }
     } catch (err) {
       console.error(err)
@@ -4330,7 +4336,11 @@ Page({
   },
 
   async playOriginal() {
-    if (this.data.originalUiState === 'preparing') return
+    // 卡在准备中时允许再次点击：取消旧准备并重试
+    if (this.data.originalUiState === 'preparing') {
+      this._originalPrepareSeq += 1
+      this._clearOriginalUi()
+    }
 
     if (this.data.isAudioPlaying && this.data.playingKind === 'original') {
       this._stopAudio('已停止原声播放')
@@ -4344,12 +4354,8 @@ Page({
     }
 
     if (this.data.sourceType === 'sample') {
-      const store = this._ensureOriginalPcmCacheStore()
       const cachedSample = this._isSampleSourceCached()
-      const cachedUrl = cachedSample
-        ? (this._sampleSourceCache[this.data.selectedSample] || {}).url
-        : ''
-      const firstLoad = !cachedSample || !cachedUrl || !store.has(cachedUrl)
+      const firstLoad = !cachedSample
       const prepareSeq = this._beginOriginalPrepare({ firstLoad })
       try {
         const sampleSource = await this._ensureSampleSource()
@@ -4363,12 +4369,7 @@ Page({
           wx.showToast({ title: '示例原声不可用', icon: 'none' })
           return
         }
-        await this._ensureOriginalPcmReady(sampleSource.url)
-        if (this._isOriginalPrepareStale(prepareSeq)) return
-        if (this._unloaded || this.data.sourceType !== 'sample') {
-          this._clearOriginalUi()
-          return
-        }
+        // 原声只走 InnerAudio；播放中不并发下载/解码 PCM（会无声并卡死）
         this._playAudio(
           sampleSource.url,
           'original',
@@ -4404,12 +4405,10 @@ Page({
       }
 
       const url = this.data.originalAudioUrl
-      const store = this._ensureOriginalPcmCacheStore()
       const prepareSeq = this._beginOriginalPrepare({
-        firstLoad: !store.has(url)
+        firstLoad: false
       })
       try {
-        await this._ensureOriginalPcmReady(url)
         if (this._isOriginalPrepareStale(prepareSeq)) return
         if (this._unloaded || this.data.sourceType !== 'upload') {
           this._clearOriginalUi()

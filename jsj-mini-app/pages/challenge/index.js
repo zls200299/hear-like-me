@@ -2,6 +2,7 @@ const {
   getCurrentQuestion,
   submitAnswer
 } = require('../../services/challenge.js')
+const { ensureLogin } = require('../../services/auth.js')
 
 const ANSWERS = [
   { value: 2, label: '2 通道' },
@@ -163,6 +164,7 @@ Page({
     this.setData({ submitting: true })
 
     try {
+      await ensureLogin({ tip: '提交答案需要先登录，登录后可继续挑战。' })
       const result = await submitAnswer(this.data.questionId, this.data.selectedAnswer)
       const correctCount = this.data.correctCount + (result.correct ? 1 : 0)
       const completedCount = this.data.completedCount + 1
@@ -204,6 +206,23 @@ Page({
       })
     } catch (err) {
       this.setData({ submitting: false })
+      if (err && err.code === 'NEED_LOGIN') {
+        return
+      }
+      if (err && (err.code === 401 || err.statusCode === 401)) {
+        wx.showModal({
+          title: '需要登录',
+          content: '登录已过期，请重新登录后再提交答案。',
+          confirmText: '去登录',
+          cancelText: '取消',
+          success(res) {
+            if (res.confirm) {
+              wx.switchTab({ url: '/pages/profile/index' })
+            }
+          }
+        })
+        return
+      }
       wx.showToast({
         title: (err && err.message) || '提交失败',
         icon: 'none'

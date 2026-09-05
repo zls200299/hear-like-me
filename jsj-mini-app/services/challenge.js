@@ -120,8 +120,7 @@ async function submitAnswer(questionId, selectedChannels) {
     data: {
       questionId: Number(questionId),
       selectedChannels
-    },
-    skipAuth: true
+    }
   })
   const result = normalizeSubmitResult(extractData(response))
   if (!result) {

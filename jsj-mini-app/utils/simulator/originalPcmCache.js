@@ -39,36 +39,69 @@ function createOriginalPcmCache() {
     return mono
   }
 
+  function download(url) {
+    return new Promise((resolve, reject) => {
+      let settled = false
+      const finish = (fn, arg) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        fn(arg)
+      }
+      const requestTask = wx.request({
+        url,
+        responseType: 'arraybuffer',
+        success(res) {
+          if (!res || !res.data) {
+            finish(reject, new Error('音频数据为空'))
+            return
+          }
+          finish(resolve, res.data)
+        },
+        fail(err) {
+          finish(reject, err || new Error('音频下载失败'))
+        }
+      })
+      const timer = setTimeout(() => {
+        try {
+          if (requestTask && typeof requestTask.abort === 'function') {
+            requestTask.abort()
+          }
+        } catch (e) {
+          // ignore
+        }
+        finish(reject, new Error('音频下载超时'))
+      }, 12000)
+    })
+  }
+
   function decodeArrayBuffer(arrayBuffer) {
     const webCtx = ensureDecodeCtx()
     if (!webCtx) {
       return Promise.reject(new Error('当前环境不支持音频解码'))
     }
     return new Promise((resolve, reject) => {
+      let settled = false
+      const timer = setTimeout(() => {
+        if (settled) return
+        settled = true
+        reject(new Error('音频解码超时'))
+      }, 10000)
       webCtx.decodeAudioData(
         arrayBuffer,
-        (buffer) => resolve(buffer),
-        (err) => reject(err || new Error('音频解码失败'))
-      )
-    })
-  }
-
-  function download(url) {
-    return new Promise((resolve, reject) => {
-      wx.request({
-        url,
-        responseType: 'arraybuffer',
-        success(res) {
-          if (!res || !res.data) {
-            reject(new Error('音频数据为空'))
-            return
-          }
-          resolve(res.data)
+        (buffer) => {
+          if (settled) return
+          settled = true
+          clearTimeout(timer)
+          resolve(buffer)
         },
-        fail(err) {
-          reject(err || new Error('音频下载失败'))
+        (err) => {
+          if (settled) return
+          settled = true
+          clearTimeout(timer)
+          reject(err || new Error('音频解码失败'))
         }
-      })
+      )
     })
   }
 

@@ -2,6 +2,7 @@ package com.zhs.model;
 
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import io.swagger.annotations.ApiModel;
@@ -67,15 +68,18 @@ public class AudioProcessingTask implements Serializable {
 
 
     @ApiModelProperty(value = "有效通道数 1-22")
+    @JsonProperty("nChannels")
     private Integer nChannels;
 
     @ApiModelProperty(value = "noise/sine")
     private String carrier;
 
     @ApiModelProperty(value = "Hz")
+    @JsonProperty("fLo")
     private java.math.BigDecimal fLo;
 
     @ApiModelProperty(value = "Hz")
+    @JsonProperty("fHi")
     private java.math.BigDecimal fHi;
 
     @ApiModelProperty(value = "Hz")

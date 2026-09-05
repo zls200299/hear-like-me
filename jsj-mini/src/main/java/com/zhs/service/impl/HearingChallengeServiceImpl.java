@@ -3,21 +3,26 @@ package com.zhs.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import cn.hutool.core.bean.BeanUtil;
+import com.zhs.common.UserContext;
 import com.zhs.dao.HearingChallengeDao;
 import com.zhs.dto.HearingChallengeDto;
 import com.zhs.exception.ServiceException;
 import com.zhs.model.FileAsset;
 import com.zhs.model.ChallengeAudio;
 import com.zhs.model.HearingChallenge;
+import com.zhs.model.HearingChallengeAttempt;
+import com.zhs.model.User;
 import com.zhs.util.R;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.zhs.response.challenge.ChallengeQuestionDetailResp;
 import com.zhs.response.challenge.ChallengeQuestionItemResp;
 import com.zhs.response.challenge.ChallengeQuestionListResp;
 import com.zhs.response.challenge.ChallengeSubmitAnswerResp;
+import com.zhs.service.HearingChallengeAttemptService;
 import com.zhs.service.HearingChallengeService;
 import com.zhs.service.ChallengeAudioService;
 import com.zhs.service.IFileAssetService;
+import com.zhs.service.IUserService;
 import com.zhs.service.storage.LocalFileStorageService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -42,6 +47,12 @@ public class HearingChallengeServiceImpl extends ServiceImpl<HearingChallengeDao
 
     @Resource
     private ChallengeAudioService challengeAudioService;
+
+    @Resource
+    private HearingChallengeAttemptService hearingChallengeAttemptService;
+
+    @Resource
+    private IUserService userService;
 
     @Override
     public R addOrUpdate(HearingChallengeDto dto) {
@@ -178,6 +189,7 @@ public class HearingChallengeServiceImpl extends ServiceImpl<HearingChallengeDao
             throw new ServiceException("请选择有效的通道数");
         }
 
+        Long userId = UserContext.requireUserId();
         HearingChallenge question = requirePublishedQuestion(questionId);
         List<HearingChallenge> questions = listPublishedOrdered();
         int questionIndex = IntStream.range(0, questions.size())
@@ -187,6 +199,7 @@ public class HearingChallengeServiceImpl extends ServiceImpl<HearingChallengeDao
                 .orElseThrow(() -> new ServiceException("题目不存在"));
 
         boolean correct = question.getNChannels() != null && question.getNChannels().equals(selectedChannels);
+        saveAttempt(userId, question, selectedChannels, correct);
 
         ChallengeSubmitAnswerResp resp = new ChallengeSubmitAnswerResp();
         resp.setQuestionId(question.getId());
@@ -207,6 +220,41 @@ public class HearingChallengeServiceImpl extends ServiceImpl<HearingChallengeDao
             resp.setNextIndex(null);
         }
         return resp;
+    }
+
+    private void saveAttempt(Long userId, HearingChallenge question, Integer selectedChannels, boolean correct) {
+        HearingChallengeAttempt attempt = new HearingChallengeAttempt();
+        attempt.setUserId(userId);
+        attempt.setUserNickname(resolveNickname(userId));
+        attempt.setQuestionId(question.getId());
+        attempt.setQuestionCode(question.getQuestionCode());
+        attempt.setQuestionTitle(question.getTitle());
+        attempt.setAudioBankId(question.getAudioBankId());
+        attempt.setAudioTitle(resolveAudioTitle(question));
+        attempt.setAudioAssetId(question.getAudioAssetId());
+        attempt.setSelectedChannels(selectedChannels);
+        attempt.setCorrectChannels(question.getNChannels());
+        attempt.setIsCorrect(correct ? 1 : 0);
+        attempt.setCreateTime(new Date());
+        hearingChallengeAttemptService.save(attempt);
+    }
+
+    private String resolveNickname(Long userId) {
+        User user = userService.getById(userId);
+        if (user == null) {
+            return null;
+        }
+        return user.getNickname();
+    }
+
+    private String resolveAudioTitle(HearingChallenge question) {
+        if (question.getAudioBankId() != null) {
+            ChallengeAudio audio = challengeAudioService.getById(question.getAudioBankId());
+            if (audio != null && StringUtils.isNotBlank(audio.getTitle())) {
+                return audio.getTitle();
+            }
+        }
+        return question.getTitle();
     }
 
     private List<HearingChallenge> listPublishedOrdered() {

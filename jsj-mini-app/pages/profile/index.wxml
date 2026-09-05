@@ -107,35 +107,37 @@
       <view class="profile-login-sheet__desc">
         {{profileSheetMode === 'edit' ? '点击头像可重新选择，修改完成后记得保存' : '请选择头像并填写昵称后完成微信登录'}}
       </view>
-      <button class="profile-login-sheet__avatar" open-type="chooseAvatar" bindchooseavatar="onSheetChooseAvatar">
-        <image
-          class="profile-login-sheet__avatar-img"
-          src="{{sheetAvatarUrl || '/assets/icons/profile-avatar-placeholder.svg'}}"
-          mode="aspectFill"
+      <form bindsubmit="onProfileFormSubmit" report-submit="{{false}}">
+        <button class="profile-login-sheet__avatar" open-type="chooseAvatar" bindchooseavatar="onSheetChooseAvatar">
+          <image
+            class="profile-login-sheet__avatar-img"
+            src="{{sheetAvatarUrl || '/assets/icons/profile-avatar-placeholder.svg'}}"
+            mode="aspectFill"
+          />
+          <text class="profile-login-sheet__avatar-hint">
+            {{preparingAvatar ? '正在上传头像…' : (sheetAvatarUrl ? '更换头像' : '选择头像')}}
+          </text>
+        </button>
+        <input
+          class="profile-login-sheet__input"
+          type="nickname"
+          name="nickname"
+          placeholder="请输入昵称或点选微信昵称"
+          value="{{sheetNickname}}"
+          bindinput="onNicknameInput"
+          bindblur="onNicknameBlur"
+          bindnicknamereview="onNicknameReview"
+          maxlength="32"
         />
-        <text class="profile-login-sheet__avatar-hint">
-          {{preparingAvatar ? '正在上传头像…' : (sheetAvatarUrl ? '更换头像' : '选择头像')}}
-        </text>
-      </button>
-      <input
-        id="loginNicknameInput"
-        class="profile-login-sheet__input"
-        type="nickname"
-        placeholder="请输入昵称"
-        value="{{sheetNickname}}"
-        bindinput="onNicknameInput"
-        bindblur="onNicknameBlur"
-        bindnicknamereview="onNicknameReview"
-        maxlength="32"
-      />
-      <button
-        class="profile-login-sheet__confirm"
-        bindtap="onProfileSubmit"
-        loading="{{loggingIn || savingProfile}}"
-        disabled="{{loggingIn || savingProfile || preparingAvatar}}"
-      >
-        {{profileSheetMode === 'edit' ? '保存修改' : '确认登录'}}
-      </button>
+        <button
+          class="profile-login-sheet__confirm"
+          form-type="submit"
+          loading="{{loggingIn || savingProfile}}"
+          disabled="{{loggingIn || savingProfile || preparingAvatar}}"
+        >
+          {{profileSheetMode === 'edit' ? '保存修改' : '确认登录'}}
+        </button>
+      </form>
     </view>
   </view>
 

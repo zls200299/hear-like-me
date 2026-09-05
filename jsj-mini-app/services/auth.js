@@ -111,6 +111,61 @@ function isLoggedIn() {
   return !!getSession().token
 }
 
+/**
+ * 确保已登录，可在任意业务页复用。
+ * - 已有本地 token：直接返回 session
+ * - 否则尝试静默微信登录并落库 token
+ * - 仍失败：弹窗引导去「我的」登录，并 reject（code=NEED_LOGIN）
+ *
+ * @param {Object} [options]
+ * @param {string} [options.tip] 引导文案
+ * @returns {Promise<{token:string,userId:string,userInfo:Object|null}>}
+ */
+function ensureLogin(options = {}) {
+  const tip = options.tip || '请先登录后再继续'
+
+  if (isLoggedIn()) {
+    return Promise.resolve(getSession())
+  }
+
+  return wxLoginSilent()
+    .then(({ data }) => {
+      saveSession(data || {})
+      if (!isLoggedIn()) {
+        throw Object.assign(new Error(tip), { code: 'NEED_LOGIN' })
+      }
+      return getSession()
+    })
+    .catch((err) => {
+      if (err && err.code === 'NEED_LOGIN') {
+        return promptGoLogin(tip).then(() => Promise.reject(err))
+      }
+      return promptGoLogin(tip).then(() =>
+        Promise.reject(Object.assign(new Error(tip), { code: 'NEED_LOGIN', cause: err }))
+      )
+    })
+}
+
+function promptGoLogin(tip) {
+  return new Promise((resolve) => {
+    wx.showModal({
+      title: '需要登录',
+      content: tip,
+      confirmText: '去登录',
+      cancelText: '取消',
+      success(res) {
+        if (res.confirm) {
+          wx.switchTab({ url: '/pages/profile/index' })
+        }
+        resolve()
+      },
+      fail() {
+        resolve()
+      }
+    })
+  })
+}
+
 function wxLogin(code) {
   return request({
     url: '/api/auth/wx-login',
@@ -219,6 +274,7 @@ module.exports = {
   clearSession,
   getSession,
   isLoggedIn,
+  ensureLogin,
   wxLogin,
   wxLoginSilent,
   wxLoginWithProfile,

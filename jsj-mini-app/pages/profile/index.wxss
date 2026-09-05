@@ -314,6 +314,11 @@
   line-height: 1.5;
 }
 
+.profile-login-sheet form {
+  display: block;
+  width: 100%;
+}
+
 .profile-login-sheet__avatar {
   margin: 28rpx auto 0;
   padding: 0;

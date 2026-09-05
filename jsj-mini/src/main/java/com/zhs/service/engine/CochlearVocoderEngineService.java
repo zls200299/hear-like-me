@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -26,6 +27,9 @@ import java.util.regex.Pattern;
 public class CochlearVocoderEngineService {
 
     private static final int VISUALIZATION_FPS = 30;
+
+    private static final Set<String> ALLOWED_SCENARIOS = Set.of(
+            "quiet", "restaurant", "phone", "music", "tone", "minimal");
 
     private static final Pattern CLARITY_SCORE_ASCII =
             Pattern.compile("CLARITY_SCORE=(\\d+)", Pattern.MULTILINE);
@@ -192,8 +196,13 @@ public class CochlearVocoderEngineService {
         command.add(String.valueOf(VISUALIZATION_FPS));
 
         if (StringUtils.hasText(params.getScenarioCode())) {
-            command.add("--scenario");
-            command.add(params.getScenarioCode().trim());
+            String scenario = params.getScenarioCode().trim();
+            if (ALLOWED_SCENARIOS.contains(scenario)) {
+                command.add("--scenario");
+                command.add(scenario);
+            } else {
+                log.warn("忽略非法 scenarioCode={}，仅支持 {}", scenario, ALLOWED_SCENARIOS);
+            }
         }
 
         command.add("--channels");
